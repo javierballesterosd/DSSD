@@ -138,7 +138,7 @@ La configuración sale de un `.env` en la raíz del repo (ignorado por git). Cop
 |---|---|---|
 | `DB_HOST` | Host de PostgreSQL para el backend local (en Docker se fuerza `postgres`) | `localhost` |
 | `DB_PORT` | Puerto de PostgreSQL | `5432` |
-| `DB_NAME` / `DB_USER` / `DB_PASSWORD` | Credenciales de la base | `basededatos_db` / `postgres` / (completar) |
+| `DB_NAME` / `DB_USER` / `DB_PASSWORD` | Credenciales de la base | `rescuesync` / `postgres` / (completar) |
 | `PGADMIN_EMAIL` / `PGADMIN_PASSWORD` | Login de pgAdmin | (completar) |
 | `SERVER_PORT` | Puerto del backend cuando corre en local (`./mvnw spring-boot:run`) | `8080` |
 | `BACKEND_PORT` | Puerto del host donde Docker publica el backend | `8080` |
