@@ -130,15 +130,39 @@ Reglas:
 - Llamadas HTTP solo desde servicios, nunca desde componentes.
 - Estado de UI con signals.
 
+## Variables de entorno y puertos
+
+La configuración sale de un `.env` en la raíz del repo (ignorado por git). Copiá `.env.example` a `.env` y completá los valores. Lo leen tanto Docker Compose como el backend cuando corre en local.
+
+| Variable | Uso | Valor de ejemplo |
+|---|---|---|
+| `DB_HOST` | Host de PostgreSQL para el backend local (en Docker se fuerza `postgres`) | `localhost` |
+| `DB_PORT` | Puerto de PostgreSQL | `5432` |
+| `DB_NAME` / `DB_USER` / `DB_PASSWORD` | Credenciales de la base | `basededatos_db` / `postgres` / (completar) |
+| `PGADMIN_EMAIL` / `PGADMIN_PASSWORD` | Login de pgAdmin | (completar) |
+| `SERVER_PORT` | Puerto del backend cuando corre en local (`./mvnw spring-boot:run`) | `8080` |
+| `BACKEND_PORT` | Puerto del host donde Docker publica el backend | `8080` |
+
+**Puertos y URLs**
+
+| Servicio | Local (sin Docker) | Docker Compose | Red interna de Docker |
+|---|---|---|---|
+| Backend (Spring Boot) | http://localhost:`SERVER_PORT` (8080 por defecto) | http://localhost:`BACKEND_PORT` (8080 por defecto) | `backend:8080` |
+| Frontend (Angular) | http://localhost:4200 (`npm start`) | http://localhost:80 | `frontend:80` |
+| PostgreSQL | `localhost:5432` | `localhost:5432` | `postgres:5432` |
+| pgAdmin | n/a | http://localhost:5050 | `pgadmin:80` |
+
+> **Conflicto con Bonita Studio:** el Tomcat embebido de Bonita ocupa el puerto **8080**. Si lo tenés abierto, poné `SERVER_PORT=8081` y `BACKEND_PORT=8081` en tu `.env`; si no, el backend no arranca (o Docker falla con `ports are not available`).
+
 ## Base de datos
 
 - PostgreSQL 15 en el contenedor `postgres_db`, puerto 5432.
-- Base `basededatos_db`, usuario `postgres`, contraseña `postgrespassword` (solo desarrollo).
-- pgAdmin en http://localhost:5050 (`admin@admin.com` / `admin`).
+- Base, usuario y contraseña definidos en el `.env` (`DB_NAME`, `DB_USER`, `DB_PASSWORD`).
+- pgAdmin en http://localhost:5050 (credenciales en `PGADMIN_EMAIL` / `PGADMIN_PASSWORD` del `.env`). Para conectarlo a la base desde pgAdmin, el host es `postgres` (red de Docker).
 
 ## Cómo correrlo
 
-Requisitos: Docker, Java 21 y Node.js con npm.
+Requisitos: Docker, Java 21 y Node.js con npm. Antes de nada, copiá `.env.example` a `.env` y completalo (ver [Variables de entorno y puertos](#variables-de-entorno-y-puertos)).
 
 Para desarrollo local se levanta solo la base y se corren backend y frontend a mano:
 
@@ -146,7 +170,7 @@ Para desarrollo local se levanta solo la base y se corren backend y frontend a m
 docker compose up -d postgres
 ```
 
-Backend (desde `backend/`), en http://localhost:8080:
+Backend (desde `backend/`), en http://localhost:8080 (o el `SERVER_PORT` del `.env`):
 
 ```bash
 ./mvnw spring-boot:run     # ejecutar
@@ -163,8 +187,10 @@ npm test                   # tests
 npm run build              # build
 ```
 
-Stack completo en Docker (backend en :8080, frontend en :80):
+Stack completo en Docker (backend en :`BACKEND_PORT`, 8080 por defecto; frontend en :80):
 
 ```bash
 docker compose up --build
 ```
+
+Después de cambiar código hay que reconstruir la imagen del servicio afectado (`docker compose up -d --build backend`). Si solo cambia el `.env` o el `docker-compose.yml`, alcanza con `docker compose up -d`.
