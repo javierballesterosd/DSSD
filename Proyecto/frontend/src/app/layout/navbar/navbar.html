@@ -1,1 +1,31 @@
-<p>navbar works!</p>
+<nav class="navbar navbar-expand-lg bg-dark navbar-dark">
+  <div class="container">
+    <a class="navbar-brand" [routerLink]="homeUrl()">RescueSync</a>
+    <button
+      class="navbar-toggler"
+      type="button"
+      aria-label="Abrir menú"
+      [attr.aria-expanded]="menuAbierto()"
+      (click)="menuAbierto.set(!menuAbierto())"
+    >
+      <span class="navbar-toggler-icon"></span>
+    </button>
+
+    <div class="navbar-collapse collapse" [class.show]="menuAbierto()">
+      <ul class="navbar-nav me-auto">
+        @for (link of links(); track link.path) {
+          <li class="nav-item">
+            <a class="nav-link" [routerLink]="link.path" routerLinkActive="active">{{
+              link.label
+            }}</a>
+          </li>
+        }
+      </ul>
+
+      @if (usuario(); as u) {
+        <span class="navbar-text me-3">{{ u.username }} · {{ rolLabel[u.rol] }}</span>
+      }
+      <button type="button" class="btn btn-outline-light btn-sm" (click)="salir()">Salir</button>
+    </div>
+  </div>
+</nav>

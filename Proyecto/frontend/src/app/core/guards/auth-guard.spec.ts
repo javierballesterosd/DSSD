@@ -1,16 +1,26 @@
 import { TestBed } from '@angular/core/testing';
-import { CanActivateFn } from '@angular/router';
+import { ActivatedRouteSnapshot, RouterStateSnapshot, UrlTree, provideRouter } from '@angular/router';
+import { Auth } from '../services/auth';
 import { authGuard } from './auth-guard';
 
 describe('authGuard', () => {
-  const executeGuard: CanActivateFn = (...guardParameters) =>
-    TestBed.runInInjectionContext(() => authGuard(...guardParameters));
+  const run = () =>
+    TestBed.runInInjectionContext(() =>
+      authGuard({} as ActivatedRouteSnapshot, {} as RouterStateSnapshot),
+    );
 
   beforeEach(() => {
-    TestBed.configureTestingModule({});
+    localStorage.clear();
+    TestBed.configureTestingModule({ providers: [provideRouter([])] });
   });
 
-  it('should be created', () => {
-    expect(executeGuard).toBeTruthy();
+  it('redirects to /login when there is no session', () => {
+    const result = run() as UrlTree;
+    expect(result.toString()).toBe('/login');
+  });
+
+  it('lets a logged user through', () => {
+    TestBed.inject(Auth).login({ username: 'ana', rol: 'MUNICIPAL' });
+    expect(run()).toBe(true);
   });
 });
