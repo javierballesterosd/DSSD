@@ -1,7 +1,6 @@
 import { Routes } from '@angular/router';
 import { authGuard } from './core/guards/auth-guard';
 import { homeRedirectGuard } from './core/guards/home-redirect-guard';
-import { roleGuard } from './core/guards/role-guard';
 import { MainLayout } from './layout/main-layout/main-layout';
 import { NotFound } from './shared/components/not-found/not-found';
 
@@ -22,24 +21,20 @@ export const routes: Routes = [
       { path: '', pathMatch: 'full', canActivate: [homeRedirectGuard], children: [] },
       {
         path: 'municipal',
-        canActivate: [roleGuard('MUNICIPAL')],
         loadChildren: () =>
           import('./features/municipal/municipal.routes').then((m) => m.MUNICIPAL_ROUTES),
       },
       {
         path: 'coordinador',
-        canActivate: [roleGuard('COORDINADOR')],
         loadChildren: () =>
           import('./features/coordinador/coordinador.routes').then((m) => m.COORDINADOR_ROUTES),
       },
       {
         path: 'ong',
-        canActivate: [roleGuard('ONG')],
         loadChildren: () => import('./features/ong/ong.routes').then((m) => m.ONG_ROUTES),
       },
       {
         path: 'auditor',
-        canActivate: [roleGuard('AUDITOR')],
         loadChildren: () =>
           import('./features/auditor/auditor.routes').then((m) => m.AUDITOR_ROUTES),
       },
