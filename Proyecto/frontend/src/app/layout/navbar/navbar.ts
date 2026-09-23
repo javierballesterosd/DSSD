@@ -2,6 +2,7 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { Router, RouterLink, RouterLinkActive } from '@angular/router';
 import { ROL_LABEL, Rol } from '../../core/models/rol';
 import { Auth } from '../../core/services/auth';
+import { Notifications } from '../notifications/notifications';
 
 interface NavLink {
   label: string;
@@ -17,8 +18,9 @@ const NAV_LINKS: Record<Rol, NavLink[]> = {
 };
 
 @Component({
-  imports: [RouterLink, RouterLinkActive],
+  imports: [Notifications, RouterLink, RouterLinkActive],
   selector: 'app-navbar',
+  styleUrl: './navbar.scss',
   templateUrl: './navbar.html',
 })
 export class Navbar {
@@ -33,6 +35,12 @@ export class Navbar {
     return rol ? NAV_LINKS[rol] : [];
   });
   protected readonly menuAbierto = signal(false);
+
+  protected cerrarMenuSiEsNecesario(panelAbierto: boolean): void {
+    if (panelAbierto) {
+      this.menuAbierto.set(false);
+    }
+  }
 
   protected salir(): void {
     this.auth.logout();

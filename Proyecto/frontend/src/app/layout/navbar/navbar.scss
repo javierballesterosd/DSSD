@@ -1,0 +1,26 @@
+.navbar-menu {
+  position: relative;
+}
+
+.navbar-dropdown {
+  position: fixed !important;
+  z-index: 1000;
+  top: 3.5rem;
+  right: 0.5rem !important;
+  left: auto !important;
+  width: calc(100vw - 1rem) !important;
+  min-width: 0 !important;
+  max-width: 24rem;
+  max-height: calc(100vh - 5rem);
+  transform: none !important;
+  overflow-y: auto;
+  overflow-x: hidden;
+  box-sizing: border-box;
+}
+
+.navbar-dropdown .dropdown-item,
+.navbar-dropdown .dropdown-item-text {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
