@@ -1,5 +1,7 @@
 package com.proyecto.backend.client;
 
+import com.proyecto.backend.exception.BonitaIntegrationException;
+import com.proyecto.backend.exception.InvalidCredentialsException;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
@@ -29,13 +31,26 @@ public class BonitaClient {
                 .contentType(MediaType.APPLICATION_FORM_URLENCODED)
                 .body(form)
                 .exchange((request, response) -> {
+                   if (response.getStatusCode().value() == 401) {
+                       throw new InvalidCredentialsException();
+                   }
+
+                   if (!response.getStatusCode().is2xxSuccessful()) {
+                       throw new BonitaIntegrationException(
+                               "Bonita rechazó el login con status "
+                                       + response.getStatusCode().value()
+                       );
+                   }
+
                    var cookies = response.getHeaders().getValuesAsList("Set-Cookie");
 
                    String jsessionId = extraerCookie(cookies, "JSESSIONID");
                    String apiToken = extraerCookie(cookies, "X-Bonita-API-Token");
 
                    if (jsessionId == null || apiToken == null) {
-                       throw new IllegalStateException("Bonita no devolvió las cookies esperadas");
+                       throw new BonitaIntegrationException(
+                               "Bonita no devolvió las cookies esperadas"
+                       );
                    }
 
                    return new BonitaSession(jsessionId, apiToken);
@@ -90,4 +105,3 @@ public class BonitaClient {
                 .orElse(null);
     }
 }
-

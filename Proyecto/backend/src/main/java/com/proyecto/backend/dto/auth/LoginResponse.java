@@ -9,10 +9,11 @@ import lombok.Setter;
 @Setter
 public class LoginResponse {
 
-    private long userId;
+    private String userId;
     private String username;
     private String firstName;
     private String lastName;
-    private String rol;
+    private String role;
+    private String group;
 
 }
