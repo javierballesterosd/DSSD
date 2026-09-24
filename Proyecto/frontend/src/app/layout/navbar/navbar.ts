@@ -11,7 +11,10 @@ interface NavLink {
 
 /** Links del menú por perfil. Agregá acá el link de cada pantalla nueva. */
 const NAV_LINKS: Record<Rol, NavLink[]> = {
-  MUNICIPAL: [{ label: 'Inicio', path: '/municipal' }],
+  MUNICIPAL: [
+    { label: 'Inicio', path: '/municipal' },
+    { label: 'Registrar Emergencia', path: '/municipal/emergencias/nueva' } // <-- Enlace agregado
+  ],
   COORDINADOR: [{ label: 'Inicio', path: '/coordinador' }],
   ONG: [{ label: 'Inicio', path: '/ong' }],
   AUDITOR: [{ label: 'Inicio', path: '/auditor' }],

@@ -1,4 +1,4 @@
-package com.proyecto.backend.model;
+package com.proyecto.backend.model.entity;
 
 public enum NivelGravedad {
     BAJA("Baja", "Afecta a pocas familias, sin riesgo para la vida"),
