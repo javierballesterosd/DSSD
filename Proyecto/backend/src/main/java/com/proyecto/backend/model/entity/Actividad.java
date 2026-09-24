@@ -1,4 +1,4 @@
-package com.proyecto.backend.model;
+package com.proyecto.backend.model.entity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -9,33 +9,28 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
-import jakarta.persistence.UniqueConstraint;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 @Entity
-@Table(
-        name = "item_lote",
-        uniqueConstraints = @UniqueConstraint(columnNames = {"lote_id", "recurso_id"})
-)
+@Table(name = "actividad")
 @Getter
 @Setter
 @NoArgsConstructor
-public class ItemLote {
+public class Actividad {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "cantidad_requerida", nullable = false)
-    private Integer cantidadRequerida;
+    @Column(nullable = false, length = 500)
+    private String descripcion;
+
+    @Column(nullable = false)
+    private boolean finalizada;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "lote_id", nullable = false)
-    private Lote lote;
-
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "recurso_id", nullable = false)
-    private Recurso recurso;
+    @JoinColumn(name = "oferta_id", nullable = false)
+    private Oferta oferta;
 }

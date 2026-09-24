@@ -1,4 +1,4 @@
-package com.proyecto.backend.model;
+package com.proyecto.backend.model.entity;
 
 public enum EstadoLote {
     ACTIVO("Activo", "Lote publicado y abierto a ofertas o en ejecución"),
