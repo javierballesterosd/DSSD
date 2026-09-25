@@ -18,7 +18,7 @@ export class Login {
 
   protected readonly form = new FormGroup({
     username: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
-    rol: new FormControl<Rol>('MUNICIPAL', { nonNullable: true }),
+    password: new FormControl('', { nonNullable: true, validators: [Validators.required] })
   });
 
   protected ingresar(): void {
