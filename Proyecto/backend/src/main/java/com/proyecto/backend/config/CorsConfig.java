@@ -24,7 +24,8 @@ public class CorsConfig {
                                 "PATCH",
                                 "OPTIONS"
                         )
-                        .allowedHeaders("*");
+                        .allowedHeaders("*")
+                        .allowCredentials(true);
             }
         };
     }

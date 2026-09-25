@@ -46,7 +46,11 @@ export class Navbar {
   }
 
   protected salir(): void {
-    this.auth.logout();
-    this.router.navigateByUrl('/login');
+    this.auth.logout().subscribe({
+      next: () => this.router.navigateByUrl('/login'),
+      error: (error) => {
+        console.error('No se pudo cerrar la sesión', error);
+      },
+    });
   }
 }

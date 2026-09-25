@@ -18,15 +18,15 @@
         </div>
 
         <div class="mb-3">
-          <label for="rol" class="form-label">Perfil</label>
-          <select id="rol" class="form-select" formControlName="rol">
-            @for (rol of roles; track rol) {
-              <option [value]="rol">{{ rolLabel[rol] }}</option>
-            }
-          </select>
-          <div class="form-text">
-            Solo desarrollo: cuando exista el login real, el rol lo define el usuario.
-          </div>
+          <label for="password" class="form-label">Contraseña</label>
+          <input
+            id="password"
+            type="password"
+            class="form-control"
+            formControlName="password"
+            [class.is-invalid]="form.controls.password.touched && form.controls.password.invalid"
+          />
+          <div class="invalid-feedback">Ingresá tu contraseña.</div>
         </div>
 
         <button type="submit" class="btn btn-primary w-100">Ingresar</button>
