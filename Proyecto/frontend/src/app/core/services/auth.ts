@@ -18,10 +18,12 @@ export class Auth {
     return rol ? ROL_HOME[rol] : '/login';
   });
 
-  // TODO: reemplazar por POST /api/auth/login (JWT) cuando exista el endpoint en el backend.
-  login(usuario: Usuario): void {
-    this._usuario.set(usuario);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(usuario));
+
+  login(credentials: LoginRequest): Observable<Usuario> {
+    console.log('Nombre usuario: ', credentials.username, 'contraseña: ', credentials.password);
+    return this.http.post<Usuario>(
+      `${this.apiUrl}/api/auth/login`, credentials, { withCredentials: true })
+      .pipe(tap((usuario) => this._usuario.set(usuario)));
   }
 
   logout(): void {
