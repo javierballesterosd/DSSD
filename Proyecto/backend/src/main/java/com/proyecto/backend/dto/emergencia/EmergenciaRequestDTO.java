@@ -1,8 +1,8 @@
 // EmergenciaRequestDTO.java
-package com.proyecto.backend.model.dto.request;
+package com.proyecto.backend.dto.emergencia;
 
 
-import com.proyecto.backend.model.entity.NivelGravedad;
+import com.proyecto.backend.model.NivelGravedad;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;

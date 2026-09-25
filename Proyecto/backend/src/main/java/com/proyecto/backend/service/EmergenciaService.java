@@ -1,12 +1,12 @@
 package com.proyecto.backend.service;
 
 import com.proyecto.backend.client.BonitaClient;
-import com.proyecto.backend.model.dto.request.EmergenciaRequestDTO;
-import com.proyecto.backend.model.dto.response.EmergenciaResponseDTO;
+import com.proyecto.backend.dto.emergencia.EmergenciaRequestDTO;
+import com.proyecto.backend.dto.emergencia.EmergenciaResponseDTO;
 import com.proyecto.backend.exception.ResourceNotFoundException;
 import com.proyecto.backend.mapper.EmergenciaMapper;
-import com.proyecto.backend.model.entity.Emergencia;
-import com.proyecto.backend.model.entity.Municipio;
+import com.proyecto.backend.model.Emergencia;
+import com.proyecto.backend.model.Municipio;
 import com.proyecto.backend.repository.EmergenciaRepository;
 import com.proyecto.backend.repository.MunicipioRepository;
 import lombok.RequiredArgsConstructor;

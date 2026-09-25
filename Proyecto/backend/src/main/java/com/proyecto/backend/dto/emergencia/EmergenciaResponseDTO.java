@@ -1,6 +1,6 @@
-package com.proyecto.backend.model.dto.response;
+package com.proyecto.backend.dto.emergencia;
 
-import com.proyecto.backend.model.entity.NivelGravedad;
+import com.proyecto.backend.model.NivelGravedad;
 import lombok.Builder;
 import lombok.Data;
 
