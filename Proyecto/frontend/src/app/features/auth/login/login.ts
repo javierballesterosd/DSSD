@@ -26,8 +26,12 @@ export class Login {
       this.form.markAllAsTouched();
       return;
     }
-    // TODO: login real contra el backend; por ahora el rol se elige a mano (solo desarrollo).
-    this.auth.login(this.form.getRawValue());
-    this.router.navigateByUrl(this.auth.homeUrl());
+
+    this.auth.login(this.form.getRawValue()).subscribe({
+      next: () => this.router.navigateByUrl(this.auth.homeUrl()),
+      error: (error) => {
+        console.log(error); //ESTO SE PUEDE AGREGAR UN COMPONENTE DE ERROR PARA MOSTRARLO EN PANTALLA
+      }
+    });
   }
 }
