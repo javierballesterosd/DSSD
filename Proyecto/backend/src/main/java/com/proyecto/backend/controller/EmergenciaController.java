@@ -1,7 +1,7 @@
 package com.proyecto.backend.controller;
 
-import com.proyecto.backend.model.dto.request.EmergenciaRequestDTO;
-import com.proyecto.backend.model.dto.response.EmergenciaResponseDTO;
+import com.proyecto.backend.dto.emergencia.EmergenciaRequestDTO;
+import com.proyecto.backend.dto.emergencia.EmergenciaResponseDTO;
 import com.proyecto.backend.service.EmergenciaService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;

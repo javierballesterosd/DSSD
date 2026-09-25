@@ -1,4 +1,4 @@
-package com.proyecto.backend.model.entity;
+package com.proyecto.backend.model;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -11,16 +11,16 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 @Entity
-@Table(name = "rol")
+@Table(name = "municipio")
 @Getter
 @Setter
 @NoArgsConstructor
-public class Rol {
+public class Municipio {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, unique = true, length = 50)
+    @Column(nullable = false, unique = true, length = 150)
     private String nombre;
 }

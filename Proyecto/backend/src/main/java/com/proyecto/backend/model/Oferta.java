@@ -1,4 +1,4 @@
-package com.proyecto.backend.model.entity;
+package com.proyecto.backend.model;
 
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;

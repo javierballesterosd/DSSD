@@ -1,4 +1,4 @@
-package com.proyecto.backend.model.entity;
+package com.proyecto.backend.model;
 
 public enum EstadoOferta {
     PENDIENTE("Pendiente", "Cargada por la ONG, a la espera de la validación del Sistema Nacional"),
