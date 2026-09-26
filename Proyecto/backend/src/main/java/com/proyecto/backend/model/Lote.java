@@ -13,9 +13,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
+import lombok.*;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -27,6 +25,8 @@ import java.util.List;
 @Getter
 @Setter
 @NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class Lote {
 
     @Id
@@ -52,5 +52,11 @@ public class Lote {
     private Emergencia emergencia;
 
     @OneToMany(mappedBy = "lote", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
     private List<ItemLote> items = new ArrayList<>();
+
+    public void agregarItem(ItemLote item) {
+        items.add(item);
+        item.setLote(this);
+    }
 }
