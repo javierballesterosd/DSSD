@@ -10,7 +10,7 @@ import java.util.List;
 
 @Getter
 @AllArgsConstructor
-public class LoteResponse {
+public class LoteResponseDTO {
 
     private Long id;
     private String titulo;
@@ -18,5 +18,5 @@ public class LoteResponse {
     private LocalDateTime fechaCreacion;
     private LocalDate fechaInicio;
     private Long emergenciaId;
-    private List<ItemLoteResponse> items;
+    private List<ItemLoteResponseDTO> items;
 }

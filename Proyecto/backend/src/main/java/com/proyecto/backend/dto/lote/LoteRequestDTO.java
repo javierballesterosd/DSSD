@@ -13,7 +13,7 @@ import java.util.List;
 @Getter
 @Setter
 @NoArgsConstructor
-public class LoteRequest {
+public class LoteRequestDTO {
 
     @NotBlank
     private String titulo;
@@ -22,5 +22,5 @@ public class LoteRequest {
 
     @NotEmpty
     @Valid
-    private List<ItemLoteRequest> items;
+    private List<ItemLoteRequestDTO> items;
 }

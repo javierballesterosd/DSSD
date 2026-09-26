@@ -5,7 +5,7 @@ import lombok.Getter;
 
 @Getter
 @AllArgsConstructor
-public class ItemLoteResponse {
+public class ItemLoteResponseDTO {
 
     private Long id;
     private Long recursoId;

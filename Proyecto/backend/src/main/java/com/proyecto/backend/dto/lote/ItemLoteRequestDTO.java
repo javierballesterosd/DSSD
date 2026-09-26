@@ -9,7 +9,7 @@ import lombok.Setter;
 @Getter
 @Setter
 @NoArgsConstructor
-public class ItemLoteRequest {
+public class ItemLoteRequestDTO {
 
     @NotNull
     private Long recursoId;
