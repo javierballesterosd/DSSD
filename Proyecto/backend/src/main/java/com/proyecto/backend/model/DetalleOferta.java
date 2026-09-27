@@ -17,7 +17,7 @@ import lombok.Setter;
 @Entity
 @Table(
         name = "detalle_oferta",
-        uniqueConstraints = @UniqueConstraint(columnNames = {"oferta_id", "item_lote_id"})
+        uniqueConstraints = @UniqueConstraint(columnNames = {"oferta_id", "item_lote_id", "ong_id"})
 )
 @Getter
 @Setter
@@ -38,4 +38,8 @@ public class DetalleOferta {
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "item_lote_id", nullable = false)
     private ItemLote itemLote;
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "ong_id", nullable = false)
+    private Ong ong;
 }
