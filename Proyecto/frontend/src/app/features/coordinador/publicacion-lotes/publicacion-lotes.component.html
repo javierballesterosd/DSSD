@@ -1,0 +1,289 @@
+<div class="container py-4" style="max-width: 800px;">
+
+  <div class="card shadow-sm border-0">
+
+    <div class="card-header bg-primary text-white py-3">
+      <h3 class="mb-0 fs-4 text-center">
+        Publicación de Lotes
+      </h3>
+    </div>
+
+    <div class="card-body p-4">
+
+      @if (mensajeExito()) {
+      <div class="alert alert-success" role="alert">
+        <i class="bi bi-check-circle-fill me-2"></i>
+        {{ mensajeExito() }}
+      </div>
+      }
+
+      @if (mensajeError()) {
+      <div class="alert alert-danger" role="alert">
+        <i class="bi bi-exclamation-triangle-fill me-2"></i>
+        {{ mensajeError() }}
+      </div>
+      }
+
+      <form [formGroup]="form" (ngSubmit)="onSubmit()">
+
+        <!-- Título -->
+        <div class="mb-3">
+          <label
+            for="titulo"
+            class="form-label fw-bold"
+          >
+            Título del lote
+          </label>
+
+          <input
+            id="titulo"
+            type="text"
+            class="form-control"
+            placeholder="Ej: Asistencia alimentaria"
+            formControlName="titulo"
+            [class.is-invalid]="
+              form.controls.titulo.touched &&
+              form.controls.titulo.invalid
+            "
+          />
+
+          @if (
+          form.controls.titulo.touched &&
+          form.controls.titulo.invalid
+          ) {
+          <div class="invalid-feedback">
+            El título es obligatorio.
+          </div>
+          }
+        </div>
+
+
+        <!-- Fecha de inicio -->
+        <div class="mb-4">
+          <label
+            for="fechaInicio"
+            class="form-label fw-bold"
+          >
+            Fecha de inicio
+          </label>
+
+          <input
+            id="fechaInicio"
+            type="date"
+            class="form-control"
+            formControlName="fechaInicio"
+          />
+        </div>
+
+
+        <!-- Recursos -->
+        <div formArrayName="items">
+
+          <div class="d-flex justify-content-between align-items-center mb-3">
+
+            <h5 class="mb-0">
+              Recursos requeridos
+            </h5>
+
+            <button
+              type="button"
+              class="btn btn-outline-primary btn-sm"
+              (click)="agregarItem()"
+              [disabled]="cargandoRecursos()"
+            >
+              <i class="bi bi-plus-lg me-1"></i>
+              Agregar recurso
+            </button>
+
+          </div>
+
+
+          @for (
+          item of items.controls;
+          track item;
+          let i = $index
+          ) {
+
+          <div
+            class="border rounded p-3 mb-3"
+            [formGroupName]="i"
+          >
+
+            <div class="row g-3 align-items-end">
+
+              <!-- Recurso -->
+              <div class="col-md-7">
+
+                <label
+                  [for]="'recurso-' + i"
+                  class="form-label fw-bold"
+                >
+                  Recurso
+                </label>
+
+                <select
+                  [id]="'recurso-' + i"
+                  class="form-select"
+                  formControlName="recursoId"
+                  [class.is-invalid]="
+                      item.get('recursoId')?.touched &&
+                      item.get('recursoId')?.invalid
+                    "
+                >
+
+                  <option [value]="0">
+                    Seleccione un recurso
+                  </option>
+
+                  @for (
+                  recurso of recursos();
+                  track recurso.id
+                  ) {
+
+                  <option [value]="recurso.id">
+                    {{ recurso.nombre }}
+                    ({{ recurso.unidadMedida }})
+                  </option>
+
+                  }
+
+                </select>
+
+                @if (
+                item.get('recursoId')?.touched &&
+                item.get('recursoId')?.invalid
+                ) {
+                <div class="invalid-feedback">
+                  Seleccione un recurso.
+                </div>
+                }
+
+              </div>
+
+
+              <!-- Cantidad -->
+              <div class="col-md-3">
+
+                <label
+                  [for]="'cantidad-' + i"
+                  class="form-label fw-bold"
+                >
+                  Cantidad
+                </label>
+
+                <input
+                  [id]="'cantidad-' + i"
+                  type="number"
+                  min="1"
+                  class="form-control"
+                  formControlName="cantidadRequerida"
+                  [class.is-invalid]="
+                      item.get('cantidadRequerida')?.touched &&
+                      item.get('cantidadRequerida')?.invalid
+                    "
+                />
+
+                @if (
+                item.get('cantidadRequerida')?.touched &&
+                item.get('cantidadRequerida')?.invalid
+                ) {
+                <div class="invalid-feedback">
+                  Debe ser mayor a cero.
+                </div>
+                }
+
+              </div>
+
+
+              <!-- Eliminar -->
+              <div class="col-md-2">
+
+                <button
+                  type="button"
+                  class="btn btn-outline-danger w-100"
+                  (click)="eliminarItem(i)"
+                  [disabled]="items.length === 1"
+                  title="Eliminar recurso"
+                >
+                  <i class="bi bi-trash"></i>
+                </button>
+
+              </div>
+
+            </div>
+
+          </div>
+
+          }
+
+        </div>
+
+
+        <!-- Publicar -->
+        <div class="d-grid mt-4">
+
+          <button
+            type="submit"
+            class="btn btn-primary btn-lg"
+            [disabled]="
+              cargando() ||
+              cargandoRecursos()
+            "
+          >
+
+            @if (cargando()) {
+
+            <span
+              class="spinner-border spinner-border-sm me-2"
+              role="status"
+            ></span>
+
+            Publicando...
+
+            } @else {
+
+            <i class="bi bi-send me-2"></i>
+            Publicar lote
+
+            }
+
+          </button>
+
+        </div>
+
+      </form>
+
+
+      <!-- Resultado -->
+      @if (loteCreado()) {
+
+      <hr class="my-4">
+
+      <div class="alert alert-info">
+
+        <h5 class="alert-heading">
+          Lote publicado
+        </h5>
+
+        <p class="mb-1">
+          <strong>
+            {{ loteCreado()?.titulo }}
+          </strong>
+        </p>
+
+        <p class="mb-0">
+          Estado:
+          <strong>
+            {{ loteCreado()?.estado }}
+          </strong>
+        </p>
+
+      </div>
+
+      }
+
+    </div>
+
+  </div>
+
+</div>
