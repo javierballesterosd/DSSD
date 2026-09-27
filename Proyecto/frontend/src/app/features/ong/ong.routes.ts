@@ -1,8 +1,9 @@
 import { Routes } from '@angular/router';
-import { OngHome } from './ong-home';
+import { LoteDetalle } from './lotes/lote-detalle';
+import { LotesDisponibles } from './lotes/lotes-disponibles';
 
 export const ONG_ROUTES: Routes = [
-  { path: '', component: OngHome },
-  // Agregá acá las rutas de este perfil, por ejemplo:
-  // { path: 'ofertas', component: Ofertas },
+  { path: '', pathMatch: 'full', redirectTo: 'lotes' },
+  { path: 'lotes', component: LotesDisponibles },
+  { path: 'lotes/:id', component: LoteDetalle },
 ];
