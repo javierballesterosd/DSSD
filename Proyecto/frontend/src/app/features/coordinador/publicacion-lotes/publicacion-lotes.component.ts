@@ -1,12 +1,32 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
-import { FormArray, FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import {
+  FormArray,
+  FormBuilder,
+  FormControl,
+  FormGroup,
+  ReactiveFormsModule,
+  Validators,
+} from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
 
 import { LoteService } from '@core/services/lotes/lote.service';
 import { RecursoService } from '@core/services/recursos/recurso.service';
 
 import { Recurso } from '@core/models/recurso.model';
-import { LoteResponse } from '@core/models/lote.model';
+import { LoteRequest, LoteResponse } from '@core/models/lote.model';
+
+interface ItemLoteForm {
+  recursoId: FormControl<number>;
+  cantidadRequerida: FormControl<number>;
+}
+
+type ItemLoteFormGroup = FormGroup<ItemLoteForm>;
+
+type PublicacionLotesForm = {
+  titulo: FormControl<string>;
+  fechaInicio: FormControl<string>;
+  items: FormArray<ItemLoteFormGroup>;
+};
 
 @Component({
   selector: 'app-publicacion-lotes',
@@ -31,12 +51,15 @@ export class PublicacionLotesComponent implements OnInit {
 
   loteCreado = signal<LoteResponse | null>(null);
 
-  form = this.fb.nonNullable.group({
-    titulo: ['', [Validators.required, Validators.maxLength(150)]],
+  form: FormGroup<PublicacionLotesForm> = this.fb.group({
+    titulo: this.fb.nonNullable.control('', [
+      Validators.required,
+      Validators.maxLength(150),
+    ]),
 
-    fechaInicio: [''],
+    fechaInicio: this.fb.nonNullable.control(''),
 
-    items: this.fb.array([]),
+    items: this.fb.array<ItemLoteFormGroup>([]),
   });
 
   ngOnInit(): void {
@@ -44,7 +67,7 @@ export class PublicacionLotesComponent implements OnInit {
     this.agregarItem();
   }
 
-  get items(): FormArray {
+  get items(): FormArray<ItemLoteFormGroup> {
     return this.form.controls.items;
   }
 
@@ -59,16 +82,24 @@ export class PublicacionLotesComponent implements OnInit {
 
       error: () => {
         this.cargandoRecursos.set(false);
-        this.mensajeError.set('No se pudieron cargar los recursos disponibles.');
+        this.mensajeError.set(
+          'No se pudieron cargar los recursos disponibles.'
+        );
       },
     });
   }
 
   agregarItem(): void {
-    const item = this.fb.nonNullable.group({
-      recursoId: [0, [Validators.required, Validators.min(1)]],
+    const item: ItemLoteFormGroup = this.fb.group({
+      recursoId: this.fb.nonNullable.control(0, [
+        Validators.required,
+        Validators.min(1),
+      ]),
 
-      cantidadRequerida: [0, [Validators.required, Validators.min(1)]],
+      cantidadRequerida: this.fb.nonNullable.control(0, [
+        Validators.required,
+        Validators.min(1),
+      ]),
     });
 
     this.items.push(item);
@@ -83,7 +114,7 @@ export class PublicacionLotesComponent implements OnInit {
   }
 
   recursoSeleccionado(index: number): Recurso | undefined {
-    const recursoId = this.items.at(index).get('recursoId')?.value;
+    const recursoId = this.items.at(index).controls.recursoId.value;
 
     return this.recursos().find((recurso) => recurso.id === recursoId);
   }
@@ -100,7 +131,7 @@ export class PublicacionLotesComponent implements OnInit {
 
     const valores = this.form.getRawValue();
 
-    const request = {
+    const request: LoteRequest = {
       titulo: valores.titulo,
       fechaInicio: valores.fechaInicio || undefined,
       items: valores.items.map((item) => ({
@@ -130,7 +161,10 @@ export class PublicacionLotesComponent implements OnInit {
       error: (err: HttpErrorResponse) => {
         this.cargando.set(false);
 
-        this.mensajeError.set(err.error?.message || 'Ocurrió un error al publicar el lote.');
+        this.mensajeError.set(
+          err.error?.message ||
+            'Ocurrió un error al publicar el lote.'
+        );
       },
     });
   }
