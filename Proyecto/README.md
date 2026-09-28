@@ -126,7 +126,7 @@ features/   una carpeta por funcionalidad o pantalla (lazy-loaded desde app.rout
 Reglas:
 - Cada feature vive en `features/<nombre>/` con sus componentes, servicios y rutas propias. Puede haber una por perfil (municipal, coordinador, ong, auditor) o por proceso (emergencias, lotes, ofertas).
 - `core` no depende de `features`. `features` puede usar `core` y `shared`. `shared` no depende del resto.
-- Rutas protegidas con `authGuard` en `app.routes.ts` (hoy sin verificación de rol, ver más abajo).
+- Rutas protegidas con `authGuard` en `app.routes.ts` (sin verificación de rol, ver "Identidad, login y ONGs").
 - Llamadas HTTP solo desde servicios, nunca desde componentes.
 - Estado de UI con signals.
 
@@ -149,9 +149,59 @@ Para agregar una pantalla a un perfil (ej. `ong`):
 2. Agregar la ruta en `features/ong/ong.routes.ts`: `{ path: 'ofertas', component: Ofertas }`. No hace falta tocar `app.routes.ts`.
 3. Agregar el link en `NAV_LINKS` de `layout/navbar/navbar.ts` para que aparezca en el menú.
 
-**Identidad y permisos**: por indicación de la cátedra, los usuarios van a estar definidos en la organización de Bonita, no en una tabla propia. El login real (y cualquier verificación de permisos) va a usar el login service de Bonita; para E2 alcanza con que sirva para iniciar y completar tareas en Bonita. Mientras tanto:
-- `Auth` (`core/services/auth.ts`) sigue siendo un **stub**: se elige el rol a mano en el login y la sesión se guarda en `localStorage`.
-- `authGuard` (`core/guards/auth-guard.ts`) está **bypaseado** (`AUTH_HABILITADO = false`) porque todavía no hay forma de loguearse de verdad: si estuviera activo, mandaría a todos a `/login` en un loop sin salida. Se reactiva cuando exista el login contra Bonita.
+## Identidad, login y ONGs (vinculación con Bonita)
+
+Por indicación de la cátedra, **los usuarios viven en la organización de Bonita**, no en una tabla propia. La app no guarda usuarios, contraseñas ni roles.
+
+### Login
+1. El front hace `POST /api/auth/login` con `{ username, password }`.
+2. El backend (`BonitaClient`) llama a `POST {BONITA_BASE_URL}/loginservice` (form-urlencoded) y obtiene las cookies `JSESSIONID` y `X-Bonita-API-Token`.
+3. Con esa sesión consulta a Bonita el usuario y su **membership** (rol + grupo). Cada usuario debe tener **exactamente una** membership.
+4. El rol de Bonita se traduce al rol de la app: `Operador Municipal` → `MUNICIPAL`, `Coordinador Regional` → `COORDINADOR`, `Representante de ONG` → `ONG`, `Auditor` → `AUDITOR`.
+5. La sesión de Bonita se guarda en la `HttpSession` del backend (cookie de sesión del backend). Endpoints: `POST /api/auth/login`, `GET /api/auth/me`, `POST /api/auth/logout`.
+6. Cada intento de login deja un log (`INFO` si funciona; `WARN`/`ERROR` con el motivo si falla). Las contraseñas no se loguean.
+
+En el front, `Auth` (`core/services/auth.ts`) llama a esos endpoints con `withCredentials`, y al arrancar la app restaura la sesión con `GET /api/auth/me`. `authGuard` deja pasar solo a usuarios logueados. Los errores de login se muestran con un toast (`ToastService`). Sigue sin haber restricción por rol en las rutas del front.
+
+### Organización de Bonita (`RescueSync`)
+La organización se define en `RescueSync.xml` (dentro del `.bos` del proceso, carpeta `Modelado/`). Para usarla: en Bonita Studio, importar el `.bos`, **activar** la organización RescueSync y hacer **Desplegar**. Si el login devuelve 401 para un usuario que debería existir, casi seguro la organización no está activa/desplegada (por ejemplo, quedó activa ACME).
+
+Todos los usuarios de ejemplo tienen contraseña `bpm`.
+
+| Rol | Grupo | Usuarios |
+|---|---|---|
+| Operador Municipal | `Municipio` | `operador.laplata`, `operador.berisso` |
+| Coordinador Regional | `Centro Regional Coordinador` | `coord.norte`, `coord.sur` |
+| Auditor | `Sistema Nacional` | `auditor.nacional`, `Usuario1` |
+| Representante de ONG | subgrupo de `ONG` (ver abajo) | ver abajo |
+
+### ONGs como subgrupos de `ONG`
+Cada ONG es un **subgrupo de `/ONG`** en Bonita, y todos sus representantes tienen el rol `Representante de ONG`. Hay una ONG por subgrupo y puede tener varios usuarios:
+
+| Subgrupo (path en Bonita) | ONG | Usuarios |
+|---|---|---|
+| `/ONG/CruzRojaLaPlata` | Cruz Roja Argentina – Filial La Plata | `ong.cruzroja`, `ong.cruzroja.2`, `ong.cruzroja.3` |
+| `/ONG/CaritasBuenosAires` | Cáritas Arquidiócesis de Buenos Aires | `ong.caritas`, `ong.caritas.2`, `ong.caritas.3` |
+| `/ONG/BomberosLaPlata` | Bomberos Voluntarios de La Plata | `ong.bomberos.1`, `ong.bomberos.2` |
+| `/ONG/BancoAlimentosBA` | Fundación Banco de Alimentos Buenos Aires | `ong.bancoalimentos.1`, `ong.bancoalimentos.2` |
+| `/ONG/TechoBuenosAires` | Techo Argentina – Regional Buenos Aires | `ong.techo.1` |
+
+### Cómo se vincula una ONG de Bonita con la base local
+- La tabla `ong` tiene la columna **`bonita_group_path`** (única, obligatoria) con el path del subgrupo, por ejemplo `/ONG/CaritasBuenosAires`.
+- Se vincula por **path y no por el id numérico** del grupo de Bonita: el id lo asigna cada Bonita al desplegar la organización y es distinto en cada máquina; el path sale del XML y es igual para todo el equipo.
+- En el login de un usuario con rol `ONG`, el backend arma el path del grupo (`parent_path` + `name`), busca la fila en `ong` (`OngService.obtenerPorGrupoBonita`) y devuelve `ongId` y `ongNombre` en la respuesta. Para los otros roles esos campos son `null`.
+- Si el subgrupo existe en Bonita pero no hay fila en `ong` con ese path, el login falla (404) con un mensaje claro.
+
+### Cómo agregar una ONG nueva
+1. En Bonita Studio: crear el subgrupo bajo `ONG`, agregar los usuarios y sus memberships (rol `Representante de ONG`), y volver a desplegar la organización. Compartir el `.bos`/XML actualizado con el equipo.
+2. En la base: insertar la fila con el mismo path, por ejemplo `INSERT INTO ong (razon_social, bonita_group_path) VALUES ('Nueva ONG', '/ONG/NuevaOng');`. Idealmente sumarla también a `db/seed/01-reset-y-seed.sql`.
+
+### Datos de ejemplo (seed)
+`db/seed/01-reset-y-seed.sql` **borra todos los datos** (municipios, recursos, ONGs, emergencias y lo que depende de ellos) y carga el juego de datos común: 1 municipio, 4 recursos, las 5 ONGs de arriba con su inventario, 1 emergencia con 2 lotes. Correrlo antes de levantar el backend (la entidad `Ong` exige `bonita_group_path`):
+
+```bash
+docker exec -i postgres_db psql -U postgres -d rescuesync < db/seed/01-reset-y-seed.sql
+```
 
 La UI usa **Bootstrap 5** (solo CSS, sin JS ni librerías de componentes). Se carga desde `angular.json`.
 
@@ -167,6 +217,7 @@ La configuración sale de un `.env` en la raíz del repo (ignorado por git). Cre
 | `PGADMIN_EMAIL` / `PGADMIN_PASSWORD` | Login de pgAdmin | (completar) |
 | `SERVER_PORT` | Puerto del backend cuando corre en local (`./mvnw spring-boot:run`) | `8080` |
 | `BACKEND_PORT` | Puerto del host donde Docker publica el backend | `8080` |
+| `BONITA_BASE_URL` | URL base de Bonita (opcional; por defecto `http://localhost:8080/bonita`) | `http://localhost:8080/bonita` |
 
 **Puertos y URLs**
 

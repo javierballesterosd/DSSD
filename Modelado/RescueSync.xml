@@ -1,0 +1,283 @@
+<?xml version="1.0" encoding="ASCII"?>
+<organization:Organization xmlns:organization="http://documentation.bonitasoft.com/organization-xml-schema/1.1">
+  <customUserInfoDefinitions/>
+  <users>
+    <user userName="operador.laplata">
+      <firstName>Juan</firstName>
+      <lastName>Perez</lastName>
+      <personalData/>
+      <professionalData/>
+      <password encrypted="false">bpm</password>
+      <customUserInfoValues/>
+    </user>
+    <user userName="operador.berisso">
+      <firstName>Maria</firstName>
+      <lastName>Gomez</lastName>
+      <personalData/>
+      <professionalData/>
+      <password encrypted="false">bpm</password>
+      <customUserInfoValues/>
+    </user>
+    <user userName="coord.norte">
+      <firstName>Carlos</firstName>
+      <lastName>Lopez</lastName>
+      <personalData/>
+      <professionalData/>
+      <password encrypted="false">bpm</password>
+      <customUserInfoValues/>
+    </user>
+    <user userName="coord.sur">
+      <firstName>Ana</firstName>
+      <lastName>Martinez</lastName>
+      <personalData/>
+      <professionalData/>
+      <password encrypted="false">bpm</password>
+      <customUserInfoValues/>
+    </user>
+    <user userName="ong.cruzroja">
+      <firstName>Luis</firstName>
+      <lastName>Fernandes</lastName>
+      <personalData/>
+      <professionalData/>
+      <password encrypted="false">bpm</password>
+      <customUserInfoValues/>
+    </user>
+    <user userName="ong.caritas">
+      <firstName>Elena</firstName>
+      <lastName>Rojas</lastName>
+      <personalData/>
+      <professionalData/>
+      <password encrypted="false">bpm</password>
+      <customUserInfoValues/>
+    </user>
+    <user userName="auditor.nacional">
+      <firstName>Roberto</firstName>
+      <lastName>Sanchez</lastName>
+      <personalData/>
+      <professionalData/>
+      <password encrypted="false">bpm</password>
+      <customUserInfoValues/>
+    </user>
+    <user userName="Usuario1">
+      <firstName>Laura</firstName>
+      <lastName>Torres</lastName>
+      <personalData/>
+      <professionalData/>
+      <password encrypted="false">bpm</password>
+      <customUserInfoValues/>
+    </user>
+    <user userName="ong.cruzroja.2">
+      <firstName>Sof&#237;a</firstName>
+      <lastName>&#193;lvarez</lastName>
+      <personalData/>
+      <professionalData/>
+      <password encrypted="false">bpm</password>
+      <customUserInfoValues/>
+    </user>
+    <user userName="ong.cruzroja.3">
+      <firstName>Mart&#237;n</firstName>
+      <lastName>Ibarra</lastName>
+      <personalData/>
+      <professionalData/>
+      <password encrypted="false">bpm</password>
+      <customUserInfoValues/>
+    </user>
+    <user userName="ong.caritas.2">
+      <firstName>Luc&#237;a</firstName>
+      <lastName>Ben&#237;tez</lastName>
+      <personalData/>
+      <professionalData/>
+      <password encrypted="false">bpm</password>
+      <customUserInfoValues/>
+    </user>
+    <user userName="ong.caritas.3">
+      <firstName>Diego</firstName>
+      <lastName>Cabrera</lastName>
+      <personalData/>
+      <professionalData/>
+      <password encrypted="false">bpm</password>
+      <customUserInfoValues/>
+    </user>
+    <user userName="ong.bomberos.1">
+      <firstName>Pablo</firstName>
+      <lastName>Ferreyra</lastName>
+      <personalData/>
+      <professionalData/>
+      <password encrypted="false">bpm</password>
+      <customUserInfoValues/>
+    </user>
+    <user userName="ong.bomberos.2">
+      <firstName>Camila</firstName>
+      <lastName>Su&#225;rez</lastName>
+      <personalData/>
+      <professionalData/>
+      <password encrypted="false">bpm</password>
+      <customUserInfoValues/>
+    </user>
+    <user userName="ong.bancoalimentos.1">
+      <firstName>Julieta</firstName>
+      <lastName>Molina</lastName>
+      <personalData/>
+      <professionalData/>
+      <password encrypted="false">bpm</password>
+      <customUserInfoValues/>
+    </user>
+    <user userName="ong.bancoalimentos.2">
+      <firstName>Nicol&#225;s</firstName>
+      <lastName>Paz</lastName>
+      <personalData/>
+      <professionalData/>
+      <password encrypted="false">bpm</password>
+      <customUserInfoValues/>
+    </user>
+    <user userName="ong.techo.1">
+      <firstName>Valentina</firstName>
+      <lastName>Romero</lastName>
+      <personalData/>
+      <professionalData/>
+      <password encrypted="false">bpm</password>
+      <customUserInfoValues/>
+    </user>
+  </users>
+  <roles>
+    <role name="Operador Municipal">
+      <displayName>Operador Municipal</displayName>
+    </role>
+    <role name="Coordinador Regional">
+      <displayName>Coordinador Regional</displayName>
+    </role>
+    <role name="Representante de ONG">
+      <displayName>Representante de ONG</displayName>
+    </role>
+    <role name="Auditor">
+      <displayName>Auditor</displayName>
+    </role>
+  </roles>
+  <groups>
+    <group name="Sistema Nacional">
+      <displayName>Sistema Nacional</displayName>
+    </group>
+    <group name="Municipio">
+      <displayName>Municipio</displayName>
+    </group>
+    <group name="ONG">
+      <displayName>ONG</displayName>
+    </group>
+    <group name="Centro Regional Coordinador">
+      <displayName>Centro Regional Coordinador</displayName>
+    </group>
+    <group name="CruzRojaLaPlata" parentPath="/ONG">
+      <displayName>Cruz Roja Argentina &#8211; Filial La Plata</displayName>
+    </group>
+    <group name="CaritasBuenosAires" parentPath="/ONG">
+      <displayName>C&#225;ritas Arquidi&#243;cesis de Buenos Aires</displayName>
+    </group>
+    <group name="BomberosLaPlata" parentPath="/ONG">
+      <displayName>Bomberos Voluntarios de La Plata</displayName>
+    </group>
+    <group name="BancoAlimentosBA" parentPath="/ONG">
+      <displayName>Fundaci&#243;n Banco de Alimentos Buenos Aires</displayName>
+    </group>
+    <group name="TechoBuenosAires" parentPath="/ONG">
+      <displayName>Techo Argentina &#8211; Regional Buenos Aires</displayName>
+    </group>
+  </groups>
+  <memberships>
+    <membership>
+      <userName>operador.laplata</userName>
+      <roleName>Operador Municipal</roleName>
+      <groupName>Municipio</groupName>
+    </membership>
+    <membership>
+      <userName>operador.berisso</userName>
+      <roleName>Operador Municipal</roleName>
+      <groupName>Municipio</groupName>
+    </membership>
+    <membership>
+      <userName>coord.norte</userName>
+      <roleName>Coordinador Regional</roleName>
+      <groupName>Centro Regional Coordinador</groupName>
+    </membership>
+    <membership>
+      <userName>coord.sur</userName>
+      <roleName>Coordinador Regional</roleName>
+      <groupName>Centro Regional Coordinador</groupName>
+    </membership>
+    <membership>
+      <userName>auditor.nacional</userName>
+      <roleName>Auditor</roleName>
+      <groupName>Sistema Nacional</groupName>
+    </membership>
+    <membership>
+      <userName>Usuario1</userName>
+      <roleName>Auditor</roleName>
+      <groupName>Sistema Nacional</groupName>
+    </membership>
+    <membership>
+      <userName>ong.cruzroja</userName>
+      <roleName>Representante de ONG</roleName>
+      <groupName>CruzRojaLaPlata</groupName>
+      <groupParentPath>/ONG</groupParentPath>
+    </membership>
+    <membership>
+      <userName>ong.cruzroja.2</userName>
+      <roleName>Representante de ONG</roleName>
+      <groupName>CruzRojaLaPlata</groupName>
+      <groupParentPath>/ONG</groupParentPath>
+    </membership>
+    <membership>
+      <userName>ong.cruzroja.3</userName>
+      <roleName>Representante de ONG</roleName>
+      <groupName>CruzRojaLaPlata</groupName>
+      <groupParentPath>/ONG</groupParentPath>
+    </membership>
+    <membership>
+      <userName>ong.caritas</userName>
+      <roleName>Representante de ONG</roleName>
+      <groupName>CaritasBuenosAires</groupName>
+      <groupParentPath>/ONG</groupParentPath>
+    </membership>
+    <membership>
+      <userName>ong.caritas.2</userName>
+      <roleName>Representante de ONG</roleName>
+      <groupName>CaritasBuenosAires</groupName>
+      <groupParentPath>/ONG</groupParentPath>
+    </membership>
+    <membership>
+      <userName>ong.caritas.3</userName>
+      <roleName>Representante de ONG</roleName>
+      <groupName>CaritasBuenosAires</groupName>
+      <groupParentPath>/ONG</groupParentPath>
+    </membership>
+    <membership>
+      <userName>ong.bomberos.1</userName>
+      <roleName>Representante de ONG</roleName>
+      <groupName>BomberosLaPlata</groupName>
+      <groupParentPath>/ONG</groupParentPath>
+    </membership>
+    <membership>
+      <userName>ong.bomberos.2</userName>
+      <roleName>Representante de ONG</roleName>
+      <groupName>BomberosLaPlata</groupName>
+      <groupParentPath>/ONG</groupParentPath>
+    </membership>
+    <membership>
+      <userName>ong.bancoalimentos.1</userName>
+      <roleName>Representante de ONG</roleName>
+      <groupName>BancoAlimentosBA</groupName>
+      <groupParentPath>/ONG</groupParentPath>
+    </membership>
+    <membership>
+      <userName>ong.bancoalimentos.2</userName>
+      <roleName>Representante de ONG</roleName>
+      <groupName>BancoAlimentosBA</groupName>
+      <groupParentPath>/ONG</groupParentPath>
+    </membership>
+    <membership>
+      <userName>ong.techo.1</userName>
+      <roleName>Representante de ONG</roleName>
+      <groupName>TechoBuenosAires</groupName>
+      <groupParentPath>/ONG</groupParentPath>
+    </membership>
+  </memberships>
+</organization:Organization>
