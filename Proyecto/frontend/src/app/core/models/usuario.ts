@@ -8,4 +8,7 @@ export interface Usuario {
   lastName: string;
   role: Rol;
   group: string;
+  /** Solo para el rol ONG: ONG a la que pertenece el representante. */
+  ongId?: number | null;
+  ongNombre?: string | null;
 }

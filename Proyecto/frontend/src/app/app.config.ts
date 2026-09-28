@@ -5,9 +5,9 @@ import {
   provideBrowserGlobalErrorListeners,
 } from '@angular/core';
 import { provideRouter } from '@angular/router';
-import { routes } from './app.routes';
 import { provideHttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
+import { routes } from './app.routes';
 import { Auth } from './core/services/auth';
 
 export const appConfig: ApplicationConfig = {
@@ -19,5 +19,5 @@ export const appConfig: ApplicationConfig = {
       const auth = inject(Auth);
       return firstValueFrom(auth.restoreSession());
     }),
-  ]
+  ],
 };

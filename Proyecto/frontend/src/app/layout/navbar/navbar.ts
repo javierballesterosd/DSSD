@@ -16,7 +16,7 @@ const NAV_LINKS: Record<Rol, NavLink[]> = {
     { label: 'Registrar Emergencia', path: '/municipal/emergencias/nueva' } // <-- Enlace agregado
   ],
   COORDINADOR: [{ label: 'Inicio', path: '/coordinador' }],
-  ONG: [{ label: 'Inicio', path: '/ong' }],
+  ONG: [{ label: 'Lotes disponibles', path: '/ong/lotes' }],
   AUDITOR: [{ label: 'Inicio', path: '/auditor' }],
 };
 

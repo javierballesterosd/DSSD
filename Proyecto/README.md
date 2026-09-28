@@ -78,7 +78,7 @@ Todas las entregas son obligatorias: no realizarlas implica perder la cursada. N
 ## Stack
 
 - **Backend**: Spring Boot 4.1.1, Java 21, Maven. Dependencias: web, data-jpa, validation, postgresql.
-- **Frontend**: Angular 22, TypeScript, npm. Tests con Vitest, formato con Prettier.
+- **Frontend**: Angular 22, TypeScript, npm, Bootstrap 5. Tests con Vitest, formato con Prettier.
 - **Base de datos**: PostgreSQL 15 en Docker (pgAdmin incluido).
 
 ## Arquitectura
@@ -92,7 +92,7 @@ com.proyecto.backend
   controller/    endpoints REST; solo reciben y devuelven DTOs, sin lógica de negocio
   service/       lógica de negocio y transacciones (@Transactional)
   repository/    interfaces Spring Data JPA
-  model/         entidades JPA y enums del dominio (Gravedad, EstadoOferta, Rol)
+  model/         entidades JPA y enums del dominio (NivelGravedad, EstadoOferta, EstadoLote)
   dto/           request/response; nunca se exponen entidades en la API
   mapper/        conversión entidad <-> DTO
   client/        clientes HTTP hacia sistemas externos (Bonita, Sistema Nacional)
@@ -114,7 +114,7 @@ Componentes standalone, signals y control flow moderno (`@if`, `@for`). Estructu
 
 ```
 core/       singletons de la app, se cargan una vez
-  guards/     guards de rutas (auth-guard; también por rol)
+  guards/     guards de rutas (auth-guard)
   services/   servicios globales (auth, cliente HTTP base)
   models/     interfaces y tipos TypeScript compartidos (espejo de los DTOs del backend)
 layout/     estructura visual de la app (navbar, notifications)
@@ -126,13 +126,38 @@ features/   una carpeta por funcionalidad o pantalla (lazy-loaded desde app.rout
 Reglas:
 - Cada feature vive en `features/<nombre>/` con sus componentes, servicios y rutas propias. Puede haber una por perfil (municipal, coordinador, ong, auditor) o por proceso (emergencias, lotes, ofertas).
 - `core` no depende de `features`. `features` puede usar `core` y `shared`. `shared` no depende del resto.
-- Rutas protegidas con `authGuard` (y verificación de rol para RBAC) en `app.routes.ts`.
+- Rutas protegidas con `authGuard` en `app.routes.ts` (hoy sin verificación de rol, ver más abajo).
 - Llamadas HTTP solo desde servicios, nunca desde componentes.
 - Estado de UI con signals.
 
+### Rutas del frontend y cómo agregar una pantalla
+
+Cada perfil tiene su propio archivo de rutas, cargado con lazy loading desde `app.routes.ts`. Los perfiles (`MUNICIPAL`, `COORDINADOR`, `ONG`, `AUDITOR`, definidos en `core/models/rol.ts`) son un concepto de UI/menú, no de control de acceso: **hoy no hay restricción por rol**, cualquier usuario logueado puede entrar a cualquier pantalla.
+
+| Ruta | Feature |
+|---|---|
+| `/login` | `features/auth/` (pública) |
+| `/municipal/...` | `features/municipal/municipal.routes.ts` |
+| `/coordinador/...` | `features/coordinador/coordinador.routes.ts` |
+| `/ong/...` | `features/ong/ong.routes.ts` |
+| `/auditor/...` | `features/auditor/auditor.routes.ts` |
+
+Todo lo que no es `/login` está dentro de `MainLayout` (navbar + contenido) y protegido por `authGuard`; `/` redirige al inicio del rol del usuario. Cualquier otra ruta muestra la página 404.
+
+Para agregar una pantalla a un perfil (ej. `ong`):
+1. Crear el componente en `features/ong/` (o en una subcarpeta si tiene varias piezas).
+2. Agregar la ruta en `features/ong/ong.routes.ts`: `{ path: 'ofertas', component: Ofertas }`. No hace falta tocar `app.routes.ts`.
+3. Agregar el link en `NAV_LINKS` de `layout/navbar/navbar.ts` para que aparezca en el menú.
+
+**Identidad y permisos**: por indicación de la cátedra, los usuarios van a estar definidos en la organización de Bonita, no en una tabla propia. El login real (y cualquier verificación de permisos) va a usar el login service de Bonita; para E2 alcanza con que sirva para iniciar y completar tareas en Bonita. Mientras tanto:
+- `Auth` (`core/services/auth.ts`) sigue siendo un **stub**: se elige el rol a mano en el login y la sesión se guarda en `localStorage`.
+- `authGuard` (`core/guards/auth-guard.ts`) está **bypaseado** (`AUTH_HABILITADO = false`) porque todavía no hay forma de loguearse de verdad: si estuviera activo, mandaría a todos a `/login` en un loop sin salida. Se reactiva cuando exista el login contra Bonita.
+
+La UI usa **Bootstrap 5** (solo CSS, sin JS ni librerías de componentes). Se carga desde `angular.json`.
+
 ## Variables de entorno y puertos
 
-La configuración sale de un `.env` en la raíz del repo (ignorado por git). Copiá `.env.example` a `.env` y completá los valores. Lo leen tanto Docker Compose como el backend cuando corre en local.
+La configuración sale de un `.env` en la raíz del repo (ignorado por git). Creá ese archivo a mano con las variables de la tabla (no hay plantilla versionada). Lo leen tanto Docker Compose como el backend cuando corre en local.
 
 | Variable | Uso | Valor de ejemplo |
 |---|---|---|
@@ -162,7 +187,7 @@ La configuración sale de un `.env` en la raíz del repo (ignorado por git). Cop
 
 ## Cómo correrlo
 
-Requisitos: Docker, Java 21 y Node.js con npm. Antes de nada, copiá `.env.example` a `.env` y completalo (ver [Variables de entorno y puertos](#variables-de-entorno-y-puertos)).
+Requisitos: Docker, Java 21 y Node.js con npm. Antes de nada, creá el `.env` en la raíz (ver [Variables de entorno y puertos](#variables-de-entorno-y-puertos)).
 
 Para desarrollo local se levanta solo la base y se corren backend y frontend a mano:
 

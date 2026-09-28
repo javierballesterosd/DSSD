@@ -15,5 +15,8 @@ public class LoginResponse {
     private String lastName;
     private String role;
     private String group;
+    // Solo para el rol ONG; null en los demás roles
+    private Long ongId;
+    private String ongNombre;
 
 }

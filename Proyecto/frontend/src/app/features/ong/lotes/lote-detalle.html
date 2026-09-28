@@ -1,0 +1,94 @@
+@if (cargando()) {
+  <p class="text-body-secondary">Cargando lote…</p>
+} @else if (error() || !lote()) {
+  <div class="alert alert-danger">No se pudo cargar el lote.</div>
+  <a class="btn btn-secondary" routerLink="/ong/lotes">Volver al listado</a>
+} @else {
+  @let l = lote()!;
+
+  <div class="d-flex justify-content-between align-items-start mb-3">
+    <div>
+      <h1 class="h3 mb-1">{{ l.titulo }}</h1>
+      <span class="badge" [class]="badgeGravedad(l.emergencia.nivelGravedad)">
+        {{ l.emergencia.nivelGravedadEtiqueta }}
+      </span>
+    </div>
+    <a class="btn btn-outline-secondary btn-sm" routerLink="/ong/lotes">Volver al listado</a>
+  </div>
+
+  <div class="card mb-4">
+    <div class="card-body">
+      <h2 class="h5 card-title">Emergencia</h2>
+      <dl class="row mb-0">
+        <dt class="col-sm-3">Zona afectada</dt>
+        <dd class="col-sm-9">{{ l.emergencia.zonaAfectada }}</dd>
+
+        <dt class="col-sm-3">Municipio</dt>
+        <dd class="col-sm-9">{{ l.emergencia.municipio }}</dd>
+
+        <dt class="col-sm-3">Descripción</dt>
+        <dd class="col-sm-9">{{ l.emergencia.descripcion }}</dd>
+
+        <dt class="col-sm-3">Registrada</dt>
+        <dd class="col-sm-9">{{ l.emergencia.fechaRegistro | date: 'medium' }}</dd>
+
+        <dt class="col-sm-3">Cierre de ofertas</dt>
+        <dd class="col-sm-9">
+          {{
+            l.emergencia.fechaCierreOfertas
+              ? (l.emergencia.fechaCierreOfertas | date: 'medium')
+              : 'Sin definir aún'
+          }}
+        </dd>
+      </dl>
+    </div>
+  </div>
+
+  <div class="card mb-4">
+    <div class="card-body">
+      <h2 class="h5 card-title">Recursos solicitados</h2>
+      <table class="table table-sm mb-0">
+        <thead>
+          <tr>
+            <th>Recurso</th>
+            <th>Cantidad requerida</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (item of l.items; track item.id) {
+            <tr>
+              <td>{{ item.recursoNombre }}</td>
+              <td>{{ item.cantidadRequerida }} {{ item.unidadMedida }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="d-flex gap-2">
+    <button
+      type="button"
+      class="btn btn-primary"
+      [disabled]="!l.convocatoriaAbierta"
+      (click)="abrirModal()"
+    >
+      Registrar oferta
+    </button>
+    <!-- TODO: botón "Actualizar oferta" — en standby hasta tener la identidad real de la ONG (login contra Bonita). -->
+  </div>
+
+  @if (!l.convocatoriaAbierta) {
+    <p class="text-body-secondary small mt-2">
+      La convocatoria de ofertas para esta emergencia está cerrada.
+    </p>
+  }
+
+  @if (modalAbierto()) {
+    <app-oferta-form-modal
+      [lote]="l"
+      (registrada)="onOfertaRegistrada($event)"
+      (cerrar)="cerrarModal()"
+    />
+  }
+}

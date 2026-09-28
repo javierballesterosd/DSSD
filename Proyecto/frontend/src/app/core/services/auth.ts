@@ -30,7 +30,7 @@ export class Auth {
 
   login(credentials: LoginRequest): Observable<Usuario> {
     return this.http
-      .post<Usuario>(`${this.apiUrl}/api/auth/login`, credentials, { withCredentials: true })
+      .post<Usuario>(`${this.apiUrl}/auth/login`, credentials, { withCredentials: true })
       .pipe(
         tap((usuario) => {
           this._usuario.set(usuario);
@@ -41,7 +41,7 @@ export class Auth {
 
   logout(): Observable<void> {
     return this.http
-      .post<void>(`${this.apiUrl}/api/auth/logout`, {}, { withCredentials: true })
+      .post<void>(`${this.apiUrl}/auth/logout`, {}, { withCredentials: true })
       .pipe(
         tap(() => {
           this._usuario.set(null);
@@ -51,7 +51,7 @@ export class Auth {
   }
 
   restoreSession(): Observable<Usuario | null> {
-    return this.http.get<Usuario>(`${this.apiUrl}/api/auth/me`, { withCredentials: true }).pipe(
+    return this.http.get<Usuario>(`${this.apiUrl}/auth/me`, { withCredentials: true }).pipe(
       tap((usuario) => this._usuario.set(usuario)),
       catchError((error) => {
         if (error.status === 401) {
