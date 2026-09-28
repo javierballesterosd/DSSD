@@ -5,7 +5,9 @@ import com.proyecto.backend.dto.OfertaRequest;
 import com.proyecto.backend.dto.OfertaResponse;
 import com.proyecto.backend.exception.ReglaNegocioException;
 import com.proyecto.backend.mapper.OfertaMapper;
+import com.proyecto.backend.model.DetalleOferta;
 import com.proyecto.backend.model.Emergencia;
+import com.proyecto.backend.model.EstadoOferta;
 import com.proyecto.backend.model.EstadoLote;
 import com.proyecto.backend.model.InventarioOng;
 import com.proyecto.backend.model.ItemLote;
@@ -47,6 +49,9 @@ class OfertaServiceTest {
     private InventarioOngRepository inventarioOngRepository;
     @Mock
     private OfertaRepository ofertaRepository;
+
+    /** La ONG del usuario logueado en todos los casos: Cruz Solidaria (ongA). */
+    private static final Long ONG_USUARIO = 1L;
 
     private OfertaService ofertaService;
 
@@ -116,7 +121,7 @@ class OfertaServiceTest {
         OfertaRequest request = new OfertaRequest(10L, Set.of(1L),
                 List.of(new DetalleOfertaRequest(200L, 1L, 100)));
 
-        assertThatThrownBy(() -> ofertaService.registrar(request))
+        assertThatThrownBy(() -> ofertaService.registrar(request, ONG_USUARIO))
                 .isInstanceOf(ReglaNegocioException.class)
                 .hasMessageContaining("no está abierto");
     }
@@ -128,9 +133,24 @@ class OfertaServiceTest {
         OfertaRequest request = new OfertaRequest(10L, Set.of(1L),
                 List.of(new DetalleOfertaRequest(999L, 1L, 100)));
 
-        assertThatThrownBy(() -> ofertaService.registrar(request))
+        assertThatThrownBy(() -> ofertaService.registrar(request, ONG_USUARIO))
                 .isInstanceOf(ReglaNegocioException.class)
                 .hasMessageContaining("no pertenece al lote");
+    }
+
+    @Test
+    void rechazaOfertaQueNoIncluyeLaOngDelUsuario() {
+        when(ongRepository.findAllById(anyCollection())).thenReturn(List.of(ongB));
+        when(ongRepository.findById(ONG_USUARIO)).thenReturn(java.util.Optional.of(ongA));
+
+        // El usuario es de Cruz Solidaria pero la oferta es solo de Manos Unidas.
+        OfertaRequest request = new OfertaRequest(10L, Set.of(2L),
+                List.of(new DetalleOfertaRequest(200L, 2L, 100)));
+
+        assertThatThrownBy(() -> ofertaService.registrar(request, ONG_USUARIO))
+                .isInstanceOf(ReglaNegocioException.class)
+                .hasMessageContaining("debe incluir a tu ONG")
+                .hasMessageContaining("Cruz Solidaria");
     }
 
     @Test
@@ -157,7 +177,7 @@ class OfertaServiceTest {
                         new DetalleOfertaRequest(200L, 2L, 400)
                 ));
 
-        assertThatThrownBy(() -> ofertaService.registrar(request))
+        assertThatThrownBy(() -> ofertaService.registrar(request, ONG_USUARIO))
                 .isInstanceOf(ReglaNegocioException.class)
                 .hasMessageContaining("Cruz Solidaria");
     }
@@ -177,7 +197,7 @@ class OfertaServiceTest {
         OfertaRequest request = new OfertaRequest(10L, Set.of(1L, 2L),
                 List.of(new DetalleOfertaRequest(200L, 1L, 500)));
 
-        assertThatThrownBy(() -> ofertaService.registrar(request))
+        assertThatThrownBy(() -> ofertaService.registrar(request, ONG_USUARIO))
                 .isInstanceOf(ReglaNegocioException.class)
                 .hasMessageContaining("Manos Unidas");
     }
@@ -211,12 +231,39 @@ class OfertaServiceTest {
                         new DetalleOfertaRequest(200L, 2L, 200)
                 ));
 
-        OfertaResponse response = ofertaService.registrar(request);
+        OfertaResponse response = ofertaService.registrar(request, ONG_USUARIO);
 
         assertThat(response.id()).isEqualTo(500L);
         assertThat(response.estado()).isEqualTo("PENDIENTE");
         assertThat(response.ongs()).hasSize(2);
         assertThat(response.aportes()).hasSize(1);
         assertThat(response.aportes().get(0).totalOfrecido()).isEqualTo(1000);
+    }
+
+    @Test
+    void listaLasOfertasDeLaOngConDesglosePorOng() {
+        Oferta oferta = new Oferta();
+        oferta.setId(7L);
+        oferta.setEstado(EstadoOferta.PENDIENTE);
+        oferta.setFechaOferta(java.time.LocalDateTime.of(2026, 9, 27, 10, 0));
+        oferta.setLote(lote);
+        oferta.setOngs(new java.util.HashSet<>(List.of(ongA, ongB)));
+        for (Ong ong : List.of(ongA, ongB)) {
+            DetalleOferta detalle = new DetalleOferta();
+            detalle.setOferta(oferta);
+            detalle.setOng(ong);
+            detalle.setItemLote(itemRaciones);
+            detalle.setCantidadOfrecida(300);
+            oferta.getDetalles().add(detalle);
+        }
+        when(ofertaRepository.findByLoteIdAndOngId(10L, 1L)).thenReturn(List.of(oferta));
+
+        List<OfertaResponse> resultado = ofertaService.listarDeOng(10L, 1L);
+
+        assertThat(resultado).hasSize(1);
+        assertThat(resultado.get(0).estadoEtiqueta()).isEqualTo("Pendiente");
+        assertThat(resultado.get(0).ongs()).hasSize(2);
+        assertThat(resultado.get(0).aportes().get(0).totalOfrecido()).isEqualTo(600);
+        assertThat(resultado.get(0).aportes().get(0).porOng()).hasSize(2);
     }
 }

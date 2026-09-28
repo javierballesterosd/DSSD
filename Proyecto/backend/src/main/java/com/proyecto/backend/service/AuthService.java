@@ -8,6 +8,7 @@ import com.proyecto.backend.client.BonitaSessionInfo;
 import com.proyecto.backend.client.BonitaUser;
 import com.proyecto.backend.dto.auth.LoginRequest;
 import com.proyecto.backend.dto.auth.LoginResponse;
+import com.proyecto.backend.exception.AccesoDenegadoException;
 import com.proyecto.backend.exception.BonitaIntegrationException;
 import com.proyecto.backend.exception.InvalidCredentialsException;
 import com.proyecto.backend.exception.UnauthenticatedException;
@@ -96,6 +97,18 @@ public class AuthService {
         }
 
         return construirRespuesta(user, membership);
+    }
+
+    /**
+     * Id de la ONG del usuario logueado. Lanza 401 si no hay sesión y 403 si el usuario
+     * no es representante de una ONG.
+     */
+    public Long ongDelUsuario(HttpSession httpSession) {
+        LoginResponse usuario = currentUser(httpSession);
+        if (!"ONG".equals(usuario.getRole()) || usuario.getOngId() == null) {
+            throw new AccesoDenegadoException("Solo un representante de ONG puede registrar ofertas");
+        }
+        return usuario.getOngId();
     }
 
     public void logout(HttpSession httpSession) {

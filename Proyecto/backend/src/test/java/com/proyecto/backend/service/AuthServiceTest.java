@@ -9,7 +9,9 @@ import com.proyecto.backend.client.BonitaSessionInfo;
 import com.proyecto.backend.client.BonitaUser;
 import com.proyecto.backend.dto.auth.LoginRequest;
 import com.proyecto.backend.dto.auth.LoginResponse;
+import com.proyecto.backend.exception.AccesoDenegadoException;
 import com.proyecto.backend.exception.RecursoNoEncontradoException;
+import com.proyecto.backend.exception.UnauthenticatedException;
 import com.proyecto.backend.model.Ong;
 import jakarta.servlet.http.HttpSession;
 import org.junit.jupiter.api.BeforeEach;
@@ -100,5 +102,37 @@ class AuthServiceTest {
     @Test
     void pathDelGrupoSinPadreEsSoloElNombre() {
         assertThat(new BonitaGroup("1", "Municipio", "Municipio", null).path()).isEqualTo("/Municipio");
+    }
+
+    private void sesionCon(String rol, BonitaGroup grupo) {
+        when(httpSession.getAttribute(AuthService.USER_ATTRIBUTE))
+                .thenReturn(new BonitaUser("7", "usuario", "Elena", "Rojas"));
+        when(httpSession.getAttribute(AuthService.MEMBERSHIP_ATTRIBUTE))
+                .thenReturn(new BonitaMembership("7", new BonitaRole("1", rol, rol), grupo));
+    }
+
+    @Test
+    void ongDelUsuarioDevuelveLaOngDelRepresentante() {
+        sesionCon("Representante de ONG", new BonitaGroup("55", "CaritasBuenosAires", "Cáritas", "/ONG"));
+        Ong ong = new Ong();
+        ong.setId(2L);
+        ong.setRazonSocial("Cáritas Arquidiócesis de Buenos Aires");
+        when(ongService.obtenerPorGrupoBonita("/ONG/CaritasBuenosAires")).thenReturn(ong);
+
+        assertThat(authService.ongDelUsuario(httpSession)).isEqualTo(2L);
+    }
+
+    @Test
+    void ongDelUsuarioRechazaOtrosRoles() {
+        sesionCon("Coordinador Regional", new BonitaGroup("20", "CRC", "Centro Regional Coordinador", null));
+
+        assertThatThrownBy(() -> authService.ongDelUsuario(httpSession))
+                .isInstanceOf(AccesoDenegadoException.class);
+    }
+
+    @Test
+    void ongDelUsuarioSinSesionFalla() {
+        assertThatThrownBy(() -> authService.ongDelUsuario(httpSession))
+                .isInstanceOf(UnauthenticatedException.class);
     }
 }

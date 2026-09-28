@@ -4,9 +4,12 @@ import { FormsModule } from '@angular/forms';
 import { LoteDetalle } from '../../../core/models/lote';
 import { DetalleOfertaRequest, OfertaRequest, OfertaResponse } from '../../../core/models/oferta';
 import { InventarioOng, Ong } from '../../../core/models/ong';
+import { Auth } from '../../../core/services/auth';
 import { Modal } from '../../../shared/components/modal/modal';
+import { colorOng } from '../../../shared/ong-colores';
 import { Ofertas } from '../services/ofertas';
 import { Ongs } from '../services/ongs';
+import { OfertaDesglose } from './oferta-desglose';
 import {
   estadoCelda,
   excedeSolicitado,
@@ -21,11 +24,8 @@ interface ErrorBackend {
   detalles?: string[];
 }
 
-/** Paleta para distinguir ONGs de un vistazo; sin verde, reservado para el aviso de éxito. */
-const PALETA_ONG = ['text-bg-primary', 'text-bg-danger', 'text-bg-warning', 'text-bg-info', 'text-bg-dark'];
-
 @Component({
-  imports: [Modal, FormsModule],
+  imports: [Modal, FormsModule, OfertaDesglose],
   selector: 'app-oferta-form-modal',
   templateUrl: './oferta-form-modal.html',
   styleUrl: './oferta-form-modal.scss',
@@ -33,6 +33,7 @@ const PALETA_ONG = ['text-bg-primary', 'text-bg-danger', 'text-bg-warning', 'tex
 export class OfertaFormModal implements OnInit {
   private readonly ongsService = inject(Ongs);
   private readonly ofertasService = inject(Ofertas);
+  private readonly auth = inject(Auth);
 
   readonly lote = input.required<LoteDetalle>();
   readonly registrada = output<OfertaResponse>();
@@ -48,10 +49,23 @@ export class OfertaFormModal implements OnInit {
   protected readonly errorDetalles = signal<string[]>([]);
   protected readonly ofertaRegistrada = signal<OfertaResponse | null>(null);
 
+  /** ONG del usuario logueado: participa siempre de la oferta y no se puede desmarcar. */
+  protected readonly ongPropiaId = computed(() => this.auth.usuario()?.ongId ?? null);
+
+  /** La ONG propia primero; el resto por razón social. */
+  protected readonly ongsOrdenadas = computed(() => {
+    const propia = this.ongPropiaId();
+    return [...this.ongsDisponibles()].sort((a, b) => {
+      if (a.id === propia) return -1;
+      if (b.id === propia) return 1;
+      return a.razonSocial.localeCompare(b.razonSocial);
+    });
+  });
+
   protected readonly inventarioIndice = computed(() => indexarInventario(this.inventario()));
 
   protected readonly columnas = computed(() =>
-    this.ongsDisponibles().filter((ong) => this.ongsSeleccionadas().includes(ong.id)),
+    this.ongsOrdenadas().filter((ong) => this.ongsSeleccionadas().includes(ong.id)),
   );
 
   protected readonly ongsSinAportar = computed(() => {
@@ -96,6 +110,10 @@ export class OfertaFormModal implements OnInit {
       motivos.push('Hay celdas que superan el inventario disponible o tienen un valor inválido.');
     }
     for (const ongId of this.ongsSinAportar()) {
+      if (ongId === this.ongPropiaId()) {
+        motivos.push('Tu ONG todavía no aporta nada: cargá al menos una cantidad.');
+        continue;
+      }
       const ong = this.ongsDisponibles().find((o) => o.id === ongId);
       motivos.push(
         `«${ong?.razonSocial}» no está aportando nada: cargale una cantidad o sacala de la selección.`,
@@ -108,9 +126,20 @@ export class OfertaFormModal implements OnInit {
 
   ngOnInit(): void {
     this.ongsService.listar().subscribe((ongs) => this.ongsDisponibles.set(ongs));
+
+    const propia = this.ongPropiaId();
+    if (propia !== null) {
+      this.ongsSeleccionadas.set([propia]);
+      this.refrescarInventario([propia]);
+    }
+  }
+
+  protected esOngPropia(ongId: number): boolean {
+    return ongId === this.ongPropiaId();
   }
 
   protected toggleOng(ongId: number, marcado: boolean): void {
+    if (this.esOngPropia(ongId)) return;
     const actuales = this.ongsSeleccionadas();
     const nuevas = marcado ? [...actuales, ongId] : actuales.filter((id) => id !== ongId);
     this.ongsSeleccionadas.set(nuevas);
@@ -163,9 +192,8 @@ export class OfertaFormModal implements OnInit {
     return this.ongsSinAportar().includes(ongId);
   }
 
-  /** Color estable por ONG (según su id), para distinguirlas de un vistazo en la grilla y el resumen. */
   protected colorOng(ongId: number): string {
-    return PALETA_ONG[ongId % PALETA_ONG.length];
+    return colorOng(ongId);
   }
 
   protected registrar(): void {

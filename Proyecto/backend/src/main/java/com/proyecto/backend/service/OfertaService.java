@@ -50,7 +50,7 @@ public class OfertaService {
     }
 
     @Transactional
-    public OfertaResponse registrar(OfertaRequest request) {
+    public OfertaResponse registrar(OfertaRequest request, Long ongIdUsuario) {
         Lote lote = loteRepository.findById(request.loteId())
                 .orElseThrow(() -> new ReglaNegocioException("El lote no existe"));
 
@@ -69,6 +69,14 @@ public class OfertaService {
         }
         Map<Long, Ong> ongsPorId = new HashMap<>();
         ongs.forEach(ong -> ongsPorId.put(ong.getId(), ong));
+
+        // La ONG del usuario logueado participa siempre de la oferta
+        if (!ongsPorId.containsKey(ongIdUsuario)) {
+            String nombre = ongRepository.findById(ongIdUsuario)
+                    .map(Ong::getRazonSocial)
+                    .orElse(String.valueOf(ongIdUsuario));
+            throw new ReglaNegocioException("La oferta debe incluir a tu ONG, «" + nombre + "»");
+        }
 
         Map<Long, ItemLote> itemsDelLote = new HashMap<>();
         lote.getItems().forEach(item -> itemsDelLote.put(item.getId(), item));
@@ -133,6 +141,14 @@ public class OfertaService {
 
         Oferta guardada = ofertaRepository.save(oferta);
         return ofertaMapper.toResponse(guardada);
+    }
+
+    /** Ofertas del lote en las que participa la ONG indicada, de la más nueva a la más vieja. */
+    @Transactional(readOnly = true)
+    public List<OfertaResponse> listarDeOng(Long loteId, Long ongId) {
+        return ofertaRepository.findByLoteIdAndOngId(loteId, ongId).stream()
+                .map(ofertaMapper::toResponse)
+                .toList();
     }
 
     private Map<String, Integer> indexarInventario(Set<Long> ongIds) {

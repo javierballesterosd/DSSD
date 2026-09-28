@@ -43,6 +43,13 @@ public class GlobalExceptionHandler {
         return construir(HttpStatus.UNAUTHORIZED, ex.getMessage(), List.of());
     }
 
+    @ExceptionHandler(AccesoDenegadoException.class)
+    public ResponseEntity<ErrorResponse> handleAccesoDenegado(AccesoDenegadoException ex, HttpServletRequest request) {
+        log.warn("{} {} -> {}: {}", request.getMethod(), request.getRequestURI(),
+                "AccesoDenegadoException", ex.getMessage());
+        return construir(HttpStatus.FORBIDDEN, ex.getMessage(), List.of());
+    }
+
     @ExceptionHandler(InvalidCredentialsException.class)
     public ResponseEntity<ErrorResponse> handleInvalidCredentials(InvalidCredentialsException ex, HttpServletRequest request) {
         log.warn("{} {} -> {}: {}", request.getMethod(), request.getRequestURI(),
