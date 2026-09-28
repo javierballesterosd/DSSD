@@ -67,15 +67,15 @@
       <customUserInfoValues/>
     </user>
     <user userName="ong.cruzroja.2">
-      <firstName>Sof&#237;a</firstName>
-      <lastName>&#193;lvarez</lastName>
+      <firstName>Sof&#xed;a</firstName>
+      <lastName>&#xc1;lvarez</lastName>
       <personalData/>
       <professionalData/>
       <password encrypted="false">bpm</password>
       <customUserInfoValues/>
     </user>
     <user userName="ong.cruzroja.3">
-      <firstName>Mart&#237;n</firstName>
+      <firstName>Mart&#xed;n</firstName>
       <lastName>Ibarra</lastName>
       <personalData/>
       <professionalData/>
@@ -83,8 +83,8 @@
       <customUserInfoValues/>
     </user>
     <user userName="ong.caritas.2">
-      <firstName>Luc&#237;a</firstName>
-      <lastName>Ben&#237;tez</lastName>
+      <firstName>Luc&#xed;a</firstName>
+      <lastName>Ben&#xed;tez</lastName>
       <personalData/>
       <professionalData/>
       <password encrypted="false">bpm</password>
@@ -108,7 +108,7 @@
     </user>
     <user userName="ong.bomberos.2">
       <firstName>Camila</firstName>
-      <lastName>Su&#225;rez</lastName>
+      <lastName>Su&#xe1;rez</lastName>
       <personalData/>
       <professionalData/>
       <password encrypted="false">bpm</password>
@@ -123,7 +123,7 @@
       <customUserInfoValues/>
     </user>
     <user userName="ong.bancoalimentos.2">
-      <firstName>Nicol&#225;s</firstName>
+      <firstName>Nicol&#xe1;s</firstName>
       <lastName>Paz</lastName>
       <personalData/>
       <professionalData/>
@@ -132,6 +132,46 @@
     </user>
     <user userName="ong.techo.1">
       <firstName>Valentina</firstName>
+      <lastName>Romero</lastName>
+      <personalData/>
+      <professionalData/>
+      <password encrypted="false">bpm</password>
+      <customUserInfoValues/>
+    </user>
+    <user userName="operador.citybell">
+      <firstName>Valeria</firstName>
+      <lastName>Ortiz</lastName>
+      <personalData/>
+      <professionalData/>
+      <password encrypted="false">bpm</password>
+      <customUserInfoValues/>
+    </user>
+    <user userName="operador.lobos">
+      <firstName>Nicol&#xe1;s</firstName>
+      <lastName>Herrera</lastName>
+      <personalData/>
+      <professionalData/>
+      <password encrypted="false">bpm</password>
+      <customUserInfoValues/>
+    </user>
+    <user userName="operador.quilmes">
+      <firstName>Florencia</firstName>
+      <lastName>Paz</lastName>
+      <personalData/>
+      <professionalData/>
+      <password encrypted="false">bpm</password>
+      <customUserInfoValues/>
+    </user>
+    <user userName="coord.region3">
+      <firstName>Sergio</firstName>
+      <lastName>Acosta</lastName>
+      <personalData/>
+      <professionalData/>
+      <password encrypted="false">bpm</password>
+      <customUserInfoValues/>
+    </user>
+    <user userName="coord.region4">
+      <firstName>Paula</firstName>
       <lastName>Romero</lastName>
       <personalData/>
       <professionalData/>
@@ -163,45 +203,103 @@
     <group name="ONG">
       <displayName>ONG</displayName>
     </group>
-    <group name="Centro Regional Coordinador">
-      <displayName>Centro Regional Coordinador</displayName>
+    <group name="Region1" parentPath="/Municipio">
+      <displayName>Regi&#xf3;n 1</displayName>
+    </group>
+    <group name="Region2" parentPath="/Municipio">
+      <displayName>Regi&#xf3;n 2</displayName>
+    </group>
+    <group name="Region3" parentPath="/Municipio">
+      <displayName>Regi&#xf3;n 3</displayName>
+    </group>
+    <group name="Region4" parentPath="/Municipio">
+      <displayName>Regi&#xf3;n 4</displayName>
+    </group>
+    <group name="LaPlata" parentPath="/Municipio/Region1">
+      <displayName>La Plata</displayName>
+    </group>
+    <group name="CityBell" parentPath="/Municipio/Region1">
+      <displayName>City Bell</displayName>
+    </group>
+    <group name="Berisso" parentPath="/Municipio/Region2">
+      <displayName>Berisso</displayName>
+    </group>
+    <group name="Lobos" parentPath="/Municipio/Region3">
+      <displayName>Lobos</displayName>
+    </group>
+    <group name="Quilmes" parentPath="/Municipio/Region4">
+      <displayName>Quilmes</displayName>
     </group>
     <group name="CruzRojaLaPlata" parentPath="/ONG">
-      <displayName>Cruz Roja Argentina &#8211; Filial La Plata</displayName>
+      <displayName>Cruz Roja Argentina &#x2013; Filial La Plata</displayName>
     </group>
     <group name="CaritasBuenosAires" parentPath="/ONG">
-      <displayName>C&#225;ritas Arquidi&#243;cesis de Buenos Aires</displayName>
+      <displayName>C&#xe1;ritas Arquidi&#xf3;cesis de Buenos Aires</displayName>
     </group>
     <group name="BomberosLaPlata" parentPath="/ONG">
       <displayName>Bomberos Voluntarios de La Plata</displayName>
     </group>
     <group name="BancoAlimentosBA" parentPath="/ONG">
-      <displayName>Fundaci&#243;n Banco de Alimentos Buenos Aires</displayName>
+      <displayName>Fundaci&#xf3;n Banco de Alimentos Buenos Aires</displayName>
     </group>
     <group name="TechoBuenosAires" parentPath="/ONG">
-      <displayName>Techo Argentina &#8211; Regional Buenos Aires</displayName>
+      <displayName>Techo Argentina &#x2013; Regional Buenos Aires</displayName>
     </group>
   </groups>
   <memberships>
     <membership>
       <userName>operador.laplata</userName>
       <roleName>Operador Municipal</roleName>
-      <groupName>Municipio</groupName>
+      <groupName>LaPlata</groupName>
+      <groupParentPath>/Municipio/Region1</groupParentPath>
+    </membership>
+    <membership>
+      <userName>operador.citybell</userName>
+      <roleName>Operador Municipal</roleName>
+      <groupName>CityBell</groupName>
+      <groupParentPath>/Municipio/Region1</groupParentPath>
     </membership>
     <membership>
       <userName>operador.berisso</userName>
       <roleName>Operador Municipal</roleName>
-      <groupName>Municipio</groupName>
+      <groupName>Berisso</groupName>
+      <groupParentPath>/Municipio/Region2</groupParentPath>
+    </membership>
+    <membership>
+      <userName>operador.lobos</userName>
+      <roleName>Operador Municipal</roleName>
+      <groupName>Lobos</groupName>
+      <groupParentPath>/Municipio/Region3</groupParentPath>
+    </membership>
+    <membership>
+      <userName>operador.quilmes</userName>
+      <roleName>Operador Municipal</roleName>
+      <groupName>Quilmes</groupName>
+      <groupParentPath>/Municipio/Region4</groupParentPath>
     </membership>
     <membership>
       <userName>coord.norte</userName>
       <roleName>Coordinador Regional</roleName>
-      <groupName>Centro Regional Coordinador</groupName>
+      <groupName>Region1</groupName>
+      <groupParentPath>/Municipio</groupParentPath>
     </membership>
     <membership>
       <userName>coord.sur</userName>
       <roleName>Coordinador Regional</roleName>
-      <groupName>Centro Regional Coordinador</groupName>
+      <groupName>Region2</groupName>
+      <groupParentPath>/Municipio</groupParentPath>
+    </membership>
+    <membership>
+      <userName>coord.region3</userName>
+      <roleName>Coordinador Regional</roleName>
+      <groupName>Region3</groupName>
+      <groupParentPath>/Municipio</groupParentPath>
+    </membership>
+    <membership>
+      <userName>coord.region4</userName>
+      <roleName>Coordinador Regional</roleName>
+      <groupName>Region4</groupName>
+      <groupParentPath>/Municipio</groupParentPath>
     </membership>
     <membership>
       <userName>auditor.nacional</userName>
