@@ -16,7 +16,7 @@ public class LoteResponseDTO {
     private String titulo;
     private EstadoLote estado;
     private LocalDateTime fechaCreacion;
-    private LocalDate fechaInicio;
+    private LocalDateTime fechaInicio;
     private Long emergenciaId;
     private List<ItemLoteResponseDTO> items;
 }

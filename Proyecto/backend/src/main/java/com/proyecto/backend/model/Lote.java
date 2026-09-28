@@ -45,7 +45,7 @@ public class Lote {
 
     /** Fecha estimada de inicio del despliegue. */
     @Column(name = "fecha_inicio")
-    private LocalDate fechaInicio;
+    private LocalDateTime fechaInicio;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "emergencia_id", nullable = false)

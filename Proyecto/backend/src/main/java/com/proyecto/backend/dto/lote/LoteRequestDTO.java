@@ -6,8 +6,7 @@ import jakarta.validation.constraints.NotEmpty;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-
-import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Getter
@@ -18,7 +17,7 @@ public class LoteRequestDTO {
     @NotBlank
     private String titulo;
 
-    private LocalDate fechaInicio;
+    private LocalDateTime  fechaInicio;
 
     @NotEmpty
     @Valid
