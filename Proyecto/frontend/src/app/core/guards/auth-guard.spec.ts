@@ -1,11 +1,15 @@
+import { provideHttpClient } from '@angular/common/http';
+import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
-import { ActivatedRouteSnapshot, RouterStateSnapshot, provideRouter } from '@angular/router';
+import {
+  ActivatedRouteSnapshot,
+  Router,
+  RouterStateSnapshot,
+  provideRouter,
+} from '@angular/router';
 import { Auth } from '../services/auth';
 import { authGuard } from './auth-guard';
 
-// TODO: el guard está bypaseado (AUTH_HABILITADO = false en auth-guard.ts) hasta que
-// exista el login real contra Bonita. Mientras tanto siempre deja pasar; cuando se
-// reactive, volver a los tests de "redirige sin sesión" / "deja pasar logueado".
 describe('authGuard', () => {
   const run = () =>
     TestBed.runInInjectionContext(() =>
@@ -13,16 +17,29 @@ describe('authGuard', () => {
     );
 
   beforeEach(() => {
-    localStorage.clear();
-    TestBed.configureTestingModule({ providers: [provideRouter([])] });
+    TestBed.configureTestingModule({
+      providers: [provideRouter([]), provideHttpClient(), provideHttpClientTesting()],
+    });
   });
 
-  it('lets everyone through while el login no está implementado', () => {
-    expect(run()).toBe(true);
+  it('redirects to /login without a session', () => {
+    const resultado = run();
+    expect(TestBed.inject(Router).serializeUrl(resultado as never)).toBe('/login');
   });
 
-  it('also lets a logged user through', () => {
-    TestBed.inject(Auth).login({ username: 'ana', rol: 'MUNICIPAL' });
+  it('lets a logged user through', () => {
+    TestBed.inject(Auth).login({ username: 'ana', password: 'bpm' }).subscribe();
+    TestBed.inject(HttpTestingController)
+      .expectOne((r) => r.url.endsWith('/auth/login'))
+      .flush({
+        userId: '1',
+        username: 'ana',
+        firstName: 'Ana',
+        lastName: 'G',
+        role: 'MUNICIPAL',
+        group: 'Municipio',
+      });
+
     expect(run()).toBe(true);
   });
 });

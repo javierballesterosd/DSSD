@@ -30,6 +30,7 @@ export interface AporteRecurso {
 export interface OfertaResponse {
   id: number;
   estado: string;
+  estadoEtiqueta: string;
   fechaOferta: string;
   loteId: number;
   loteTitulo: string;
@@ -37,3 +38,15 @@ export interface OfertaResponse {
   ongs: Ong[];
   aportes: AporteRecurso[];
 }
+
+/** Clase Bootstrap del badge de cada estado de oferta. */
+export const ESTADO_OFERTA_BADGE: Record<string, string> = {
+  PENDIENTE: 'text-bg-secondary',
+  ACEPTADA_PARCIAL: 'text-bg-info',
+  VALIDADA: 'text-bg-success',
+  ADJUDICADA: 'text-bg-success',
+  NO_ADJUDICADA: 'text-bg-secondary',
+  EN_EJECUCION: 'text-bg-primary',
+  FINALIZADA: 'text-bg-dark',
+  RECHAZADA: 'text-bg-danger',
+};

@@ -66,11 +66,71 @@
     </div>
   </div>
 
+  @if (puedeOfertar()) {
+    <div class="card mb-4">
+      <div class="card-body">
+        <h2 class="h5 card-title">Mis ofertas para este lote</h2>
+        @if (cargandoOfertas()) {
+          <p class="text-body-secondary mb-0">Cargando ofertas…</p>
+        } @else if (errorOfertas()) {
+          <div class="alert alert-danger mb-0">No se pudieron cargar tus ofertas.</div>
+        } @else if (misOfertas().length === 0) {
+          <p class="text-body-secondary mb-0">Tu ONG todavía no ofertó para este lote.</p>
+        } @else {
+          <div class="table-responsive">
+            <table class="table table-sm align-middle mb-0">
+              <thead>
+                <tr>
+                  <th>Registrada</th>
+                  <th>Estado</th>
+                  <th>ONGs</th>
+                  <th>Total ofrecido</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (oferta of misOfertas(); track oferta.id) {
+                  <tr>
+                    <td>{{ oferta.fechaOferta | date: 'short' }}</td>
+                    <td>
+                      <span class="badge" [class]="badgeEstado(oferta.estado)">{{
+                        oferta.estadoEtiqueta
+                      }}</span>
+                    </td>
+                    <td>
+                      <div class="d-flex flex-wrap gap-1">
+                        @for (ong of oferta.ongs; track ong.id) {
+                          <span class="chip-ong" [style.--ong-color]="colorOng(ong.id)">{{
+                            ong.razonSocial
+                          }}</span>
+                        }
+                      </div>
+                    </td>
+                    <td>{{ totalOfrecido(oferta) }} en {{ oferta.aportes.length }} recurso(s)</td>
+                    <td class="text-end">
+                      <button
+                        type="button"
+                        class="btn btn-outline-primary btn-sm"
+                        (click)="verDetalle(oferta)"
+                      >
+                        Ver detalle
+                      </button>
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
+      </div>
+    </div>
+  }
+
   <div class="d-flex gap-2">
     <button
       type="button"
       class="btn btn-primary"
-      [disabled]="!l.convocatoriaAbierta"
+      [disabled]="!l.convocatoriaAbierta || !puedeOfertar()"
       (click)="abrirModal()"
     >
       Registrar oferta
@@ -78,10 +138,18 @@
     <!-- TODO: botón "Actualizar oferta" — en standby hasta tener la identidad real de la ONG (login contra Bonita). -->
   </div>
 
-  @if (!l.convocatoriaAbierta) {
+  @if (!puedeOfertar()) {
+    <p class="text-body-secondary small mt-2">
+      Solo un representante de ONG puede registrar ofertas.
+    </p>
+  } @else if (!l.convocatoriaAbierta) {
     <p class="text-body-secondary small mt-2">
       La convocatoria de ofertas para esta emergencia está cerrada.
     </p>
+  }
+
+  @if (ofertaSeleccionada(); as oferta) {
+    <app-oferta-detalle-modal [oferta]="oferta" (cerrar)="ofertaSeleccionada.set(null)" />
   }
 
   @if (modalAbierto()) {

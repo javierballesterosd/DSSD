@@ -6,6 +6,7 @@ import java.util.List;
 public record OfertaResponse(
         Long id,
         String estado,
+        String estadoEtiqueta,
         LocalDateTime fechaOferta,
         Long loteId,
         String loteTitulo,

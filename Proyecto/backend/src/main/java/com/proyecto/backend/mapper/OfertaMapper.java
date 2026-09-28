@@ -32,6 +32,7 @@ public class OfertaMapper {
         return new OfertaResponse(
                 oferta.getId(),
                 oferta.getEstado().name(),
+                oferta.getEstado().getEtiqueta(),
                 oferta.getFechaOferta(),
                 oferta.getLote().getId(),
                 oferta.getLote().getTitulo(),

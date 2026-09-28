@@ -23,26 +23,33 @@
     <div class="mb-3">
       <h6>ONGs participantes</h6>
       <div class="d-flex flex-wrap gap-3">
-        @for (ong of ongsDisponibles(); track ong.id) {
-          <div class="form-check">
+        @for (ong of ongsOrdenadas(); track ong.id) {
+          <div
+            class="form-check"
+            [title]="esOngPropia(ong.id) ? 'Tu ONG participa siempre de la oferta' : ''"
+          >
             <input
               type="checkbox"
               class="form-check-input"
               [id]="'ong-' + ong.id"
               [checked]="ongsSeleccionadas().includes(ong.id)"
+              [disabled]="esOngPropia(ong.id)"
               (change)="toggleOng(ong.id, $any($event.target).checked)"
             />
             <label class="form-check-label" [for]="'ong-' + ong.id">
-              <span class="badge" [class]="colorOng(ong.id)">{{ ong.razonSocial }}</span>
+              <span class="chip-ong" [style.--ong-color]="colorOng(ong.id)">{{
+                ong.razonSocial
+              }}</span>
+              @if (esOngPropia(ong.id)) {
+                <span class="small text-body-secondary ms-1">(tu ONG)</span>
+              }
             </label>
           </div>
         }
       </div>
     </div>
 
-    @if (columnas().length === 0) {
-      <p class="text-body-secondary">Elegí al menos una ONG para empezar a cargar.</p>
-    } @else {
+    @if (columnas().length > 0) {
       <div class="table-responsive">
         <table class="table table-bordered align-middle">
           <thead>
@@ -51,7 +58,12 @@
               <th>Cant. solicitada</th>
               @for (ong of columnas(); track ong.id) {
                 <th [class.table-danger]="ongEsInvalida(ong.id)">
-                  <span class="badge" [class]="colorOng(ong.id)">{{ ong.razonSocial }}</span>
+                  <span class="chip-ong" [style.--ong-color]="colorOng(ong.id)">{{
+                    ong.razonSocial
+                  }}</span>
+                  @if (esOngPropia(ong.id)) {
+                    <div class="small fw-normal text-body-secondary">Tu ONG</div>
+                  }
                   @if (ongEsInvalida(ong.id)) {
                     <div class="small fw-normal">No está aportando nada</div>
                   }
@@ -136,31 +148,7 @@
         </div>
       </div>
     </div>
-    <table class="table table-sm">
-      <thead>
-        <tr>
-          <th>Recurso</th>
-          <th>Desglose por ONG</th>
-          <th>Total</th>
-        </tr>
-      </thead>
-      <tbody>
-        @for (aporte of oferta.aportes; track aporte.itemLoteId) {
-          <tr>
-            <td>{{ aporte.recursoNombre }}</td>
-            <td>
-              @for (porOng of aporte.porOng; track porOng.ongId) {
-                <div class="mb-1">
-                  <span class="badge" [class]="colorOng(porOng.ongId)">{{ porOng.razonSocial }}</span>
-                  {{ porOng.cantidadOfrecida }} {{ aporte.unidadMedida }}
-                </div>
-              }
-            </td>
-            <td>{{ aporte.totalOfrecido }} {{ aporte.unidadMedida }}</td>
-          </tr>
-        }
-      </tbody>
-    </table>
+    <app-oferta-desglose [oferta]="oferta" />
   }
 
   <div modal-footer>

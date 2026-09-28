@@ -41,4 +41,14 @@ describe('Ofertas', () => {
     }
     req.flush({});
   });
+
+  it('pide mis ofertas del lote con loteId como parámetro', () => {
+    service.misOfertas(10).subscribe((ofertas) => expect(ofertas).toEqual([]));
+
+    const req = httpMock.expectOne(
+      (r) => r.url === `${environment.apiUrl}/ofertas/mias` && r.params.get('loteId') === '10',
+    );
+    expect(req.request.method).toBe('GET');
+    req.flush([]);
+  });
 });
