@@ -37,6 +37,12 @@ public class OngService {
                 .toList();
     }
 
+    public Ong obtenerPorGrupoBonita(String path) {
+        return ongRepository.findByBonitaGroupPath(path)
+                .orElseThrow(() -> new RecursoNoEncontradoException(
+                        "No hay una ONG registrada para el grupo de Bonita " + path));
+    }
+
     public List<InventarioOngResponse> inventarioPorOng(Set<Long> ongIds) {
         List<Ong> ongs = ongRepository.findAllById(ongIds);
         if (ongs.size() != ongIds.size()) {

@@ -29,7 +29,14 @@
           <div class="invalid-feedback">Ingresá tu contraseña.</div>
         </div>
 
-        <button type="submit" class="btn btn-primary w-100">Ingresar</button>
+        <button type="submit" class="btn btn-primary w-100" [disabled]="cargando()">
+          @if (cargando()) {
+            <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>
+            Ingresando...
+          } @else {
+            Ingresar
+          }
+        </button>
       </form>
     </div>
   </div>

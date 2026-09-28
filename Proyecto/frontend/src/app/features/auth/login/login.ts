@@ -1,8 +1,11 @@
-import { Component, inject } from '@angular/core';
+import { Component, inject, signal } from '@angular/core';
+import { HttpErrorResponse } from '@angular/common/http';
+import { finalize } from 'rxjs';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import { ROLES, ROL_LABEL, Rol } from '../../../core/models/rol';
 import { Auth } from '../../../core/services/auth';
+import { ToastService } from '../../../core/services/toast';
 
 @Component({
   imports: [ReactiveFormsModule],
@@ -12,6 +15,9 @@ import { Auth } from '../../../core/services/auth';
 export class Login {
   private readonly auth = inject(Auth);
   private readonly router = inject(Router);
+  private readonly toast = inject(ToastService);
+
+  protected readonly cargando = signal(false);
 
   protected readonly roles = ROLES;
   protected readonly rolLabel = ROL_LABEL;
@@ -27,11 +33,40 @@ export class Login {
       return;
     }
 
-    this.auth.login(this.form.getRawValue()).subscribe({
-      next: () => this.router.navigateByUrl(this.auth.homeUrl()),
-      error: (error) => {
-        console.log(error); //ESTO SE PUEDE AGREGAR UN COMPONENTE DE ERROR PARA MOSTRARLO EN PANTALLA
-      }
-    });
+    if (this.cargando()) {
+      return;
+    }
+
+    this.cargando.set(true);
+    this.form.disable();
+
+    this.auth
+      .login(this.form.getRawValue())
+      .pipe(
+        finalize(() => {
+          this.cargando.set(false);
+          this.form.enable();
+        }),
+      )
+      .subscribe({
+        next: () => this.router.navigateByUrl(this.auth.homeUrl()),
+        error: (error: HttpErrorResponse) =>
+          this.toast.error('No se pudo iniciar sesión', this.motivoDelError(error)),
+      });
+  }
+
+  private motivoDelError(error: HttpErrorResponse): string {
+    switch (error.status) {
+      case 0:
+        return 'No se pudo conectar con el servidor. Verificá tu conexión e intentá de nuevo.';
+      case 401:
+        return 'Usuario o contraseña incorrectos.';
+      case 404:
+        return error.error?.mensaje ?? 'Tu usuario no está asociado a una ONG registrada.';
+      case 502:
+        return 'El servicio de autenticación (Bonita) no está disponible. Intentá más tarde.';
+      default:
+        return error.error?.mensaje ?? 'Ocurrió un error inesperado. Intentá de nuevo.';
+    }
   }
 }
