@@ -266,4 +266,28 @@ class OfertaServiceTest {
         assertThat(resultado.get(0).aportes().get(0).totalOfrecido()).isEqualTo(600);
         assertThat(resultado.get(0).aportes().get(0).porOng()).hasSize(2);
     }
+
+    @Test
+    void noDuplicaAportesSiElBagDeDetallesTraeRepetidos() {
+        Oferta oferta = new Oferta();
+        oferta.setId(8L);
+        oferta.setEstado(EstadoOferta.PENDIENTE);
+        oferta.setFechaOferta(java.time.LocalDateTime.now());
+        oferta.setLote(lote);
+        oferta.setOngs(new java.util.HashSet<>(List.of(ongA, ongB)));
+        DetalleOferta detalle = new DetalleOferta();
+        detalle.setOferta(oferta);
+        detalle.setOng(ongA);
+        detalle.setItemLote(itemRaciones);
+        detalle.setCantidadOfrecida(800);
+        // El mismo detalle dos veces, como produce un join fetch con dos colecciones.
+        oferta.getDetalles().add(detalle);
+        oferta.getDetalles().add(detalle);
+        when(ofertaRepository.findByLoteIdAndOngId(10L, 1L)).thenReturn(List.of(oferta));
+
+        OfertaResponse resultado = ofertaService.listarDeOng(10L, 1L).get(0);
+
+        assertThat(resultado.aportes().get(0).totalOfrecido()).isEqualTo(800);
+        assertThat(resultado.aportes().get(0).porOng()).hasSize(1);
+    }
 }

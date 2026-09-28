@@ -44,7 +44,8 @@ public class OfertaMapper {
 
     private List<AporteRecursoResponse> agruparPorItem(List<DetalleOferta> detalles) {
         Map<Long, List<DetalleOferta>> porItem = new LinkedHashMap<>();
-        for (DetalleOferta detalle : detalles) {
+        // distinct(): red de seguridad ante un bag con repetidos (mismo detalle cargado más de una vez)
+        for (DetalleOferta detalle : detalles.stream().distinct().toList()) {
             porItem.computeIfAbsent(detalle.getItemLote().getId(), id -> new java.util.ArrayList<>()).add(detalle);
         }
 

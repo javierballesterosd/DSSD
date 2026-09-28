@@ -11,8 +11,10 @@ import java.util.List;
 public interface OfertaRepository extends JpaRepository<Oferta, Long> {
 
     /** Ofertas de un lote en las que participa la ONG (sola o en consorcio), la más nueva primero. */
+    // "ongs" queda afuera a propósito: traerla junto con "detalles" (una List, o sea un bag) arma un
+    // producto cartesiano y cada detalle aparece repetido una vez por ONG. Se carga lazy en la transacción.
     @EntityGraph(attributePaths = {
-            "ongs", "detalles", "detalles.ong", "detalles.itemLote", "detalles.itemLote.recurso",
+            "detalles", "detalles.ong", "detalles.itemLote", "detalles.itemLote.recurso",
             "lote", "lote.emergencia"
     })
     @Query("select o from Oferta o join o.ongs g "
