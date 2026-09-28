@@ -13,7 +13,9 @@ export interface LoteResumen {
   titulo: string;
   estado: string;
   fechaCreacion: string;
-  fechaInicio: string | null;
+  /** Ventana de recepción de ofertas de este lote. */
+  fechaAperturaOfertas: string | null;
+  fechaCierreOfertas: string | null;
   emergencia: EmergenciaResumen;
   items: ItemLote[];
 }

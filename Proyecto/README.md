@@ -170,10 +170,36 @@ Todos los usuarios de ejemplo tienen contraseña `bpm`.
 
 | Rol | Grupo | Usuarios |
 |---|---|---|
-| Operador Municipal | `Municipio` | `operador.laplata`, `operador.berisso` |
-| Coordinador Regional | `Centro Regional Coordinador` | `coord.norte`, `coord.sur` |
+| Operador Municipal | subgrupo de una región (ver abajo) | `operador.laplata`, `operador.citybell`, `operador.berisso`, `operador.lobos`, `operador.quilmes` |
+| Coordinador Regional | grupo de su región (ver abajo) | `coord.norte`, `coord.sur`, `coord.region3`, `coord.region4` |
 | Auditor | `Sistema Nacional` | `auditor.nacional`, `Usuario1` |
 | Representante de ONG | subgrupo de `ONG` (ver abajo) | ver abajo |
+
+### Municipios y regiones
+Los municipios son **subgrupos de una región**, y las regiones son subgrupos de `/Municipio`. Un Coordinador Regional pertenece a una región y trabaja con las emergencias de los municipios de esa región.
+
+| Región (path en Bonita) | Coordinador | Municipios (path) | Operador |
+|---|---|---|---|
+| `/Municipio/Region1` | `coord.norte` | `/Municipio/Region1/LaPlata` | `operador.laplata` |
+| | | `/Municipio/Region1/CityBell` | `operador.citybell` |
+| `/Municipio/Region2` | `coord.sur` | `/Municipio/Region2/Berisso` | `operador.berisso` |
+| `/Municipio/Region3` | `coord.region3` | `/Municipio/Region3/Lobos` | `operador.lobos` |
+| `/Municipio/Region4` | `coord.region4` | `/Municipio/Region4/Quilmes` | `operador.quilmes` |
+
+Igual que con las ONGs, el vínculo con la base es por **path**: `municipio.bonita_group_path` y `region.bonita_group_path` (únicos, obligatorios), y `municipio.region_id` apunta a su región. En el login:
+- `MUNICIPAL`: el path del grupo (`/Municipio/Region1/LaPlata`) resuelve el municipio y su región; la respuesta trae `municipioId`, `municipioNombre`, `regionId` y `regionNombre`.
+- `COORDINADOR`: el path del grupo (`/Municipio/Region1`) resuelve la región; la respuesta trae `regionId` y `regionNombre`.
+- Los demás roles reciben esos campos en `null`.
+
+Al registrar una emergencia el municipio sale del usuario logueado (no del request) y se manda a Bonita el `regionGroupPath`, para que la app filtre las tareas del coordinador por región.
+
+### Regla: un lote por emergencia
+Una emergencia tiene **un solo lote no cancelado**. Si el coordinador cancela el lote (por ejemplo, porque nadie ofertó) y arma otro, cada publicación conserva su propia **ventana de ofertas** (`lote.fecha_apertura_ofertas` / `lote.fecha_cierre_ofertas`); por eso las fechas viven en el lote y no en la emergencia. La base lo garantiza con un índice único parcial (`lote(emergencia_id) WHERE estado <> 'CANCELADO'`) y `LoteRepository.existsByEmergenciaIdAndEstadoNot` queda listo para que la creación de lotes lo valide. `OfertaService.registrar` rechaza ofertas antes de la apertura o después del cierre del lote.
+
+### Proceso 1 en Bonita: instanciación y ventana de ofertas
+- El modelo vigente es `Modelado/rescueSync-V1.3.bos` (Proceso 1 con variables, contratos, operaciones y dos timers; detalle en `.claude/docs/bonita-modelo.md`). Después de importarlo hay que **mapear los actores** en Studio (Municipio → Operador Municipal, Centro Coordinador Regional → Coordinador Regional, ONG → Representante de ONG), activar RescueSync y desplegar.
+- Al registrar una emergencia, `EmergenciaService` usa la sesión de Bonita del usuario: busca el proceso por nombre (`bonita.process.name`, por defecto `Proceso 1`), inicia el caso sin contrato, espera la tarea "Registrar emergencia" y la ejecuta con `{emergenciaId, municipioId, nivelGravedad, zonaAfectada, descripcion, regionGroupPath}`. Si Bonita falla, se revierte el alta.
+- La tarea "Desglosar" del coordinador se completa al publicar el lote con `{loteId, fechaAperturaOfertas, fechaCierreOfertas}` (`BonitaClient.ejecutarTarea`, todavía por integrar con `feature/publicacion-lotes`). **La apertura y el cierre los elige el usuario al publicar el lote**: el proceso ya lo soporta sin cambios. El timer "Apertura de convocatoria" espera hasta `fechaAperturaOfertas` (si ya pasó, abre enseguida) y el boundary timer vence en `fechaCierreOfertas`. Las fechas se mandan como `LocalDateTime` sin zona (se interpretan en `America/Argentina/Buenos_Aires`) y el backend debe validar cierre posterior a apertura.
 
 ### ONGs como subgrupos de `ONG`
 Cada ONG es un **subgrupo de `/ONG`** en Bonita, y todos sus representantes tienen el rol `Representante de ONG`. Hay una ONG por subgrupo y puede tener varios usuarios:
@@ -197,7 +223,7 @@ Cada ONG es un **subgrupo de `/ONG`** en Bonita, y todos sus representantes tien
 2. En la base: insertar la fila con el mismo path, por ejemplo `INSERT INTO ong (razon_social, bonita_group_path) VALUES ('Nueva ONG', '/ONG/NuevaOng');`. Idealmente sumarla también a `db/seed/01-reset-y-seed.sql`.
 
 ### Datos de ejemplo (seed)
-`db/seed/01-reset-y-seed.sql` **borra todos los datos** (municipios, recursos, ONGs, emergencias y lo que depende de ellos) y carga el juego de datos común: 1 municipio, 4 recursos, las 5 ONGs de arriba con su inventario, 1 emergencia con 2 lotes. Correrlo antes de levantar el backend (la entidad `Ong` exige `bonita_group_path`):
+`db/seed/01-reset-y-seed.sql` **borra todos los datos** (municipios, recursos, ONGs, emergencias y lo que depende de ellos) y carga el juego de datos común: 4 regiones y 5 municipios (ver arriba), 10 recursos, las 5 ONGs con su inventario y 2 emergencias: una en La Plata con un lote activo (ventana: abre hoy a las 18:00 y cierra en una semana) y una en Berisso con un lote cancelado y otro activo (ventana: abre mañana a las 08:00 y cierra mañana a las 23:00). Las fechas son relativas al día en que se corre el seed. También adapta el esquema (tablas/columnas de región, municipio y lote). Correrlo antes de levantar el backend (la entidad `Ong` exige `bonita_group_path`):
 
 ```bash
 docker exec -i postgres_db psql -U postgres -d rescuesync < db/seed/01-reset-y-seed.sql

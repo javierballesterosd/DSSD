@@ -25,5 +25,4 @@ export interface EmergenciaResumen {
   descripcion: string;
   fechaRegistro: string;
   municipio: string;
-  fechaCierreOfertas: string | null;
 }

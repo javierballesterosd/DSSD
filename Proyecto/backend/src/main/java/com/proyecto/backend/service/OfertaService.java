@@ -58,9 +58,14 @@ public class OfertaService {
             throw new ReglaNegocioException("El lote no está abierto a ofertas");
         }
 
-        LocalDateTime cierre = lote.getEmergencia().getFechaCierreOfertas();
-        if (cierre != null && !cierre.isAfter(LocalDateTime.now())) {
-            throw new ReglaNegocioException("La convocatoria de ofertas para esta emergencia ya cerró");
+        LocalDateTime ahora = LocalDateTime.now();
+        LocalDateTime apertura = lote.getFechaAperturaOfertas();
+        if (apertura != null && apertura.isAfter(ahora)) {
+            throw new ReglaNegocioException("La convocatoria de ofertas para este lote todavía no abrió");
+        }
+        LocalDateTime cierre = lote.getFechaCierreOfertas();
+        if (cierre != null && !cierre.isAfter(ahora)) {
+            throw new ReglaNegocioException("La convocatoria de ofertas para este lote ya cerró");
         }
 
         List<Ong> ongs = ongRepository.findAllById(request.ongIds());

@@ -9,7 +9,6 @@ public record EmergenciaResumenResponse(
         String nivelGravedadEtiqueta,
         String descripcion,
         LocalDateTime fechaRegistro,
-        String municipio,
-        LocalDateTime fechaCierreOfertas
+        String municipio
 ) {
 }

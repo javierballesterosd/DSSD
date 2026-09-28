@@ -49,13 +49,6 @@ public class Emergencia {
     @Column(name = "bonita_case_id", unique = true)
     private String bonitaCaseId;
 
-    /** Ventana de recepción de ofertas: la convocatoria es por emergencia, no por lote. */
-    @Column(name = "fecha_apertura_ofertas")
-    private LocalDateTime fechaAperturaOfertas;
-
-    @Column(name = "fecha_cierre_ofertas")
-    private LocalDateTime fechaCierreOfertas;
-
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "municipio_id", nullable = false)
     private Municipio municipio;

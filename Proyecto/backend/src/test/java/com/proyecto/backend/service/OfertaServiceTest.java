@@ -72,7 +72,6 @@ class OfertaServiceTest {
         Emergencia emergencia = new Emergencia();
         emergencia.setId(1L);
         emergencia.setZonaAfectada("Zona Norte");
-        emergencia.setFechaCierreOfertas(null);
 
         lote = new Lote();
         lote.setId(10L);
@@ -113,6 +112,30 @@ class OfertaServiceTest {
         ongB.setRazonSocial("Manos Unidas");
 
         lenient().when(loteRepository.findById(10L)).thenReturn(java.util.Optional.of(lote));
+    }
+
+    @Test
+    void rechazaOfertaAntesDeQueAbraLaConvocatoria() {
+        lote.setFechaAperturaOfertas(java.time.LocalDateTime.now().plusHours(1));
+        lote.setFechaCierreOfertas(java.time.LocalDateTime.now().plusDays(2));
+        OfertaRequest request = new OfertaRequest(10L, Set.of(1L),
+                List.of(new DetalleOfertaRequest(200L, 1L, 100)));
+
+        assertThatThrownBy(() -> ofertaService.registrar(request, ONG_USUARIO))
+                .isInstanceOf(ReglaNegocioException.class)
+                .hasMessageContaining("todavía no abrió");
+    }
+
+    @Test
+    void rechazaOfertaDespuesDeQueCerroLaConvocatoria() {
+        lote.setFechaAperturaOfertas(java.time.LocalDateTime.now().minusDays(2));
+        lote.setFechaCierreOfertas(java.time.LocalDateTime.now().minusMinutes(1));
+        OfertaRequest request = new OfertaRequest(10L, Set.of(1L),
+                List.of(new DetalleOfertaRequest(200L, 1L, 100)));
+
+        assertThatThrownBy(() -> ofertaService.registrar(request, ONG_USUARIO))
+                .isInstanceOf(ReglaNegocioException.class)
+                .hasMessageContaining("ya cerró");
     }
 
     @Test

@@ -10,6 +10,8 @@ const LOTE = {
   titulo: 'Asistencia alimentaria',
   estado: 'ACTIVO',
   convocatoriaAbierta: true,
+  fechaAperturaOfertas: null,
+  fechaCierreOfertas: null,
   emergencia: {
     id: 1,
     zonaAfectada: 'Zona Norte',
@@ -18,7 +20,6 @@ const LOTE = {
     descripcion: 'Inundación',
     fechaRegistro: '2026-09-20T10:00:00',
     municipio: 'La Plata',
-    fechaCierreOfertas: null,
   },
   items: [],
 };

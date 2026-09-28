@@ -12,7 +12,9 @@ import com.proyecto.backend.dto.auth.LoginResponse;
 import com.proyecto.backend.exception.AccesoDenegadoException;
 import com.proyecto.backend.exception.RecursoNoEncontradoException;
 import com.proyecto.backend.exception.UnauthenticatedException;
+import com.proyecto.backend.model.Municipio;
 import com.proyecto.backend.model.Ong;
+import com.proyecto.backend.model.Region;
 import jakarta.servlet.http.HttpSession;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -34,6 +36,10 @@ class AuthServiceTest {
     @Mock
     private OngService ongService;
     @Mock
+    private MunicipioService municipioService;
+    @Mock
+    private RegionService regionService;
+    @Mock
     private HttpSession httpSession;
 
     private AuthService authService;
@@ -41,7 +47,7 @@ class AuthServiceTest {
 
     @BeforeEach
     void setUp() {
-        authService = new AuthService(bonitaClient, ongService);
+        authService = new AuthService(bonitaClient, ongService, municipioService, regionService);
     }
 
     private LoginRequest request(String username) {
@@ -77,15 +83,57 @@ class AuthServiceTest {
     }
 
     @Test
-    void loginDeOtroRolNoResuelveOng() {
-        BonitaGroup grupo = new BonitaGroup("10", "Municipio", "Municipio", null);
+    void loginDeOperadorMunicipalDevuelveMunicipioYRegionVinculadosPorPath() {
+        BonitaGroup grupo = new BonitaGroup("11", "LaPlata", "La Plata", "/Municipio/Region1");
         bonitaDevuelve("operador.laplata", "Operador Municipal", grupo);
+        Region region = new Region();
+        region.setId(1L);
+        region.setNombre("Región 1");
+        Municipio municipio = new Municipio();
+        municipio.setId(5L);
+        municipio.setNombre("La Plata");
+        municipio.setRegion(region);
+        when(municipioService.obtenerPorGrupoBonita("/Municipio/Region1/LaPlata")).thenReturn(municipio);
 
         LoginResponse response = authService.login(request("operador.laplata"), httpSession);
 
         assertThat(response.getRole()).isEqualTo("MUNICIPAL");
+        assertThat(response.getMunicipioId()).isEqualTo(5L);
+        assertThat(response.getMunicipioNombre()).isEqualTo("La Plata");
+        assertThat(response.getRegionId()).isEqualTo(1L);
+        assertThat(response.getRegionNombre()).isEqualTo("Región 1");
         assertThat(response.getOngId()).isNull();
-        assertThat(response.getOngNombre()).isNull();
+    }
+
+    @Test
+    void loginDeCoordinadorDevuelveSuRegion() {
+        BonitaGroup grupo = new BonitaGroup("12", "Region1", "Región 1", "/Municipio");
+        bonitaDevuelve("coord.norte", "Coordinador Regional", grupo);
+        Region region = new Region();
+        region.setId(1L);
+        region.setNombre("Región 1");
+        when(regionService.obtenerPorGrupoBonita("/Municipio/Region1")).thenReturn(region);
+
+        LoginResponse response = authService.login(request("coord.norte"), httpSession);
+
+        assertThat(response.getRole()).isEqualTo("COORDINADOR");
+        assertThat(response.getRegionId()).isEqualTo(1L);
+        assertThat(response.getRegionNombre()).isEqualTo("Región 1");
+        assertThat(response.getMunicipioId()).isNull();
+        assertThat(response.getOngId()).isNull();
+    }
+
+    @Test
+    void loginDeAuditorNoResuelveOrganizacion() {
+        BonitaGroup grupo = new BonitaGroup("13", "Sistema Nacional", "Sistema Nacional", null);
+        bonitaDevuelve("auditor.nacional", "Auditor", grupo);
+
+        LoginResponse response = authService.login(request("auditor.nacional"), httpSession);
+
+        assertThat(response.getRole()).isEqualTo("AUDITOR");
+        assertThat(response.getOngId()).isNull();
+        assertThat(response.getMunicipioId()).isNull();
+        assertThat(response.getRegionId()).isNull();
     }
 
     @Test
@@ -124,9 +172,36 @@ class AuthServiceTest {
 
     @Test
     void ongDelUsuarioRechazaOtrosRoles() {
-        sesionCon("Coordinador Regional", new BonitaGroup("20", "CRC", "Centro Regional Coordinador", null));
+        sesionCon("Coordinador Regional", new BonitaGroup("12", "Region1", "Región 1", "/Municipio"));
+        Region region = new Region();
+        region.setId(1L);
+        region.setNombre("Región 1");
+        when(regionService.obtenerPorGrupoBonita("/Municipio/Region1")).thenReturn(region);
 
         assertThatThrownBy(() -> authService.ongDelUsuario(httpSession))
+                .isInstanceOf(AccesoDenegadoException.class);
+    }
+
+    @Test
+    void municipioDelUsuarioDevuelveElMunicipioDelOperador() {
+        sesionCon("Operador Municipal", new BonitaGroup("11", "LaPlata", "La Plata", "/Municipio/Region1"));
+        Region region = new Region();
+        region.setId(1L);
+        region.setNombre("Región 1");
+        Municipio municipio = new Municipio();
+        municipio.setId(5L);
+        municipio.setNombre("La Plata");
+        municipio.setRegion(region);
+        when(municipioService.obtenerPorGrupoBonita("/Municipio/Region1/LaPlata")).thenReturn(municipio);
+
+        assertThat(authService.municipioDelUsuario(httpSession)).isEqualTo(5L);
+    }
+
+    @Test
+    void municipioDelUsuarioRechazaOtrosRoles() {
+        sesionCon("Auditor", new BonitaGroup("13", "Sistema Nacional", "Sistema Nacional", null));
+
+        assertThatThrownBy(() -> authService.municipioDelUsuario(httpSession))
                 .isInstanceOf(AccesoDenegadoException.class);
     }
 

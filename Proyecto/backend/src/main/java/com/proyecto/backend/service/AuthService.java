@@ -12,7 +12,9 @@ import com.proyecto.backend.exception.AccesoDenegadoException;
 import com.proyecto.backend.exception.BonitaIntegrationException;
 import com.proyecto.backend.exception.InvalidCredentialsException;
 import com.proyecto.backend.exception.UnauthenticatedException;
+import com.proyecto.backend.model.Municipio;
 import com.proyecto.backend.model.Ong;
+import com.proyecto.backend.model.Region;
 import jakarta.servlet.http.HttpSession;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -31,18 +33,24 @@ public class AuthService {
 
     private final BonitaClient bonitaClient;
     private final OngService ongService;
+    private final MunicipioService municipioService;
+    private final RegionService regionService;
 
-    public AuthService(BonitaClient bonitaClient, OngService ongService) {
+    public AuthService(BonitaClient bonitaClient, OngService ongService,
+                       MunicipioService municipioService, RegionService regionService) {
         this.bonitaClient = bonitaClient;
         this.ongService = ongService;
+        this.municipioService = municipioService;
+        this.regionService = regionService;
     }
 
     public LoginResponse login(LoginRequest request, HttpSession httpSession) {
         String username = request.getUsername();
         try {
             LoginResponse response = autenticar(request, httpSession);
-            log.info("Login exitoso: usuario='{}', rol={}, grupo='{}', ong={}",
-                    username, response.getRole(), response.getGroup(), response.getOngNombre());
+            log.info("Login exitoso: usuario='{}', rol={}, grupo='{}', ong/municipio={}",
+                    username, response.getRole(), response.getGroup(),
+                    response.getOngNombre() != null ? response.getOngNombre() : response.getMunicipioNombre());
             return response;
         } catch (InvalidCredentialsException e) {
             log.warn("Login fallido: usuario='{}', motivo=credenciales inválidas en Bonita", username);
@@ -111,6 +119,27 @@ public class AuthService {
         return usuario.getOngId();
     }
 
+    /**
+     * Id del municipio del usuario logueado. Lanza 401 si no hay sesión y 403 si el usuario
+     * no es operador municipal.
+     */
+    public Long municipioDelUsuario(HttpSession httpSession) {
+        LoginResponse usuario = currentUser(httpSession);
+        if (!"MUNICIPAL".equals(usuario.getRole()) || usuario.getMunicipioId() == null) {
+            throw new AccesoDenegadoException("Solo un operador municipal puede registrar emergencias");
+        }
+        return usuario.getMunicipioId();
+    }
+
+    /** Sesión de Bonita del usuario logueado (para invocar la API de Bonita en su nombre). */
+    public BonitaSession bonitaSession(HttpSession httpSession) {
+        BonitaSession session = (BonitaSession) httpSession.getAttribute(BONITA_SESSION_ATTRIBUTE);
+        if (session == null) {
+            throw new UnauthenticatedException();
+        }
+        return session;
+    }
+
     public void logout(HttpSession httpSession) {
         httpSession.invalidate();
     }
@@ -131,6 +160,19 @@ public class AuthService {
             Ong ong = ongService.obtenerPorGrupoBonita(membership.group().path());
             response.setOngId(ong.getId());
             response.setOngNombre(ong.getRazonSocial());
+        }
+
+        // El municipio del operador se resuelve por el path de su subgrupo; el CCR, por el de su región
+        if ("MUNICIPAL".equals(applicationRole)) {
+            Municipio municipio = municipioService.obtenerPorGrupoBonita(membership.group().path());
+            response.setMunicipioId(municipio.getId());
+            response.setMunicipioNombre(municipio.getNombre());
+            response.setRegionId(municipio.getRegion().getId());
+            response.setRegionNombre(municipio.getRegion().getNombre());
+        } else if ("COORDINADOR".equals(applicationRole)) {
+            Region region = regionService.obtenerPorGrupoBonita(membership.group().path());
+            response.setRegionId(region.getId());
+            response.setRegionNombre(region.getNombre());
         }
         return response;
     }

@@ -21,7 +21,8 @@ public class LoteMapper {
                 lote.getTitulo(),
                 lote.getEstado().name(),
                 lote.getFechaCreacion(),
-                lote.getFechaInicio(),
+                lote.getFechaAperturaOfertas(),
+                lote.getFechaCierreOfertas(),
                 toEmergenciaResumen(lote.getEmergencia()),
                 toItemResponses(lote)
         );
@@ -33,16 +34,19 @@ public class LoteMapper {
                 lote.getTitulo(),
                 lote.getEstado().name(),
                 lote.getFechaCreacion(),
-                lote.getFechaInicio(),
+                lote.getFechaAperturaOfertas(),
+                lote.getFechaCierreOfertas(),
                 toEmergenciaResumen(lote.getEmergencia()),
                 toItemResponses(lote),
-                esConvocatoriaAbierta(lote.getEmergencia())
+                esConvocatoriaAbierta(lote)
         );
     }
 
-    private boolean esConvocatoriaAbierta(Emergencia emergencia) {
-        LocalDateTime cierre = emergencia.getFechaCierreOfertas();
-        return cierre == null || cierre.isAfter(LocalDateTime.now());
+    private boolean esConvocatoriaAbierta(Lote lote) {
+        LocalDateTime ahora = LocalDateTime.now();
+        LocalDateTime apertura = lote.getFechaAperturaOfertas();
+        LocalDateTime cierre = lote.getFechaCierreOfertas();
+        return (apertura == null || !apertura.isAfter(ahora)) && (cierre == null || cierre.isAfter(ahora));
     }
 
     private EmergenciaResumenResponse toEmergenciaResumen(Emergencia emergencia) {
@@ -53,8 +57,7 @@ public class LoteMapper {
                 emergencia.getNivelGravedad().getEtiqueta(),
                 emergencia.getDescripcion(),
                 emergencia.getFechaRegistro(),
-                emergencia.getMunicipio().getNombre(),
-                emergencia.getFechaCierreOfertas()
+                emergencia.getMunicipio().getNombre()
         );
     }
 

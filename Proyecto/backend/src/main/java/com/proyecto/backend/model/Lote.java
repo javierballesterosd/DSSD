@@ -17,7 +17,6 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -43,9 +42,12 @@ public class Lote {
     @Column(name = "fecha_creacion", nullable = false)
     private LocalDateTime fechaCreacion;
 
-    /** Fecha estimada de inicio del despliegue. */
-    @Column(name = "fecha_inicio")
-    private LocalDate fechaInicio;
+    /** Ventana de recepción de ofertas de este lote: cada publicación conserva la suya. */
+    @Column(name = "fecha_apertura_ofertas")
+    private LocalDateTime fechaAperturaOfertas;
+
+    @Column(name = "fecha_cierre_ofertas")
+    private LocalDateTime fechaCierreOfertas;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "emergencia_id", nullable = false)

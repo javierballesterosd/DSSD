@@ -1,6 +1,5 @@
 package com.proyecto.backend.dto;
 
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -9,7 +8,8 @@ public record LoteResumenResponse(
         String titulo,
         String estado,
         LocalDateTime fechaCreacion,
-        LocalDate fechaInicio,
+        LocalDateTime fechaAperturaOfertas,
+        LocalDateTime fechaCierreOfertas,
         EmergenciaResumenResponse emergencia,
         List<ItemLoteResponse> items
 ) {

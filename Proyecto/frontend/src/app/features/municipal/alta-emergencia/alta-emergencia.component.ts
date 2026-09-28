@@ -2,7 +2,6 @@ import { Component, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
 import { EmergenciaService } from '../../../core/services/emergencias/emergencia.service';
-import { Auth } from '../../../core/services/auth';
 import { NIVELES_GRAVEDAD, NivelGravedad, EmergenciaResponse } from '../../../core/models/emergencia.model';
 
 @Component({
@@ -14,7 +13,6 @@ import { NIVELES_GRAVEDAD, NivelGravedad, EmergenciaResponse } from '../../../co
 export class AltaEmergenciaComponent {
   private readonly fb = inject(FormBuilder);
   private readonly emergenciaService = inject(EmergenciaService);
-  private readonly auth = inject(Auth);
 
   readonly nivelesGravedad = NIVELES_GRAVEDAD;
 
@@ -22,16 +20,10 @@ export class AltaEmergenciaComponent {
   mensajeExito = signal<string | null>(null);
   mensajeError = signal<string | null>(null);
 
-  private get municipioIdActual(): number {
-    const usuario = this.auth.usuario();
-    return (usuario as any)?.municipioId ?? 1;
-  }
-
   form = this.fb.nonNullable.group({
     nivelGravedad: ['MEDIA' as NivelGravedad, [Validators.required]],
     zonaAfectada: ['', [Validators.required, Validators.maxLength(200)]],
-    descripcion: ['', [Validators.required, Validators.minLength(10), Validators.maxLength(2000)]],
-    municipioId: [this.municipioIdActual, [Validators.required]]
+    descripcion: ['', [Validators.required, Validators.minLength(10), Validators.maxLength(2000)]]
   });
 
   /** Devuelve la descripción de la gravedad actualmente seleccionada */
@@ -51,20 +43,15 @@ export class AltaEmergenciaComponent {
     this.mensajeExito.set(null);
     this.mensajeError.set(null);
 
-    const data = {
-      ...this.form.getRawValue(),
-      municipioId: this.municipioIdActual
-    };
-
-    this.emergenciaService.registrarEmergencia(data).subscribe({
+    // El municipio lo resuelve el backend a partir del usuario logueado
+    this.emergenciaService.registrarEmergencia(this.form.getRawValue()).subscribe({
       next: (res: EmergenciaResponse) => {
         this.cargando.set(false);
         this.mensajeExito.set('Emergencia registrada exitosamente');
         this.form.reset({
           nivelGravedad: 'MEDIA',
           zonaAfectada: '',
-          descripcion: '',
-          municipioId: this.municipioIdActual
+          descripcion: ''
         });
       },
       error: (err: HttpErrorResponse) => {

@@ -17,7 +17,6 @@ export interface EmergenciaRequest {
   nivelGravedad: NivelGravedad;
   zonaAfectada: string;
   descripcion: string;
-  municipioId: number;
 }
 
 export interface EmergenciaResponse {

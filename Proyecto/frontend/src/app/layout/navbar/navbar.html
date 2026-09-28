@@ -35,6 +35,9 @@
             @if (usuario(); as u) {
               <div class="dropdown-item-text">
                 {{ u.username }} · {{ rolLabel[u.role] }}
+                @if (u.municipioNombre ?? u.ongNombre ?? u.regionNombre; as org) {
+                  · {{ org }}
+                }
               </div>
             }
 

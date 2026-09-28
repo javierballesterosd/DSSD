@@ -21,7 +21,4 @@ public class EmergenciaRequestDTO {
     @NotBlank(message = "La descripción es obligatoria")
     @Size(min = 10, message = "La descripción debe tener al menos 10 caracteres")
     private String descripcion;
-
-    @NotNull(message = "El ID del municipio es obligatorio")
-    private Long municipioId;
 }
