@@ -26,7 +26,7 @@ public class LoteMapper {
                 .titulo(requestDTO.getTitulo())
                 .estado(EstadoLote.ACTIVO)
                 .fechaCreacion(LocalDateTime.now())
-                .fechaInicio(requestDTO.getFechaInicio())
+                .fechaInicio(LocalDateTime.now())
                 .emergencia(emergencia)
                 .build();
     }

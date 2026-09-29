@@ -12,7 +12,11 @@ import com.proyecto.backend.repository.MunicipioRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
+import com.proyecto.backend.dto.lote.EmergenciaLoteResponseDTO;
+import com.proyecto.backend.model.Lote;
+import com.proyecto.backend.repository.LoteRepository;
+import java.util.List;
+import java.util.Optional;
 import java.time.LocalDateTime;
 
 @Service
@@ -23,6 +27,7 @@ public class EmergenciaService {
     private final MunicipioRepository municipioRepository;
     private final BonitaClient bonitaClient;
     private final EmergenciaMapper emergenciaMapper;
+    private final LoteRepository loteRepository;
 
     @Transactional
     public EmergenciaResponseDTO registrarEmergencia(EmergenciaRequestDTO requestDTO) {
@@ -48,5 +53,31 @@ public class EmergenciaService {
         }
 
         return emergenciaMapper.toDto(emergenciaGuardada);
+    }
+
+    @Transactional(readOnly = true)
+    public List<EmergenciaLoteResponseDTO> obtenerEmergenciasParaLotes() {
+
+        return emergenciaRepository.findAll()
+                .stream()
+                .map(emergencia -> {
+
+                    Optional<Lote> ultimoLote =
+                            loteRepository.findFirstByEmergenciaIdOrderByIdDesc(
+                                    emergencia.getId()
+                            );
+
+                    return new EmergenciaLoteResponseDTO(
+                            emergencia.getId(),
+                            emergencia.getDescripcion(),
+                            emergencia.getNivelGravedad(),
+                            emergencia.getZonaAfectada(),
+                            emergencia.getMunicipio().getId(),
+                            emergencia.getFechaRegistro(),
+                            ultimoLote.map(Lote::getId).orElse(null),
+                            ultimoLote.map(Lote::getEstado).orElse(null)
+                    );
+                })
+                .toList();
     }
 }

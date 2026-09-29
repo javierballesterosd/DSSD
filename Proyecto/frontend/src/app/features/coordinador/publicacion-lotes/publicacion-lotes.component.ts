@@ -1,4 +1,5 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
+
 import {
   FormArray,
   FormBuilder,
@@ -7,13 +8,17 @@ import {
   ReactiveFormsModule,
   Validators,
 } from '@angular/forms';
+
 import { HttpErrorResponse } from '@angular/common/http';
 
 import { LoteService } from '@core/services/lotes/lote.service';
 import { RecursoService } from '@core/services/recursos/recurso.service';
+import { EmergenciaService } from '@core/services/emergencias/emergencia.service';
 
 import { Recurso } from '@core/models/recurso.model';
 import { LoteRequest, LoteResponse } from '@core/models/lote.model';
+
+import { EmergenciaLoteResponse } from '@core/models/emergencia-lote.model';
 
 interface ItemLoteForm {
   recursoId: FormControl<number>;
@@ -24,7 +29,6 @@ type ItemLoteFormGroup = FormGroup<ItemLoteForm>;
 
 type PublicacionLotesForm = {
   titulo: FormControl<string>;
-  fechaInicio: FormControl<string>;
   items: FormArray<ItemLoteFormGroup>;
 };
 
@@ -36,40 +40,167 @@ type PublicacionLotesForm = {
 })
 export class PublicacionLotesComponent implements OnInit {
   private readonly fb = inject(FormBuilder);
+
   private readonly loteService = inject(LoteService);
+
   private readonly recursoService = inject(RecursoService);
 
-  readonly emergenciaId = 1;
+  private readonly emergenciaService = inject(EmergenciaService);
+
+  // ==========================================================
+  // EMERGENCIAS
+  // ==========================================================
+
+  emergenciaSeleccionada: EmergenciaLoteResponse | null = null;
+
+  emergencias = signal<EmergenciaLoteResponse[]>([]);
+
+  cargandoEmergencias = signal<boolean>(false);
+
+  errorEmergencias = signal<string>('');
+
+  // ==========================================================
+  // RECURSOS
+  // ==========================================================
 
   recursos = signal<Recurso[]>([]);
 
-  cargando = signal<boolean>(false);
   cargandoRecursos = signal<boolean>(false);
 
+  // ==========================================================
+  // PUBLICACIÓN
+  // ==========================================================
+
+  cargando = signal<boolean>(false);
+
   mensajeExito = signal<string | null>(null);
+
   mensajeError = signal<string | null>(null);
 
   loteCreado = signal<LoteResponse | null>(null);
 
-  form: FormGroup<PublicacionLotesForm> = this.fb.group({
-    titulo: this.fb.nonNullable.control('', [
-      Validators.required,
-      Validators.maxLength(150),
-    ]),
+  // ==========================================================
+  // FORMULARIO
+  // ==========================================================
 
-    fechaInicio: this.fb.nonNullable.control(''),
+  form: FormGroup<PublicacionLotesForm> = this.fb.group({
+    titulo: this.fb.nonNullable.control('', [Validators.required, Validators.maxLength(150)]),
 
     items: this.fb.array<ItemLoteFormGroup>([]),
   });
 
+  // ==========================================================
+  // INIT
+  // ==========================================================
+
   ngOnInit(): void {
+    this.cargarEmergencias();
+
     this.cargarRecursos();
+
     this.agregarItem();
   }
 
-  get items(): FormArray<ItemLoteFormGroup> {
-    return this.form.controls.items;
+  // ==========================================================
+  // EMERGENCIAS
+  // ==========================================================
+
+  cargarEmergencias(): void {
+    this.cargandoEmergencias.set(true);
+
+    this.errorEmergencias.set('');
+
+    this.emergenciaService.obtenerEmergenciasParaLotes().subscribe({
+      next: (emergencias) => {
+        const ordenadas = this.ordenarEmergencias(emergencias);
+
+        this.emergencias.set(ordenadas);
+
+        this.cargandoEmergencias.set(false);
+      },
+
+      error: () => {
+        this.errorEmergencias.set('No se pudieron cargar las emergencias disponibles.');
+
+        this.cargandoEmergencias.set(false);
+      },
+    });
   }
+
+  // ==========================================================
+  // ORDEN
+  // ==========================================================
+
+  private ordenarEmergencias(emergencias: EmergenciaLoteResponse[]): EmergenciaLoteResponse[] {
+    return [...emergencias].sort((a, b) => {
+      // Primero las que no tienen lote.
+      const aSinLote = a.loteId === null;
+
+      const bSinLote = b.loteId === null;
+
+      if (aSinLote && !bSinLote) {
+        return -1;
+      }
+
+      if (!aSinLote && bSinLote) {
+        return 1;
+      }
+
+      // Dentro del mismo grupo:
+      // más recientes primero.
+      return new Date(b.fechaRegistro).getTime() - new Date(a.fechaRegistro).getTime();
+    });
+  }
+
+  puedeDesglosar(emergencia: EmergenciaLoteResponse): boolean {
+    return emergencia.estadoLote === null || emergencia.estadoLote === 'CANCELADO';
+  }
+
+  seleccionarEmergencia(emergencia: EmergenciaLoteResponse): void {
+    if (!this.puedeDesglosar(emergencia)) {
+      return;
+    }
+
+    this.emergenciaSeleccionada = emergencia;
+
+    this.mensajeExito.set(null);
+
+    this.mensajeError.set(null);
+
+    this.loteCreado.set(null);
+
+    this.form.reset({
+      titulo: '',
+    });
+
+    this.items.clear();
+
+    this.agregarItem();
+  }
+
+  volverAemergencias(): void {
+    this.emergenciaSeleccionada = null;
+
+    this.mensajeExito.set(null);
+
+    this.mensajeError.set(null);
+
+    this.loteCreado.set(null);
+
+    this.form.reset({
+      titulo: '',
+    });
+
+    this.items.clear();
+
+    this.agregarItem();
+
+    this.cargarEmergencias();
+  }
+
+  // ==========================================================
+  // RECURSOS
+  // ==========================================================
 
   cargarRecursos(): void {
     this.cargandoRecursos.set(true);
@@ -77,29 +208,31 @@ export class PublicacionLotesComponent implements OnInit {
     this.recursoService.obtenerRecursos().subscribe({
       next: (recursos) => {
         this.recursos.set(recursos);
+
         this.cargandoRecursos.set(false);
       },
 
       error: () => {
         this.cargandoRecursos.set(false);
-        this.mensajeError.set(
-          'No se pudieron cargar los recursos disponibles.'
-        );
+
+        this.mensajeError.set('No se pudieron cargar los recursos disponibles.');
       },
     });
   }
 
+  // ==========================================================
+  // ITEMS
+  // ==========================================================
+
+  get items(): FormArray<ItemLoteFormGroup> {
+    return this.form.controls.items;
+  }
+
   agregarItem(): void {
     const item: ItemLoteFormGroup = this.fb.group({
-      recursoId: this.fb.nonNullable.control(0, [
-        Validators.required,
-        Validators.min(1),
-      ]),
+      recursoId: this.fb.nonNullable.control(0, [Validators.required, Validators.min(1)]),
 
-      cantidadRequerida: this.fb.nonNullable.control(0, [
-        Validators.required,
-        Validators.min(1),
-      ]),
+      cantidadRequerida: this.fb.nonNullable.control(0, [Validators.required, Validators.min(1)]),
     });
 
     this.items.push(item);
@@ -113,58 +246,90 @@ export class PublicacionLotesComponent implements OnInit {
     this.items.removeAt(index);
   }
 
-  recursoSeleccionado(index: number): Recurso | undefined {
-    const recursoId = this.items.at(index).controls.recursoId.value;
-
-    return this.recursos().find((recurso) => recurso.id === recursoId);
-  }
+  // ==========================================================
+  // SUBMIT
+  // ==========================================================
 
   onSubmit(): void {
+    if (!this.emergenciaSeleccionada) {
+      this.mensajeError.set('Debe seleccionar una emergencia antes de publicar el lote.');
+
+      return;
+    }
+
+    if (!this.puedeDesglosar(this.emergenciaSeleccionada)) {
+      this.mensajeError.set('La emergencia seleccionada no permite crear un nuevo lote.');
+
+      return;
+    }
+
     if (this.form.invalid) {
       this.form.markAllAsTouched();
+
       return;
     }
 
     this.cargando.set(true);
+
     this.mensajeExito.set(null);
+
     this.mensajeError.set(null);
+
+    this.loteCreado.set(null);
 
     const valores = this.form.getRawValue();
 
     const request: LoteRequest = {
       titulo: valores.titulo,
-      fechaInicio: valores.fechaInicio || undefined,
+
       items: valores.items.map((item) => ({
         recursoId: item.recursoId,
+
         cantidadRequerida: item.cantidadRequerida,
       })),
     };
 
-    this.loteService.publicarLote(this.emergenciaId, request).subscribe({
+    this.loteService.publicarLote(this.emergenciaSeleccionada.id, request).subscribe({
       next: (res) => {
         this.cargando.set(false);
+
         this.loteCreado.set(res);
+
+        // ==================================================
+        // MENSAJE
+        // ==================================================
+
         this.mensajeExito.set('Lote publicado exitosamente.');
+
+        // ==================================================
+        // VOLVER AUTOMÁTICAMENTE A LA LISTA
+        // ==================================================
+
+        this.emergenciaSeleccionada = null;
+
+        // ==================================================
+        // LIMPIAR FORMULARIO
+        // ==================================================
 
         this.form.reset({
           titulo: '',
-          fechaInicio: '',
         });
 
-        while (this.items.length > 0) {
-          this.items.removeAt(0);
-        }
+        this.items.clear();
 
         this.agregarItem();
+
+        // ==================================================
+        // RECARGAR LISTA
+        // ==================================================
+
+        this.cargarEmergencias();
       },
 
       error: (err: HttpErrorResponse) => {
         this.cargando.set(false);
 
-        this.mensajeError.set(
-          err.error?.message ||
-            'Ocurrió un error al publicar el lote.'
-        );
+        this.mensajeError.set(err.error?.message || 'Ocurrió un error al publicar el lote.');
       },
     });
   }

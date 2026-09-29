@@ -8,6 +8,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import com.proyecto.backend.dto.lote.EmergenciaLoteResponseDTO;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/emergencias")
@@ -21,5 +23,12 @@ public class EmergenciaController {
             @Valid @RequestBody EmergenciaRequestDTO requestDTO) {
         EmergenciaResponseDTO respuesta = emergenciaService.registrarEmergencia(requestDTO);
         return ResponseEntity.status(HttpStatus.CREATED).body(respuesta);
+    }
+
+    @GetMapping("/para-lotes")
+    public ResponseEntity<List<EmergenciaLoteResponseDTO>> obtenerEmergenciasParaLotes() {
+        return ResponseEntity.ok(
+                emergenciaService.obtenerEmergenciasParaLotes()
+        );
     }
 }

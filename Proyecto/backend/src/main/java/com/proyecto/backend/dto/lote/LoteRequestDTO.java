@@ -17,8 +17,6 @@ public class LoteRequestDTO {
     @NotBlank
     private String titulo;
 
-    private LocalDateTime  fechaInicio;
-
     @NotEmpty
     @Valid
     private List<ItemLoteRequestDTO> items;
