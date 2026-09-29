@@ -18,11 +18,21 @@
                 {{ lote.emergencia.nivelGravedadEtiqueta }}
               </span>
             </div>
+            @if (yaOferto(lote.id) !== null) {
+              <div class="mb-2">
+                <span
+                  class="badge"
+                  [class]="yaOferto(lote.id) ? 'text-bg-success' : 'text-bg-warning'"
+                >
+                  {{ yaOferto(lote.id) ? 'Tu ONG ya ofertó' : 'Tu ONG todavía no ofertó' }}
+                </span>
+              </div>
+            }
             <p class="card-subtitle text-body-secondary mb-2">
               {{ lote.emergencia.zonaAfectada }} · {{ lote.emergencia.municipio }}
             </p>
             <p class="card-text small text-body-secondary mb-2">
-              Registrada el {{ lote.emergencia.fechaRegistro | date: 'short' }}
+              Registrada el {{ lote.emergencia.fechaRegistro | date: fechaDia }}
             </p>
             <p class="card-text flex-grow-1">
               {{ lote.emergencia.descripcion | slice: 0 : 160

@@ -8,6 +8,7 @@ public record OfertaResponse(
         String estado,
         String estadoEtiqueta,
         LocalDateTime fechaOferta,
+        LocalDateTime fechaModificacion,
         Long loteId,
         String loteTitulo,
         String emergenciaZona,

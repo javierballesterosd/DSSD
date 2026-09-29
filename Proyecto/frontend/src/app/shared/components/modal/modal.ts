@@ -8,7 +8,7 @@ export class Modal {
   private readonly destroyRef = inject(DestroyRef);
 
   readonly titulo = input.required<string>();
-  readonly tamano = input<'modal-lg' | 'modal-xl'>('modal-lg');
+  readonly tamano = input<'modal-sm' | 'modal-lg' | 'modal-xl' | ''>('modal-lg');
   readonly cerrar = output<void>();
 
   constructor() {

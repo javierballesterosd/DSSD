@@ -13,7 +13,7 @@ interface NavLink {
 const NAV_LINKS: Record<Rol, NavLink[]> = {
   MUNICIPAL: [
     { label: 'Inicio', path: '/municipal' },
-    { label: 'Registrar Emergencia', path: '/municipal/emergencias/nueva' } // <-- Enlace agregado
+    { label: 'Registrar Emergencia', path: '/municipal/emergencias/nueva' }, // <-- Enlace agregado
   ],
   COORDINADOR: [{ label: 'Inicio', path: '/coordinador' }],
   ONG: [{ label: 'Lotes disponibles', path: '/ong/lotes' }],

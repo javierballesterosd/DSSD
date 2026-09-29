@@ -4,7 +4,7 @@ import { Observable } from 'rxjs';
 import { EmergenciaRequest, EmergenciaResponse } from '../../models/emergencia.model';
 
 @Injectable({
-  providedIn: 'root'
+  providedIn: 'root',
 })
 export class EmergenciaService {
   private readonly http = inject(HttpClient);

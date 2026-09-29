@@ -12,6 +12,11 @@ export interface OfertaRequest {
   detalles: DetalleOfertaRequest[];
 }
 
+/** Edición: solo cambian las cantidades; las ONGs participantes quedan fijas. */
+export interface OfertaEdicionRequest {
+  detalles: DetalleOfertaRequest[];
+}
+
 export interface AporteOng {
   ongId: number;
   razonSocial: string;
@@ -32,6 +37,8 @@ export interface OfertaResponse {
   estado: string;
   estadoEtiqueta: string;
   fechaOferta: string;
+  /** Última edición o baja; null si nunca se modificó. */
+  fechaModificacion: string | null;
   loteId: number;
   loteTitulo: string;
   emergenciaZona: string;
@@ -49,4 +56,5 @@ export const ESTADO_OFERTA_BADGE: Record<string, string> = {
   EN_EJECUCION: 'text-bg-primary',
   FINALIZADA: 'text-bg-dark',
   RECHAZADA: 'text-bg-danger',
+  ELIMINADA: 'text-bg-light',
 };

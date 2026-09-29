@@ -7,10 +7,29 @@ export interface NivelGravedadInfo {
 }
 
 export const NIVELES_GRAVEDAD: NivelGravedadInfo[] = [
-  { clave: 'BAJA', etiqueta: 'Baja', descripcion: 'Afecta a pocas familias, sin riesgo para la vida' },
-  { clave: 'MEDIA', etiqueta: 'Media', descripcion: 'Afecta a varios barrios; hay daños materiales y riesgo limitado para las personas' },
-  { clave: 'ALTA', etiqueta: 'Alta', descripcion: 'Afecta a gran parte del municipio; hay personas en riesgo y servicios básicos interrumpidos' },
-  { clave: 'CRITICA', etiqueta: 'Crítica', descripcion: 'Riesgo de vida inmediato para muchas personas; requiere respuesta regional urgente' }
+  {
+    clave: 'BAJA',
+    etiqueta: 'Baja',
+    descripcion: 'Afecta a pocas familias, sin riesgo para la vida',
+  },
+  {
+    clave: 'MEDIA',
+    etiqueta: 'Media',
+    descripcion:
+      'Afecta a varios barrios; hay daños materiales y riesgo limitado para las personas',
+  },
+  {
+    clave: 'ALTA',
+    etiqueta: 'Alta',
+    descripcion:
+      'Afecta a gran parte del municipio; hay personas en riesgo y servicios básicos interrumpidos',
+  },
+  {
+    clave: 'CRITICA',
+    etiqueta: 'Crítica',
+    descripcion:
+      'Riesgo de vida inmediato para muchas personas; requiere respuesta regional urgente',
+  },
 ];
 
 export interface EmergenciaRequest {

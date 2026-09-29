@@ -29,6 +29,7 @@ const OFERTA = {
   estado: 'PENDIENTE',
   estadoEtiqueta: 'Pendiente',
   fechaOferta: '2026-09-27T10:00:00',
+  fechaModificacion: null,
   loteId: 10,
   loteTitulo: 'Asistencia alimentaria',
   emergenciaZona: 'Zona Norte',

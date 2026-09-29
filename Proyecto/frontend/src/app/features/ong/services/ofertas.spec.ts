@@ -2,7 +2,7 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { provideHttpClient } from '@angular/common/http';
 import { TestBed } from '@angular/core/testing';
 import { environment } from '../../../../environments/environment';
-import { OfertaRequest } from '../../../core/models/oferta';
+import { OfertaEdicionRequest, OfertaRequest } from '../../../core/models/oferta';
 import { Ofertas } from './ofertas';
 
 describe('Ofertas', () => {
@@ -50,5 +50,34 @@ describe('Ofertas', () => {
     );
     expect(req.request.method).toBe('GET');
     req.flush([]);
+  });
+
+  it('hace PUT a /api/ofertas/{id} solo con los detalles', () => {
+    const request: OfertaEdicionRequest = {
+      detalles: [{ itemLoteId: 200, ongId: 1, cantidadOfrecida: 600 }],
+    };
+
+    service.actualizar(7, request).subscribe();
+
+    const req = httpMock.expectOne(`${environment.apiUrl}/ofertas/7`);
+    expect(req.request.method).toBe('PUT');
+    expect(req.request.body).toEqual(request);
+    req.flush({});
+  });
+
+  it('hace DELETE a /api/ofertas/{id} para la baja lógica', () => {
+    service.eliminar(7).subscribe();
+
+    const req = httpMock.expectOne(`${environment.apiUrl}/ofertas/7`);
+    expect(req.request.method).toBe('DELETE');
+    req.flush(null);
+  });
+
+  it('pide los ids de los lotes donde la ONG ya ofertó', () => {
+    service.lotesConMisOfertas().subscribe((ids) => expect(ids).toEqual([10, 11]));
+
+    const req = httpMock.expectOne(`${environment.apiUrl}/ofertas/mias/lotes`);
+    expect(req.request.method).toBe('GET');
+    req.flush([10, 11]);
   });
 });
