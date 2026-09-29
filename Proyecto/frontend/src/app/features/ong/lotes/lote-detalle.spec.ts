@@ -100,7 +100,9 @@ describe('LoteDetalle (mis ofertas)', () => {
     expect(el.textContent).toContain('Mis ofertas para este lote');
     expect(el.textContent).toContain('Pendiente');
 
-    el.querySelector<HTMLButtonElement>('button.btn-outline-primary')!.click();
+    Array.from(el.querySelectorAll<HTMLButtonElement>('button'))
+      .find((boton) => boton.textContent?.trim() === 'Ver detalle')!
+      .click();
     await fixture.whenStable();
 
     expect(el.querySelector('app-oferta-detalle-modal')).not.toBeNull();

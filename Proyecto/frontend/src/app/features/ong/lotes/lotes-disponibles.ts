@@ -1,7 +1,11 @@
-import { DatePipe, SlicePipe } from '@angular/common';
+import { DatePipe } from '@angular/common';
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { NIVEL_GRAVEDAD_BADGE, NivelGravedad } from '../../../core/models/emergencia';
+import {
+  NIVEL_GRAVEDAD_BADGE,
+  NIVEL_GRAVEDAD_COLOR,
+  NivelGravedad,
+} from '../../../core/models/emergencia';
 import { LoteResumen } from '../../../core/models/lote';
 import { Auth } from '../../../core/services/auth';
 import { FECHA_DIA } from '../../../shared/formatos-fecha';
@@ -9,9 +13,26 @@ import { Lotes } from '../services/lotes';
 import { Ofertas } from '../services/ofertas';
 
 @Component({
-  imports: [RouterLink, DatePipe, SlicePipe],
+  imports: [RouterLink, DatePipe],
   selector: 'app-lotes-disponibles',
   templateUrl: './lotes-disponibles.html',
+  styles: `
+    .tarjeta-hover {
+      transition:
+        transform 0.15s ease,
+        box-shadow 0.15s ease;
+    }
+    .tarjeta-hover:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--bs-box-shadow) !important;
+    }
+    .clamp-3 {
+      display: -webkit-box;
+      -webkit-box-orient: vertical;
+      -webkit-line-clamp: 3;
+      overflow: hidden;
+    }
+  `,
 })
 export class LotesDisponibles implements OnInit {
   private readonly lotesService = inject(Lotes);
@@ -44,6 +65,10 @@ export class LotesDisponibles implements OnInit {
         this.cargando.set(false);
       },
     });
+  }
+
+  protected colorGravedad(nivel: string): string {
+    return NIVEL_GRAVEDAD_COLOR[nivel as NivelGravedad] ?? 'secondary';
   }
 
   protected badgeGravedad(nivel: string): string {
