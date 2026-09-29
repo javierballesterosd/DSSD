@@ -1,4 +1,9 @@
-export const NIVELES_GRAVEDAD = ['BAJA', 'MEDIA', 'ALTA', 'CRITICA'] as const;
+export const NIVELES_GRAVEDAD = [
+  'BAJA',
+  'MEDIA',
+  'ALTA',
+  'CRITICA'
+] as const;
 
 export type NivelGravedad = (typeof NIVELES_GRAVEDAD)[number];
 
@@ -17,13 +22,29 @@ export const NIVEL_GRAVEDAD_BADGE: Record<NivelGravedad, string> = {
   CRITICA: 'text-bg-dark',
 };
 
-/** Color de Bootstrap (para border-*, bg-*-subtle, text-*-emphasis) según la gravedad. */
+/** Color de Bootstrap según la gravedad. */
 export const NIVEL_GRAVEDAD_COLOR: Record<NivelGravedad, string> = {
   BAJA: 'secondary',
   MEDIA: 'warning',
   ALTA: 'danger',
   CRITICA: 'dark',
 };
+
+export interface EmergenciaRequest {
+  nivelGravedad: NivelGravedad;
+  zonaAfectada: string;
+  descripcion: string;
+}
+
+export interface EmergenciaResponse {
+  id: number;
+  nivelGravedad: NivelGravedad;
+  zonaAfectada: string;
+  descripcion: string;
+  fechaRegistro: string;
+  bonitaCaseId?: string;
+  municipioId: number;
+}
 
 export interface EmergenciaResumen {
   id: number;

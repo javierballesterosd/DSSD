@@ -1,0 +1,169 @@
+<div class="container py-4" style="max-width: 700px;">
+  <div class="card shadow-sm border-0">
+    <div class="card-header bg-danger text-white py-3">
+      <h3 class="mb-0 fs-4 text-center">
+        Registro de Emergencia Municipal
+      </h3>
+    </div>
+
+    <div class="card-body p-4">
+
+      @if (mensajeExito()) {
+        <div
+          class="alert alert-success alert-dismissible fade show mb-4"
+          role="alert"
+        >
+          <i class="bi bi-check-circle-fill me-2"></i>
+          {{ mensajeExito() }}
+        </div>
+      }
+
+      @if (mensajeError()) {
+        <div
+          class="alert alert-danger alert-dismissible fade show mb-4"
+          role="alert"
+        >
+          <i class="bi bi-exclamation-triangle-fill me-2"></i>
+          {{ mensajeError() }}
+        </div>
+      }
+
+      <form [formGroup]="form" (ngSubmit)="onSubmit()">
+
+        <!-- Nivel de Gravedad -->
+        <div class="mb-3">
+          <label
+            for="nivelGravedad"
+            class="form-label fw-bold"
+          >
+            Nivel de Gravedad
+          </label>
+
+          <select
+            id="nivelGravedad"
+            class="form-select"
+            formControlName="nivelGravedad"
+          >
+            @for (nivel of nivelesGravedad; track nivel) {
+              <option [value]="nivel">
+                {{ nivelGravedadLabel[nivel] }}
+              </option>
+            }
+          </select>
+
+          @switch (form.controls.nivelGravedad.value) {
+            @case ('BAJA') {
+              <div class="form-text fw-bold text-secondary mt-1 ms-1">
+                Afecta a pocas familias, sin riesgo para la vida.
+              </div>
+            }
+
+            @case ('MEDIA') {
+              <div class="form-text fw-bold text-secondary mt-1 ms-1">
+                Afecta a varios barrios; hay daños materiales y riesgo limitado para las personas.
+              </div>
+            }
+
+            @case ('ALTA') {
+              <div class="form-text fw-bold text-secondary mt-1 ms-1">
+                Afecta a gran parte del municipio; hay personas en riesgo y servicios básicos interrumpidos.
+              </div>
+            }
+
+            @case ('CRITICA') {
+              <div class="form-text fw-bold text-secondary mt-1 ms-1">
+                Riesgo de vida inmediato para muchas personas; requiere respuesta regional urgente.
+              </div>
+            }
+          }
+        </div>
+
+        <!-- Zona Afectada -->
+        <div class="mb-3">
+          <label
+            for="zonaAfectada"
+            class="form-label fw-bold"
+          >
+            Zona Afectada
+          </label>
+
+          <input
+            id="zonaAfectada"
+            type="text"
+            class="form-control"
+            placeholder="Ej: Barrio Norte, La Plata"
+            formControlName="zonaAfectada"
+            [class.is-invalid]="
+              form.controls.zonaAfectada.touched &&
+              form.controls.zonaAfectada.invalid
+            "
+          />
+
+          @if (
+            form.controls.zonaAfectada.touched &&
+            form.controls.zonaAfectada.invalid
+          ) {
+            <div class="invalid-feedback">
+              La zona afectada es obligatoria
+              (máximo 200 caracteres).
+            </div>
+          }
+        </div>
+
+        <!-- Descripción -->
+        <div class="mb-4">
+          <label
+            for="descripcion"
+            class="form-label fw-bold"
+          >
+            Descripción de la Emergencia
+          </label>
+
+          <textarea
+            id="descripcion"
+            rows="4"
+            class="form-control"
+            placeholder="Detalle la situación, extensión de los daños y riesgos presentes..."
+            formControlName="descripcion"
+            [class.is-invalid]="
+              form.controls.descripcion.touched &&
+              form.controls.descripcion.invalid
+            "
+          ></textarea>
+
+          @if (
+            form.controls.descripcion.touched &&
+            form.controls.descripcion.invalid
+          ) {
+            <div class="invalid-feedback">
+              La descripción es obligatoria y debe tener
+              entre 10 y 2000 caracteres.
+            </div>
+          }
+        </div>
+
+        <!-- Botón Submit -->
+        <div class="d-grid">
+          <button
+            type="submit"
+            class="btn btn-danger btn-lg"
+            [disabled]="cargando()"
+          >
+            @if (cargando()) {
+              <span
+                class="spinner-border spinner-border-sm me-2"
+                role="status"
+                aria-hidden="true"
+              ></span>
+
+              Registrando...
+            } @else {
+              Registrar Emergencia
+            }
+          </button>
+        </div>
+
+      </form>
+    </div>
+  </div>
+</div>

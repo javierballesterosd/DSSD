@@ -43,7 +43,12 @@ public class EmergenciaService {
         emergencia.setFechaRegistro(LocalDateTime.now());
         Emergencia guardada = emergenciaRepository.save(emergencia);
 
-        String caseId = bonitaClient.iniciarCaso(session, bonitaClient.buscarProcesoId(session));
+        String processId = bonitaClient.buscarProcesoId(session, "Sistema");
+
+        String caseId = bonitaClient.iniciarCaso(
+                session,
+                processId
+        );
 
         Map<String, Object> contrato = new LinkedHashMap<>();
         contrato.put("emergenciaId", guardada.getId());
