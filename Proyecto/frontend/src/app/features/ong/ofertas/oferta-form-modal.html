@@ -123,11 +123,13 @@
     }
 
     @if (motivos().length > 0) {
-      <ul class="small text-body-secondary">
-        @for (motivo of motivos(); track motivo) {
-          <li>{{ motivo }}</li>
-        }
-      </ul>
+      <div class="alert alert-warning py-2 small mt-3 mb-0">
+        <ul class="mb-0 ps-3">
+          @for (motivo of motivos(); track motivo) {
+            <li>{{ motivo }}</li>
+          }
+        </ul>
+      </div>
     }
   } @else {
     @let oferta = ofertaGuardada()!;

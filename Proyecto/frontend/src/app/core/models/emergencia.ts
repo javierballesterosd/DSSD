@@ -17,6 +17,14 @@ export const NIVEL_GRAVEDAD_BADGE: Record<NivelGravedad, string> = {
   CRITICA: 'text-bg-dark',
 };
 
+/** Color de Bootstrap (para border-*, bg-*-subtle, text-*-emphasis) según la gravedad. */
+export const NIVEL_GRAVEDAD_COLOR: Record<NivelGravedad, string> = {
+  BAJA: 'secondary',
+  MEDIA: 'warning',
+  ALTA: 'danger',
+  CRITICA: 'dark',
+};
+
 export interface EmergenciaResumen {
   id: number;
   zonaAfectada: string;
