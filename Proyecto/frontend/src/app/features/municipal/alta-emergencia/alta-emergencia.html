@@ -50,6 +50,32 @@
               </option>
             }
           </select>
+
+          @switch (form.controls.nivelGravedad.value) {
+            @case ('BAJA') {
+              <div class="form-text fw-bold text-secondary mt-1 ms-1">
+                Afecta a pocas familias, sin riesgo para la vida.
+              </div>
+            }
+
+            @case ('MEDIA') {
+              <div class="form-text fw-bold text-secondary mt-1 ms-1">
+                Afecta a varios barrios; hay daños materiales y riesgo limitado para las personas.
+              </div>
+            }
+
+            @case ('ALTA') {
+              <div class="form-text fw-bold text-secondary mt-1 ms-1">
+                Afecta a gran parte del municipio; hay personas en riesgo y servicios básicos interrumpidos.
+              </div>
+            }
+
+            @case ('CRITICA') {
+              <div class="form-text fw-bold text-secondary mt-1 ms-1">
+                Riesgo de vida inmediato para muchas personas; requiere respuesta regional urgente.
+              </div>
+            }
+          }
         </div>
 
         <!-- Zona Afectada -->

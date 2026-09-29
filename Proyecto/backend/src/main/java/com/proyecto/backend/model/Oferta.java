@@ -43,6 +43,10 @@ public class Oferta {
     @Column(name = "fecha_oferta", nullable = false)
     private LocalDateTime fechaOferta;
 
+    /** Última edición o baja; null si nunca se modificó. */
+    @Column(name = "fecha_modificacion")
+    private LocalDateTime fechaModificacion;
+
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "lote_id", nullable = false)
     private Lote lote;

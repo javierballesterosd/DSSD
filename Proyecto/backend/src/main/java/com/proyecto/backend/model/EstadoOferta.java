@@ -8,7 +8,8 @@ public enum EstadoOferta {
     NO_ADJUDICADA("No adjudicada", "Validada pero no elegida por el municipio"),
     EN_EJECUCION("En ejecución", "La ONG está desplegando los recursos adjudicados"),
     FINALIZADA("Finalizada", "La ONG completó todas sus actividades"),
-    RECHAZADA("Rechazada", "El Sistema Nacional no habilitó la oferta");
+    RECHAZADA("Rechazada", "El Sistema Nacional no habilitó la oferta"),
+    ELIMINADA("Eliminada", "Dada de baja por la ONG dentro de la ventana de ofertas");
 
     private final String etiqueta;
     private final String descripcion;

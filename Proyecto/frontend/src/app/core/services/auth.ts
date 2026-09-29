@@ -40,14 +40,12 @@ export class Auth {
   }
 
   logout(): Observable<void> {
-    return this.http
-      .post<void>(`${this.apiUrl}/auth/logout`, {}, { withCredentials: true })
-      .pipe(
-        tap(() => {
-          this._usuario.set(null);
-          this._sessionStatus.set('anonymous');
-        }),
-      );
+    return this.http.post<void>(`${this.apiUrl}/auth/logout`, {}, { withCredentials: true }).pipe(
+      tap(() => {
+        this._usuario.set(null);
+        this._sessionStatus.set('anonymous');
+      }),
+    );
   }
 
   restoreSession(): Observable<Usuario | null> {

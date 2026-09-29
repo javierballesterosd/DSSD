@@ -196,6 +196,15 @@ Al registrar una emergencia el municipio sale del usuario logueado (no del reque
 ### Regla: un lote por emergencia
 Una emergencia tiene **un solo lote no cancelado**. Si el coordinador cancela el lote (por ejemplo, porque nadie ofertó) y arma otro, cada publicación conserva su propia **ventana de ofertas** (`lote.fecha_apertura_ofertas` / `lote.fecha_cierre_ofertas`); por eso las fechas viven en el lote y no en la emergencia. La base lo garantiza con un índice único parcial (`lote(emergencia_id) WHERE estado <> 'CANCELADO'`) y `LoteRepository.existsByEmergenciaIdAndEstadoNot` queda listo para que la creación de lotes lo valide. `OfertaService.registrar` rechaza ofertas antes de la apertura o después del cierre del lote.
 
+### Edición y baja de ofertas
+- Mientras la ventana del lote esté abierta y la oferta siga `PENDIENTE`, **cualquier ONG que participe** de la oferta puede editarla o eliminarla desde el detalle del lote (botones "Editar" y "Eliminar", este último con confirmación).
+- **Editar** (`PUT /api/ofertas/{id}`) cambia solo las cantidades. Las ONGs participantes no se pueden cambiar: para eso hay que eliminar la oferta y registrar una nueva.
+- **Eliminar** (`DELETE /api/ofertas/{id}`) es una **baja lógica**: la oferta pasa al estado `ELIMINADA`, conserva sus detalles y deja de aparecer en los listados.
+- La oferta registra la fecha de su última modificación (`fecha_modificacion`). El historial de versiones queda pendiente de definición con la cátedra.
+- Fuera de la ventana, con una oferta no pendiente o desde una ONG que no participa, el backend rechaza la operación (400 / 403).
+
+> **Enums y base de datos:** Hibernate crea un *check constraint* con los valores de cada enum persistido (por ejemplo `oferta_estado_check`) y `ddl-auto=update` no lo actualiza. Si se agrega un valor a un enum, hay que borrar ese constraint (el seed ya lo hace para `oferta_estado_check`), o la base rechaza el valor nuevo.
+
 ### Proceso 1 en Bonita: instanciación y ventana de ofertas
 - El modelo vigente es `Modelado/rescueSync-V1.3.bos` (Proceso 1 con variables, contratos, operaciones y dos timers; detalle en `.claude/docs/bonita-modelo.md`). Después de importarlo hay que **mapear los actores** en Studio (Municipio → Operador Municipal, Centro Coordinador Regional → Coordinador Regional, ONG → Representante de ONG), activar RescueSync y desplegar.
 - Al registrar una emergencia, `EmergenciaService` usa la sesión de Bonita del usuario: busca el proceso por nombre (`bonita.process.name`, por defecto `Proceso 1`), inicia el caso sin contrato, espera la tarea "Registrar emergencia" y la ejecuta con `{emergenciaId, municipioId, nivelGravedad, zonaAfectada, descripcion, regionGroupPath}`. Si Bonita falla, se revierte el alta.
@@ -223,7 +232,7 @@ Cada ONG es un **subgrupo de `/ONG`** en Bonita, y todos sus representantes tien
 2. En la base: insertar la fila con el mismo path, por ejemplo `INSERT INTO ong (razon_social, bonita_group_path) VALUES ('Nueva ONG', '/ONG/NuevaOng');`. Idealmente sumarla también a `db/seed/01-reset-y-seed.sql`.
 
 ### Datos de ejemplo (seed)
-`db/seed/01-reset-y-seed.sql` **borra todos los datos** (municipios, recursos, ONGs, emergencias y lo que depende de ellos) y carga el juego de datos común: 4 regiones y 5 municipios (ver arriba), 10 recursos, las 5 ONGs con su inventario y 2 emergencias: una en La Plata con un lote activo (ventana: abre hoy a las 18:00 y cierra en una semana) y una en Berisso con un lote cancelado y otro activo (ventana: abre mañana a las 08:00 y cierra mañana a las 23:00). Las fechas son relativas al día en que se corre el seed. También adapta el esquema (tablas/columnas de región, municipio y lote). Correrlo antes de levantar el backend (la entidad `Ong` exige `bonita_group_path`):
+`db/seed/01-reset-y-seed.sql` **borra todos los datos** (municipios, recursos, ONGs, emergencias y lo que depende de ellos) y carga el juego de datos común: 4 regiones y 5 municipios (ver arriba), 10 recursos, las 5 ONGs con su inventario y 2 emergencias: una en La Plata con un lote activo (ventana: abre hoy a las 18:00 y cierra en una semana) y una en Berisso con un lote cancelado y otro activo (ventana: abre mañana a las 08:00 y cierra mañana a las 23:00). Las fechas son relativas al día en que se corre el seed. También adapta el esquema (tablas/columnas de región, municipio y lote, `oferta.fecha_modificacion` y el check de estados de oferta). Correrlo antes de levantar el backend (la entidad `Ong` exige `bonita_group_path`):
 
 ```bash
 docker exec -i postgres_db psql -U postgres -d rescuesync < db/seed/01-reset-y-seed.sql

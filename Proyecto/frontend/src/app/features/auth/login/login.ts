@@ -18,13 +18,15 @@ export class Login {
   private readonly toast = inject(ToastService);
 
   protected readonly cargando = signal(false);
+  protected readonly mostrarPassword = signal(false);
+  protected readonly passwordTieneTexto = signal(false);
 
   protected readonly roles = ROLES;
   protected readonly rolLabel = ROL_LABEL;
 
   protected readonly form = new FormGroup({
     username: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
-    password: new FormControl('', { nonNullable: true, validators: [Validators.required] })
+    password: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
   });
 
   protected ingresar(): void {
@@ -53,6 +55,19 @@ export class Login {
         error: (error: HttpErrorResponse) =>
           this.toast.error('No se pudo iniciar sesión', this.motivoDelError(error)),
       });
+  }
+
+  protected actualizarEstadoPassword(): void {
+    const tieneTexto = this.form.controls.password.value.length > 0;
+    this.passwordTieneTexto.set(tieneTexto);
+
+    if (!tieneTexto) {
+      this.mostrarPassword.set(false);
+    }
+  }
+
+  protected alternarVisibilidadPassword(): void {
+    this.mostrarPassword.update((visible) => !visible);
   }
 
   private motivoDelError(error: HttpErrorResponse): string {

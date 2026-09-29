@@ -63,6 +63,7 @@ export class AltaEmergenciaComponent {
       .subscribe({
         next: (res: EmergenciaResponse) => {
           this.cargando.set(false);
+
           this.mensajeExito.set(
             'Emergencia registrada exitosamente'
           );

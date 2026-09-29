@@ -29,6 +29,7 @@ const OFERTA = {
   estado: 'PENDIENTE',
   estadoEtiqueta: 'Pendiente',
   fechaOferta: '2026-09-27T10:00:00',
+  fechaModificacion: null,
   loteId: 10,
   loteTitulo: 'Asistencia alimentaria',
   emergenciaZona: 'Zona Norte',
@@ -99,7 +100,9 @@ describe('LoteDetalle (mis ofertas)', () => {
     expect(el.textContent).toContain('Mis ofertas para este lote');
     expect(el.textContent).toContain('Pendiente');
 
-    el.querySelector<HTMLButtonElement>('button.btn-outline-primary')!.click();
+    Array.from(el.querySelectorAll<HTMLButtonElement>('button'))
+      .find((boton) => boton.textContent?.trim() === 'Ver detalle')!
+      .click();
     await fixture.whenStable();
 
     expect(el.querySelector('app-oferta-detalle-modal')).not.toBeNull();

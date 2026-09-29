@@ -2,3 +2,16 @@
   box-shadow: 0 0 0 0.25rem rgba(var(--bs-primary-rgb), 0.4);
   border-color: var(--bs-primary);
 }
+
+/* La grilla es su propio contenedor de scroll (en los dos ejes) para que el encabezado con los
+   nombres de las ONGs quede fijo: un overflow-x intermedio anularía el sticky respecto del modal. */
+.grilla-oferta {
+  max-height: 60vh;
+  overflow: auto;
+
+  thead th {
+    position: sticky;
+    top: 0;
+    z-index: 2; /* el fondo opaco lo da --bs-table-bg de Bootstrap (y respeta .table-danger) */
+  }
+}
