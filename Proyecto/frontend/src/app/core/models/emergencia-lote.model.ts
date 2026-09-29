@@ -10,3 +10,13 @@ export interface EmergenciaLoteResponse {
   loteId: number | null;
   estadoLote: EstadoLote | null;
 }
+
+export interface PaginaEmergencias {
+  content: EmergenciaLoteResponse[];
+  totalElements: number;
+  totalPages: number;
+  size: number;
+  number: number;
+  first: boolean;
+  last: boolean;
+}

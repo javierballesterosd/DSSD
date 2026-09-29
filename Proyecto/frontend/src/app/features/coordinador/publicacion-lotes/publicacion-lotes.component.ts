@@ -58,6 +58,11 @@ export class PublicacionLotesComponent implements OnInit {
   cargandoEmergencias = signal<boolean>(false);
 
   errorEmergencias = signal<string>('');
+  paginaActual = signal<number>(0);
+  totalPaginas = signal<number>(0);
+  totalEmergencias = signal<number>(0);
+
+  readonly tamanioPagina = 10;
 
   // ==========================================================
   // RECURSOS
@@ -105,51 +110,45 @@ export class PublicacionLotesComponent implements OnInit {
   // EMERGENCIAS
   // ==========================================================
 
-  cargarEmergencias(): void {
+  cargarEmergencias(pagina: number = this.paginaActual()): void {
     this.cargandoEmergencias.set(true);
-
     this.errorEmergencias.set('');
 
-    this.emergenciaService.obtenerEmergenciasParaLotes().subscribe({
-      next: (emergencias) => {
-        const ordenadas = this.ordenarEmergencias(emergencias);
+    this.emergenciaService.obtenerEmergenciasParaLotes(pagina, this.tamanioPagina).subscribe({
+      next: (respuesta) => {
+        this.emergencias.set(respuesta.content);
 
-        this.emergencias.set(ordenadas);
+        this.paginaActual.set(respuesta.number);
+
+        this.totalPaginas.set(respuesta.totalPages);
+
+        this.totalEmergencias.set(respuesta.totalElements);
 
         this.cargandoEmergencias.set(false);
       },
 
-      error: () => {
-        this.errorEmergencias.set('No se pudieron cargar las emergencias disponibles.');
+      error: (error) => {
+        console.error('Error al cargar emergencias:', error);
+
+        this.emergencias.set([]);
 
         this.cargandoEmergencias.set(false);
+
+        this.errorEmergencias.set('No se pudieron cargar las emergencias.');
       },
     });
   }
 
-  // ==========================================================
-  // ORDEN
-  // ==========================================================
+  paginaAnterior(): void {
+    if (this.paginaActual() > 0) {
+      this.cargarEmergencias(this.paginaActual() - 1);
+    }
+  }
 
-  private ordenarEmergencias(emergencias: EmergenciaLoteResponse[]): EmergenciaLoteResponse[] {
-    return [...emergencias].sort((a, b) => {
-      // Primero las que no tienen lote.
-      const aSinLote = a.loteId === null;
-
-      const bSinLote = b.loteId === null;
-
-      if (aSinLote && !bSinLote) {
-        return -1;
-      }
-
-      if (!aSinLote && bSinLote) {
-        return 1;
-      }
-
-      // Dentro del mismo grupo:
-      // más recientes primero.
-      return new Date(b.fechaRegistro).getTime() - new Date(a.fechaRegistro).getTime();
-    });
+  paginaSiguiente(): void {
+    if (this.paginaActual() < this.totalPaginas() - 1) {
+      this.cargarEmergencias(this.paginaActual() + 1);
+    }
   }
 
   puedeDesglosar(emergencia: EmergenciaLoteResponse): boolean {

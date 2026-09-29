@@ -15,9 +15,11 @@ import org.springframework.transaction.annotation.Transactional;
 import com.proyecto.backend.dto.lote.EmergenciaLoteResponseDTO;
 import com.proyecto.backend.model.Lote;
 import com.proyecto.backend.repository.LoteRepository;
-import java.util.List;
 import java.util.Optional;
-import java.time.LocalDateTime;
+import java.time.LocalDateTime;import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 
 @Service
 @RequiredArgsConstructor
@@ -56,10 +58,14 @@ public class EmergenciaService {
     }
 
     @Transactional(readOnly = true)
-    public List<EmergenciaLoteResponseDTO> obtenerEmergenciasParaLotes() {
+    public Page<EmergenciaLoteResponseDTO> obtenerEmergenciasParaLotes(int page, int size) {
+        Pageable pageable = PageRequest.of(
+                page,
+                size
+        );
 
-        return emergenciaRepository.findAll()
-                .stream()
+        return emergenciaRepository
+                .findEmergenciasParaLotes(pageable)
                 .map(emergencia -> {
 
                     Optional<Lote> ultimoLote =
@@ -77,7 +83,6 @@ public class EmergenciaService {
                             ultimoLote.map(Lote::getId).orElse(null),
                             ultimoLote.map(Lote::getEstado).orElse(null)
                     );
-                })
-                .toList();
+                });
     }
 }
