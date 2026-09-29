@@ -6,20 +6,27 @@
 } @else {
   @let l = lote()!;
 
-  <div class="d-flex justify-content-between align-items-start gap-3 mb-3">
-    <div>
-      <h1 class="h3 mb-1">{{ l.titulo }}</h1>
-      <div class="d-flex flex-wrap gap-2">
-        <span class="badge" [class]="badgeGravedad(l.emergencia.nivelGravedad)">
-          {{ l.emergencia.nivelGravedadEtiqueta }}
+  @let c = colorGravedad(l.emergencia.nivelGravedad);
+  @let registrada = l.emergencia.fechaRegistro | date: fechaDia;
+  @let apertura =
+    l.fechaAperturaOfertas ? (l.fechaAperturaOfertas | date: fechaLarga) : 'Sin definir aún';
+  @let cierre =
+    l.fechaCierreOfertas ? (l.fechaCierreOfertas | date: fechaLarga) : 'Sin definir aún';
+
+  <ng-template #badgesTpl>
+    <div class="d-flex flex-wrap gap-2">
+      <span class="badge" [class]="badgeGravedad(l.emergencia.nivelGravedad)">
+        {{ l.emergencia.nivelGravedadEtiqueta }}
+      </span>
+      @if (yaOferto() !== null) {
+        <span class="badge" [class]="yaOferto() ? 'text-bg-success' : 'text-bg-warning'">
+          {{ yaOferto() ? 'Tu ONG ya ofertó' : 'Tu ONG todavía no ofertó' }}
         </span>
-        @if (yaOferto() !== null) {
-          <span class="badge" [class]="yaOferto() ? 'text-bg-success' : 'text-bg-warning'">
-            {{ yaOferto() ? 'Tu ONG ya ofertó' : 'Tu ONG todavía no ofertó' }}
-          </span>
-        }
-      </div>
+      }
     </div>
+  </ng-template>
+
+  <ng-template #accionesTpl>
     <div class="text-end">
       <button
         type="button"
@@ -39,67 +46,55 @@
         </p>
       }
     </div>
-  </div>
+  </ng-template>
 
-  <div class="row g-4 mb-4">
-    <div class="col-lg-6">
-      <div class="card h-100">
-        <div class="card-body">
-          <h2 class="h5 card-title">Emergencia</h2>
-          <dl class="row mb-0">
-            <dt class="col-sm-4">Zona afectada</dt>
-            <dd class="col-sm-8">{{ l.emergencia.zonaAfectada }}</dd>
-
-            <dt class="col-sm-4">Municipio</dt>
-            <dd class="col-sm-8">{{ l.emergencia.municipio }}</dd>
-
-            <dt class="col-sm-4">Descripción</dt>
-            <dd class="col-sm-8">{{ l.emergencia.descripcion }}</dd>
-
-            <dt class="col-sm-4">Registrada</dt>
-            <dd class="col-sm-8">{{ l.emergencia.fechaRegistro | date: fechaDia }}</dd>
-
-            <dt class="col-sm-4">Apertura de ofertas</dt>
-            <dd class="col-sm-8">
-              {{
-                l.fechaAperturaOfertas
-                  ? (l.fechaAperturaOfertas | date: fechaLarga)
-                  : 'Sin definir aún'
-              }}
-            </dd>
-
-            <dt class="col-sm-4">Cierre de ofertas</dt>
-            <dd class="col-sm-8 mb-0">
-              {{
-                l.fechaCierreOfertas ? (l.fechaCierreOfertas | date: fechaLarga) : 'Sin definir aún'
-              }}
-            </dd>
-          </dl>
+  <section class="rounded-4 px-4 py-3 mb-4" [class]="'bg-' + c + '-subtle'">
+    <div class="d-flex flex-wrap justify-content-between align-items-start gap-3">
+      <div>
+        <ng-container [ngTemplateOutlet]="badgesTpl" />
+        <h1 class="h4 fw-semibold mt-2 mb-1">{{ l.titulo }}</h1>
+        <div class="small text-body-secondary">
+          {{ l.emergencia.zonaAfectada }} · {{ l.emergencia.municipio }}
         </div>
       </div>
+      <ng-container [ngTemplateOutlet]="accionesTpl" />
     </div>
+    <hr class="opacity-25 my-2" />
+    <div class="row g-3">
+      <div class="col-md-4">
+        <div class="small text-uppercase text-body-secondary">Registrada</div>
+        <div class="fw-semibold">{{ registrada }}</div>
+      </div>
+      <div class="col-md-4">
+        <div class="small text-uppercase text-body-secondary">Apertura de ofertas</div>
+        <div class="fw-semibold">{{ apertura }}</div>
+      </div>
+      <div class="col-md-4">
+        <div class="small text-uppercase text-body-secondary">Cierre de ofertas</div>
+        <div class="fw-semibold">{{ cierre }}</div>
+      </div>
+    </div>
+  </section>
 
-    <div class="col-lg-6">
-      <div class="card h-100">
-        <div class="card-body">
-          <h2 class="h5 card-title">Recursos solicitados</h2>
-          <table class="table table-sm mb-0">
-            <thead>
-              <tr>
-                <th>Recurso</th>
-                <th>Cantidad requerida</th>
-              </tr>
-            </thead>
-            <tbody>
-              @for (item of l.items; track item.id) {
-                <tr>
-                  <td>{{ item.recursoNombre }}</td>
-                  <td>{{ item.cantidadRequerida }} {{ item.unidadMedida }}</td>
-                </tr>
-              }
-            </tbody>
-          </table>
-        </div>
+  <div class="card border-0 shadow-sm mb-3">
+    <div class="card-body py-3">
+      <h2 class="h6 card-title">Descripción</h2>
+      <p class="mb-0">{{ l.emergencia.descripcion }}</p>
+    </div>
+  </div>
+
+  <div class="card border-0 shadow-sm mb-4">
+    <div class="card-body py-3">
+      <h2 class="h6 card-title mb-3">Recursos solicitados</h2>
+      <div class="row row-cols-2 row-cols-md-3 row-cols-lg-6 g-2">
+        @for (item of l.items; track item.id) {
+          <div class="col">
+            <div class="border rounded-3 px-3 py-2 h-100 bg-body-tertiary">
+              <div class="small text-body-secondary">{{ item.recursoNombre }}</div>
+              <div class="fw-semibold">{{ item.cantidadRequerida }} {{ item.unidadMedida }}</div>
+            </div>
+          </div>
+        }
       </div>
     </div>
   </div>

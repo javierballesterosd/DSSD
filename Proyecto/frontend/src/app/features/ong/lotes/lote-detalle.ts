@@ -1,8 +1,12 @@
-import { DatePipe } from '@angular/common';
+import { DatePipe, NgTemplateOutlet } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import { NIVEL_GRAVEDAD_BADGE, NivelGravedad } from '../../../core/models/emergencia';
+import {
+  NIVEL_GRAVEDAD_BADGE,
+  NIVEL_GRAVEDAD_COLOR,
+  NivelGravedad,
+} from '../../../core/models/emergencia';
 import { LoteDetalle as LoteDetalleModel } from '../../../core/models/lote';
 import { ESTADO_OFERTA_BADGE, OfertaResponse } from '../../../core/models/oferta';
 import { Auth } from '../../../core/services/auth';
@@ -16,7 +20,14 @@ import { Lotes } from '../services/lotes';
 import { Ofertas } from '../services/ofertas';
 
 @Component({
-  imports: [RouterLink, DatePipe, OfertaFormModal, OfertaDetalleModal, ConfirmModal],
+  imports: [
+    RouterLink,
+    DatePipe,
+    NgTemplateOutlet,
+    OfertaFormModal,
+    OfertaDetalleModal,
+    ConfirmModal,
+  ],
   selector: 'app-lote-detalle',
   templateUrl: './lote-detalle.html',
 })
@@ -63,6 +74,10 @@ export class LoteDetalle implements OnInit {
   ngOnInit(): void {
     this.cargarLote();
     this.cargarMisOfertas();
+  }
+
+  protected colorGravedad(nivel: string): string {
+    return NIVEL_GRAVEDAD_COLOR[nivel as NivelGravedad] ?? 'secondary';
   }
 
   protected badgeGravedad(nivel: string): string {
