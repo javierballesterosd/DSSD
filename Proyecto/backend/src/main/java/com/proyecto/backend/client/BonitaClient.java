@@ -98,24 +98,31 @@ public class BonitaClient {
                 .body(new ParameterizedTypeReference<List<BonitaMembership>>() {});
     }
 
-    /** Id del proceso habilitado con el nombre configurado (bonita.process.name). */
+
     public String buscarProcesoId(BonitaSession session) {
+        return buscarProcesoId(session, processName);
+    }
+
+    /** Id del proceso habilitado con el nombre configurado (bonita.process.name). */
+    public String buscarProcesoId(BonitaSession session, String nombreProceso) {
         List<Map<String, Object>> procesos = restClient.get()
                 .uri(uriBuilder -> uriBuilder
                         .path("/API/bpm/process")
                         .queryParam("p", "0")
                         .queryParam("c", "1")
                         .queryParam("o", "version DESC")
-                        .queryParam("f", "name=" + processName)
+                        .queryParam("f", "name=" + nombreProceso)
                         .queryParam("f", "activationState=ENABLED")
                         .build())
                 .headers(h -> aplicarSesion(h, session))
                 .retrieve()
                 .body(new ParameterizedTypeReference<List<Map<String, Object>>>() {});
+
         if (procesos == null || procesos.isEmpty()) {
             throw new BonitaIntegrationException(
-                    "No hay un proceso habilitado con el nombre '" + processName + "' en Bonita");
+                    "No hay un proceso habilitado con el nombre '" + nombreProceso + "' en Bonita");
         }
+
         return String.valueOf(procesos.get(0).get("id"));
     }
 
