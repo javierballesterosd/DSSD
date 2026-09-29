@@ -1,4 +1,9 @@
-export const NIVELES_GRAVEDAD = ['BAJA', 'MEDIA', 'ALTA', 'CRITICA'] as const;
+export const NIVELES_GRAVEDAD = [
+  'BAJA',
+  'MEDIA',
+  'ALTA',
+  'CRITICA'
+] as const;
 
 export type NivelGravedad = (typeof NIVELES_GRAVEDAD)[number];
 
@@ -16,6 +21,22 @@ export const NIVEL_GRAVEDAD_BADGE: Record<NivelGravedad, string> = {
   ALTA: 'text-bg-danger',
   CRITICA: 'text-bg-dark',
 };
+
+export interface EmergenciaRequest {
+  nivelGravedad: NivelGravedad;
+  zonaAfectada: string;
+  descripcion: string;
+}
+
+export interface EmergenciaResponse {
+  id: number;
+  nivelGravedad: NivelGravedad;
+  zonaAfectada: string;
+  descripcion: string;
+  fechaRegistro: string;
+  bonitaCaseId?: string;
+  municipioId: number;
+}
 
 export interface EmergenciaResumen {
   id: number;
