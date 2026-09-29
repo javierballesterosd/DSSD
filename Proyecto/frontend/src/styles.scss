@@ -15,3 +15,12 @@
   background-color: color-mix(in srgb, var(--ong-color) 14%, white);
   border: 1px solid color-mix(in srgb, var(--ong-color) 45%, white);
 }
+
+/* Botones del pie de app-modal: el contenido proyectado llega envuelto en un solo
+   <div modal-footer>, así que el gap del .modal-footer no los separa entre sí. */
+.modal-footer > [modal-footer] {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.75rem;
+}

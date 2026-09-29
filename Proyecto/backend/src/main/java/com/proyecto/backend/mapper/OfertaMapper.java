@@ -34,6 +34,7 @@ public class OfertaMapper {
                 oferta.getEstado().name(),
                 oferta.getEstado().getEtiqueta(),
                 oferta.getFechaOferta(),
+                oferta.getFechaModificacion(),
                 oferta.getLote().getId(),
                 oferta.getLote().getTitulo(),
                 oferta.getLote().getEmergencia().getZonaAfectada(),

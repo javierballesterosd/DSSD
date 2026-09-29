@@ -1,8 +1,10 @@
 package com.proyecto.backend.service;
 
 import com.proyecto.backend.dto.DetalleOfertaRequest;
+import com.proyecto.backend.dto.OfertaEdicionRequest;
 import com.proyecto.backend.dto.OfertaRequest;
 import com.proyecto.backend.dto.OfertaResponse;
+import com.proyecto.backend.exception.AccesoDenegadoException;
 import com.proyecto.backend.exception.ReglaNegocioException;
 import com.proyecto.backend.mapper.OfertaMapper;
 import com.proyecto.backend.model.DetalleOferta;
@@ -312,5 +314,162 @@ class OfertaServiceTest {
 
         assertThat(resultado.aportes().get(0).totalOfrecido()).isEqualTo(800);
         assertThat(resultado.aportes().get(0).porOng()).hasSize(1);
+    }
+
+    // ---------- Edición y baja ----------
+
+    /** Oferta pendiente de ongA + ongB: ongA 500 raciones, ongB 200 raciones. */
+    private Oferta ofertaPendienteEnConsorcio() {
+        Oferta oferta = new Oferta();
+        oferta.setId(50L);
+        oferta.setEstado(EstadoOferta.PENDIENTE);
+        oferta.setFechaOferta(java.time.LocalDateTime.now().minusHours(1));
+        oferta.setLote(lote);
+        oferta.setOngs(new java.util.HashSet<>(List.of(ongA, ongB)));
+        oferta.getDetalles().add(detalle(oferta, ongA, itemRaciones, 500));
+        oferta.getDetalles().add(detalle(oferta, ongB, itemRaciones, 200));
+        lenient().when(ofertaRepository.findById(50L)).thenReturn(java.util.Optional.of(oferta));
+        lenient().when(ofertaRepository.save(any(Oferta.class))).thenAnswer(inv -> inv.getArgument(0));
+        return oferta;
+    }
+
+    private DetalleOferta detalle(Oferta oferta, Ong ong, ItemLote item, int cantidad) {
+        DetalleOferta detalle = new DetalleOferta();
+        detalle.setOferta(oferta);
+        detalle.setOng(ong);
+        detalle.setItemLote(item);
+        detalle.setCantidadOfrecida(cantidad);
+        return detalle;
+    }
+
+    private InventarioOng inventario(Ong ong, Recurso recurso, int cantidad) {
+        InventarioOng inventario = new InventarioOng();
+        inventario.setOng(ong);
+        inventario.setRecurso(recurso);
+        inventario.setCantidadDisponible(cantidad);
+        return inventario;
+    }
+
+    @Test
+    void editaCantidadesActualizandoAgregandoYQuitandoCeldas() {
+        Oferta oferta = ofertaPendienteEnConsorcio();
+        DetalleOferta racionesA = oferta.getDetalles().get(0);
+        when(inventarioOngRepository.findByOngIdIn(anyCollection())).thenReturn(List.of(
+                inventario(ongA, raciones, 800), inventario(ongB, raciones, 500), inventario(ongB, frazadas, 100)));
+
+        // ongA sube a 600 raciones, ongB deja las raciones y pasa a aportar 50 frazadas.
+        OfertaEdicionRequest request = new OfertaEdicionRequest(List.of(
+                new DetalleOfertaRequest(200L, 1L, 600),
+                new DetalleOfertaRequest(201L, 2L, 50)));
+
+        OfertaResponse response = ofertaService.actualizar(50L, request, ONG_USUARIO);
+
+        assertThat(oferta.getDetalles()).hasSize(2);
+        assertThat(oferta.getDetalles()).contains(racionesA);
+        assertThat(racionesA.getCantidadOfrecida()).isEqualTo(600);
+        assertThat(oferta.getFechaModificacion()).isNotNull();
+        assertThat(response.fechaModificacion()).isNotNull();
+        assertThat(response.aportes()).extracting(a -> a.totalOfrecido()).containsExactlyInAnyOrder(600, 50);
+    }
+
+    @Test
+    void rechazaEdicionDeUnaOngQueNoParticipa() {
+        ofertaPendienteEnConsorcio();
+        OfertaEdicionRequest request = new OfertaEdicionRequest(List.of(new DetalleOfertaRequest(200L, 1L, 100)));
+
+        assertThatThrownBy(() -> ofertaService.actualizar(50L, request, 3L))
+                .isInstanceOf(AccesoDenegadoException.class);
+    }
+
+    @Test
+    void rechazaEdicionFueraDeLaVentana() {
+        ofertaPendienteEnConsorcio();
+        lote.setFechaCierreOfertas(java.time.LocalDateTime.now().minusMinutes(1));
+        OfertaEdicionRequest request = new OfertaEdicionRequest(List.of(new DetalleOfertaRequest(200L, 1L, 100)));
+
+        assertThatThrownBy(() -> ofertaService.actualizar(50L, request, ONG_USUARIO))
+                .isInstanceOf(ReglaNegocioException.class)
+                .hasMessageContaining("ya cerró");
+    }
+
+    @Test
+    void rechazaEdicionDeOfertaNoPendiente() {
+        ofertaPendienteEnConsorcio().setEstado(EstadoOferta.VALIDADA);
+        OfertaEdicionRequest request = new OfertaEdicionRequest(List.of(new DetalleOfertaRequest(200L, 1L, 100)));
+
+        assertThatThrownBy(() -> ofertaService.actualizar(50L, request, ONG_USUARIO))
+                .isInstanceOf(ReglaNegocioException.class)
+                .hasMessageContaining("ya no se puede modificar");
+    }
+
+    @Test
+    void rechazaEdicionConUnaOngQueNoEstaEnLaOferta() {
+        ofertaPendienteEnConsorcio();
+        OfertaEdicionRequest request = new OfertaEdicionRequest(List.of(
+                new DetalleOfertaRequest(200L, 1L, 100),
+                new DetalleOfertaRequest(200L, 2L, 100),
+                new DetalleOfertaRequest(200L, 3L, 100)));
+
+        assertThatThrownBy(() -> ofertaService.actualizar(50L, request, ONG_USUARIO))
+                .isInstanceOf(ReglaNegocioException.class)
+                .hasMessageContaining("no está entre las ONGs de la oferta");
+    }
+
+    @Test
+    void rechazaEdicionQueDejaUnaOngSinAportar() {
+        ofertaPendienteEnConsorcio();
+        when(inventarioOngRepository.findByOngIdIn(anyCollection())).thenReturn(List.of(
+                inventario(ongA, raciones, 800), inventario(ongB, raciones, 500)));
+        OfertaEdicionRequest request = new OfertaEdicionRequest(List.of(new DetalleOfertaRequest(200L, 1L, 100)));
+
+        assertThatThrownBy(() -> ofertaService.actualizar(50L, request, ONG_USUARIO))
+                .isInstanceOf(ReglaNegocioException.class)
+                .hasMessageContaining("Manos Unidas");
+    }
+
+    @Test
+    void eliminaLogicamenteSinBorrarDetalles() {
+        Oferta oferta = ofertaPendienteEnConsorcio();
+
+        // La elimina ongB, que también participa.
+        ofertaService.eliminar(50L, 2L);
+
+        assertThat(oferta.getEstado()).isEqualTo(EstadoOferta.ELIMINADA);
+        assertThat(oferta.getFechaModificacion()).isNotNull();
+        assertThat(oferta.getDetalles()).hasSize(2);
+    }
+
+    @Test
+    void rechazaBajaDeUnaOngQueNoParticipa() {
+        ofertaPendienteEnConsorcio();
+
+        assertThatThrownBy(() -> ofertaService.eliminar(50L, 3L))
+                .isInstanceOf(AccesoDenegadoException.class);
+    }
+
+    @Test
+    void rechazaBajaFueraDeLaVentana() {
+        ofertaPendienteEnConsorcio();
+        lote.setFechaCierreOfertas(java.time.LocalDateTime.now().minusMinutes(1));
+
+        assertThatThrownBy(() -> ofertaService.eliminar(50L, ONG_USUARIO))
+                .isInstanceOf(ReglaNegocioException.class)
+                .hasMessageContaining("ya cerró");
+    }
+
+    @Test
+    void rechazaBajaDeOfertaYaEliminada() {
+        ofertaPendienteEnConsorcio().setEstado(EstadoOferta.ELIMINADA);
+
+        assertThatThrownBy(() -> ofertaService.eliminar(50L, ONG_USUARIO))
+                .isInstanceOf(ReglaNegocioException.class)
+                .hasMessageContaining("ya no se puede modificar");
+    }
+
+    @Test
+    void devuelveLosLotesDondeLaOngYaOferto() {
+        when(ofertaRepository.findLoteIdsConOfertaDeOng(1L)).thenReturn(List.of(10L, 11L));
+
+        assertThat(ofertaService.lotesConOfertaDeOng(1L)).containsExactly(10L, 11L);
     }
 }

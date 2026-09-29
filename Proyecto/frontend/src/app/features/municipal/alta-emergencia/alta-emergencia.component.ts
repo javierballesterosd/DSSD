@@ -2,13 +2,17 @@ import { Component, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
 import { EmergenciaService } from '../../../core/services/emergencias/emergencia.service';
-import { NIVELES_GRAVEDAD, NivelGravedad, EmergenciaResponse } from '../../../core/models/emergencia.model';
+import {
+  NIVELES_GRAVEDAD,
+  NivelGravedad,
+  EmergenciaResponse,
+} from '../../../core/models/emergencia.model';
 
 @Component({
   selector: 'app-alta-emergencia',
   standalone: true,
   imports: [ReactiveFormsModule],
-  templateUrl: './alta-emergencia.component.html'
+  templateUrl: './alta-emergencia.component.html',
 })
 export class AltaEmergenciaComponent {
   private readonly fb = inject(FormBuilder);
@@ -23,7 +27,7 @@ export class AltaEmergenciaComponent {
   form = this.fb.nonNullable.group({
     nivelGravedad: ['MEDIA' as NivelGravedad, [Validators.required]],
     zonaAfectada: ['', [Validators.required, Validators.maxLength(200)]],
-    descripcion: ['', [Validators.required, Validators.minLength(10), Validators.maxLength(2000)]]
+    descripcion: ['', [Validators.required, Validators.minLength(10), Validators.maxLength(2000)]],
   });
 
   /** Devuelve la descripción de la gravedad actualmente seleccionada */
@@ -51,15 +55,13 @@ export class AltaEmergenciaComponent {
         this.form.reset({
           nivelGravedad: 'MEDIA',
           zonaAfectada: '',
-          descripcion: ''
+          descripcion: '',
         });
       },
       error: (err: HttpErrorResponse) => {
         this.cargando.set(false);
-        this.mensajeError.set(
-          err.error?.message || 'Ocurrió un error al registrar la emergencia.'
-        );
-      }
+        this.mensajeError.set(err.error?.message || 'Ocurrió un error al registrar la emergencia.');
+      },
     });
   }
 }

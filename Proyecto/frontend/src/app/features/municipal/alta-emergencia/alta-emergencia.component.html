@@ -1,4 +1,4 @@
-<div class="container py-4" style="max-width: 700px;">
+<div class="container py-4" style="max-width: 700px">
   <div class="card shadow-sm border-0">
     <div class="card-header bg-danger text-white py-3">
       <h3 class="mb-0 fs-4 text-center">Registro de Emergencia Municipal</h3>
@@ -46,7 +46,9 @@
             class="form-control"
             placeholder="Ej: Barrio Norte, La Plata"
             formControlName="zonaAfectada"
-            [class.is-invalid]="form.controls.zonaAfectada.touched && form.controls.zonaAfectada.invalid"
+            [class.is-invalid]="
+              form.controls.zonaAfectada.touched && form.controls.zonaAfectada.invalid
+            "
           />
           @if (form.controls.zonaAfectada.touched && form.controls.zonaAfectada.invalid) {
             <div class="invalid-feedback">
@@ -64,7 +66,9 @@
             class="form-control"
             placeholder="Detalle la situación, extensión de los daños y riesgos presentes..."
             formControlName="descripcion"
-            [class.is-invalid]="form.controls.descripcion.touched && form.controls.descripcion.invalid"
+            [class.is-invalid]="
+              form.controls.descripcion.touched && form.controls.descripcion.invalid
+            "
           ></textarea>
           @if (form.controls.descripcion.touched && form.controls.descripcion.invalid) {
             <div class="invalid-feedback">
@@ -77,7 +81,11 @@
         <div class="d-grid">
           <button type="submit" class="btn btn-danger btn-lg" [disabled]="cargando()">
             @if (cargando()) {
-              <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+              <span
+                class="spinner-border spinner-border-sm me-2"
+                role="status"
+                aria-hidden="true"
+              ></span>
               Registrando...
             } @else {
               Registrar Emergencia

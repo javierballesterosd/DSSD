@@ -1,8 +1,11 @@
 package com.proyecto.backend.service;
 
 import com.proyecto.backend.dto.DetalleOfertaRequest;
+import com.proyecto.backend.dto.OfertaEdicionRequest;
 import com.proyecto.backend.dto.OfertaRequest;
 import com.proyecto.backend.dto.OfertaResponse;
+import com.proyecto.backend.exception.AccesoDenegadoException;
+import com.proyecto.backend.exception.RecursoNoEncontradoException;
 import com.proyecto.backend.exception.ReglaNegocioException;
 import com.proyecto.backend.mapper.OfertaMapper;
 import com.proyecto.backend.model.DetalleOferta;
@@ -18,6 +21,7 @@ import com.proyecto.backend.repository.ItemLoteRepository;
 import com.proyecto.backend.repository.LoteRepository;
 import com.proyecto.backend.repository.OfertaRepository;
 import com.proyecto.backend.repository.OngRepository;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,6 +32,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+@Slf4j
 @Service
 public class OfertaService {
 
@@ -53,20 +58,7 @@ public class OfertaService {
     public OfertaResponse registrar(OfertaRequest request, Long ongIdUsuario) {
         Lote lote = loteRepository.findById(request.loteId())
                 .orElseThrow(() -> new ReglaNegocioException("El lote no existe"));
-
-        if (lote.getEstado() != EstadoLote.ACTIVO) {
-            throw new ReglaNegocioException("El lote no está abierto a ofertas");
-        }
-
-        LocalDateTime ahora = LocalDateTime.now();
-        LocalDateTime apertura = lote.getFechaAperturaOfertas();
-        if (apertura != null && apertura.isAfter(ahora)) {
-            throw new ReglaNegocioException("La convocatoria de ofertas para este lote todavía no abrió");
-        }
-        LocalDateTime cierre = lote.getFechaCierreOfertas();
-        if (cierre != null && !cierre.isAfter(ahora)) {
-            throw new ReglaNegocioException("La convocatoria de ofertas para este lote ya cerró");
-        }
+        validarConvocatoriaAbierta(lote);
 
         List<Ong> ongs = ongRepository.findAllById(request.ongIds());
         if (ongs.size() != request.ongIds().size()) {
@@ -83,51 +75,7 @@ public class OfertaService {
             throw new ReglaNegocioException("La oferta debe incluir a tu ONG, «" + nombre + "»");
         }
 
-        Map<Long, ItemLote> itemsDelLote = new HashMap<>();
-        lote.getItems().forEach(item -> itemsDelLote.put(item.getId(), item));
-        for (DetalleOfertaRequest detalle : request.detalles()) {
-            if (!itemsDelLote.containsKey(detalle.itemLoteId())) {
-                throw new ReglaNegocioException(
-                        "El item " + detalle.itemLoteId() + " no pertenece al lote " + lote.getId());
-            }
-            if (!ongsPorId.containsKey(detalle.ongId())) {
-                throw new ReglaNegocioException(
-                        "La ONG " + detalle.ongId() + " no está entre las ONGs seleccionadas");
-            }
-        }
-
-        Set<String> paresVistos = new HashSet<>();
-        for (DetalleOfertaRequest detalle : request.detalles()) {
-            String clave = detalle.itemLoteId() + ":" + detalle.ongId();
-            if (!paresVistos.add(clave)) {
-                throw new ReglaNegocioException(
-                        "Hay más de una celda cargada para el mismo item y la misma ONG");
-            }
-        }
-
-        Map<String, Integer> inventarioPorOngYRecurso = indexarInventario(request.ongIds());
-        for (DetalleOfertaRequest detalle : request.detalles()) {
-            ItemLote item = itemsDelLote.get(detalle.itemLoteId());
-            Ong ong = ongsPorId.get(detalle.ongId());
-            Long recursoId = item.getRecurso().getId();
-            Integer disponible = inventarioPorOngYRecurso.get(detalle.ongId() + ":" + recursoId);
-            if (disponible == null || detalle.cantidadOfrecida() > disponible) {
-                int maximo = disponible == null ? 0 : disponible;
-                throw new ReglaNegocioException(
-                        "La ONG «" + ong.getRazonSocial() + "» tiene " + maximo + " "
-                                + item.getRecurso().getUnidadMedida() + " disponibles de "
-                                + item.getRecurso().getNombre());
-            }
-        }
-
-        Set<Long> ongsQueAportan = new HashSet<>();
-        request.detalles().forEach(detalle -> ongsQueAportan.add(detalle.ongId()));
-        for (Ong ong : ongs) {
-            if (!ongsQueAportan.contains(ong.getId())) {
-                throw new ReglaNegocioException(
-                        "La ONG «" + ong.getRazonSocial() + "» no ofrece ningún recurso");
-            }
-        }
+        Map<Long, ItemLote> itemsDelLote = validarDetalles(lote, ongsPorId, request.detalles());
 
         Oferta oferta = new Oferta();
         oferta.setEstado(EstadoOferta.PENDIENTE);
@@ -136,16 +84,65 @@ public class OfertaService {
         oferta.setOngs(new HashSet<>(ongs));
 
         for (DetalleOfertaRequest detalleRequest : request.detalles()) {
-            DetalleOferta detalle = new DetalleOferta();
-            detalle.setOferta(oferta);
-            detalle.setItemLote(itemsDelLote.get(detalleRequest.itemLoteId()));
-            detalle.setOng(ongsPorId.get(detalleRequest.ongId()));
-            detalle.setCantidadOfrecida(detalleRequest.cantidadOfrecida());
-            oferta.getDetalles().add(detalle);
+            oferta.getDetalles().add(nuevoDetalle(oferta, itemsDelLote, ongsPorId, detalleRequest));
         }
 
         Oferta guardada = ofertaRepository.save(oferta);
         return ofertaMapper.toResponse(guardada);
+    }
+
+    /**
+     * Cambia las cantidades de una oferta dentro de la ventana del lote. Las ONGs participantes
+     * no cambian: para eso se elimina la oferta y se registra otra.
+     */
+    @Transactional
+    public OfertaResponse actualizar(Long ofertaId, OfertaEdicionRequest request, Long ongIdUsuario) {
+        Oferta oferta = buscarModificable(ofertaId, ongIdUsuario);
+
+        Map<Long, Ong> ongsPorId = new HashMap<>();
+        oferta.getOngs().forEach(ong -> ongsPorId.put(ong.getId(), ong));
+        Map<Long, ItemLote> itemsDelLote = validarDetalles(oferta.getLote(), ongsPorId, request.detalles());
+
+        // Se actualiza en el lugar en vez de borrar y recrear: Hibernate inserta antes de borrar
+        // al hacer flush y eso violaría el unique (oferta_id, item_lote_id, ong_id).
+        Map<String, DetalleOferta> existentes = new HashMap<>();
+        oferta.getDetalles().forEach(detalle -> existentes.put(
+                clave(detalle.getItemLote().getId(), detalle.getOng().getId()), detalle));
+
+        Set<String> clavesPedidas = new HashSet<>();
+        for (DetalleOfertaRequest detalleRequest : request.detalles()) {
+            String clave = clave(detalleRequest.itemLoteId(), detalleRequest.ongId());
+            clavesPedidas.add(clave);
+            DetalleOferta existente = existentes.get(clave);
+            if (existente != null) {
+                existente.setCantidadOfrecida(detalleRequest.cantidadOfrecida());
+            } else {
+                oferta.getDetalles().add(nuevoDetalle(oferta, itemsDelLote, ongsPorId, detalleRequest));
+            }
+        }
+        oferta.getDetalles().removeIf(detalle -> !clavesPedidas.contains(
+                clave(detalle.getItemLote().getId(), detalle.getOng().getId())));
+
+        oferta.setFechaModificacion(LocalDateTime.now());
+        Oferta guardada = ofertaRepository.save(oferta);
+        log.info("Oferta {} editada por la ONG {}", ofertaId, ongIdUsuario);
+        return ofertaMapper.toResponse(guardada);
+    }
+
+    /** Baja lógica: la oferta pasa a ELIMINADA y conserva sus detalles para trazabilidad. */
+    @Transactional
+    public void eliminar(Long ofertaId, Long ongIdUsuario) {
+        Oferta oferta = buscarModificable(ofertaId, ongIdUsuario);
+        oferta.setEstado(EstadoOferta.ELIMINADA);
+        oferta.setFechaModificacion(LocalDateTime.now());
+        ofertaRepository.save(oferta);
+        log.info("Oferta {} eliminada por la ONG {}", ofertaId, ongIdUsuario);
+    }
+
+    /** Ids de los lotes en los que la ONG tiene alguna oferta vigente (para marcar "ya ofertó" en listados). */
+    @Transactional(readOnly = true)
+    public List<Long> lotesConOfertaDeOng(Long ongId) {
+        return ofertaRepository.findLoteIdsConOfertaDeOng(ongId);
     }
 
     /** Ofertas del lote en las que participa la ONG indicada, de la más nueva a la más vieja. */
@@ -156,11 +153,109 @@ public class OfertaService {
                 .toList();
     }
 
+    /** Oferta que la ONG del usuario puede editar o eliminar: participa, está pendiente y la ventana sigue abierta. */
+    private Oferta buscarModificable(Long ofertaId, Long ongIdUsuario) {
+        Oferta oferta = ofertaRepository.findById(ofertaId)
+                .orElseThrow(() -> new RecursoNoEncontradoException("La oferta " + ofertaId + " no existe"));
+        boolean participa = oferta.getOngs().stream().anyMatch(ong -> ong.getId().equals(ongIdUsuario));
+        if (!participa) {
+            throw new AccesoDenegadoException("Tu ONG no participa de esta oferta");
+        }
+        if (oferta.getEstado() != EstadoOferta.PENDIENTE) {
+            throw new ReglaNegocioException("La oferta está en estado «" + oferta.getEstado().getEtiqueta()
+                    + "» y ya no se puede modificar");
+        }
+        validarConvocatoriaAbierta(oferta.getLote());
+        return oferta;
+    }
+
+    private void validarConvocatoriaAbierta(Lote lote) {
+        if (lote.getEstado() != EstadoLote.ACTIVO) {
+            throw new ReglaNegocioException("El lote no está abierto a ofertas");
+        }
+
+        LocalDateTime ahora = LocalDateTime.now();
+        LocalDateTime apertura = lote.getFechaAperturaOfertas();
+        if (apertura != null && apertura.isAfter(ahora)) {
+            throw new ReglaNegocioException("La convocatoria de ofertas para este lote todavía no abrió");
+        }
+        LocalDateTime cierre = lote.getFechaCierreOfertas();
+        if (cierre != null && !cierre.isAfter(ahora)) {
+            throw new ReglaNegocioException("La convocatoria de ofertas para este lote ya cerró");
+        }
+    }
+
+    /**
+     * Valida las celdas contra el lote, las ONGs de la oferta y su inventario, y que cada ONG
+     * aporte algo. Devuelve los ítems del lote indexados por id.
+     */
+    private Map<Long, ItemLote> validarDetalles(Lote lote, Map<Long, Ong> ongsPorId,
+                                                List<DetalleOfertaRequest> detalles) {
+        Map<Long, ItemLote> itemsDelLote = new HashMap<>();
+        lote.getItems().forEach(item -> itemsDelLote.put(item.getId(), item));
+        for (DetalleOfertaRequest detalle : detalles) {
+            if (!itemsDelLote.containsKey(detalle.itemLoteId())) {
+                throw new ReglaNegocioException(
+                        "El item " + detalle.itemLoteId() + " no pertenece al lote " + lote.getId());
+            }
+            if (!ongsPorId.containsKey(detalle.ongId())) {
+                throw new ReglaNegocioException(
+                        "La ONG " + detalle.ongId() + " no está entre las ONGs de la oferta");
+            }
+        }
+
+        Set<String> paresVistos = new HashSet<>();
+        for (DetalleOfertaRequest detalle : detalles) {
+            if (!paresVistos.add(clave(detalle.itemLoteId(), detalle.ongId()))) {
+                throw new ReglaNegocioException(
+                        "Hay más de una celda cargada para el mismo item y la misma ONG");
+            }
+        }
+
+        Map<String, Integer> inventarioPorOngYRecurso = indexarInventario(ongsPorId.keySet());
+        for (DetalleOfertaRequest detalle : detalles) {
+            ItemLote item = itemsDelLote.get(detalle.itemLoteId());
+            Ong ong = ongsPorId.get(detalle.ongId());
+            Integer disponible = inventarioPorOngYRecurso.get(clave(detalle.ongId(), item.getRecurso().getId()));
+            if (disponible == null || detalle.cantidadOfrecida() > disponible) {
+                int maximo = disponible == null ? 0 : disponible;
+                throw new ReglaNegocioException(
+                        "La ONG «" + ong.getRazonSocial() + "» tiene " + maximo + " "
+                                + item.getRecurso().getUnidadMedida() + " disponibles de "
+                                + item.getRecurso().getNombre());
+            }
+        }
+
+        Set<Long> ongsQueAportan = new HashSet<>();
+        detalles.forEach(detalle -> ongsQueAportan.add(detalle.ongId()));
+        for (Ong ong : ongsPorId.values()) {
+            if (!ongsQueAportan.contains(ong.getId())) {
+                throw new ReglaNegocioException(
+                        "La ONG «" + ong.getRazonSocial() + "» no ofrece ningún recurso");
+            }
+        }
+        return itemsDelLote;
+    }
+
+    private DetalleOferta nuevoDetalle(Oferta oferta, Map<Long, ItemLote> itemsDelLote,
+                                       Map<Long, Ong> ongsPorId, DetalleOfertaRequest request) {
+        DetalleOferta detalle = new DetalleOferta();
+        detalle.setOferta(oferta);
+        detalle.setItemLote(itemsDelLote.get(request.itemLoteId()));
+        detalle.setOng(ongsPorId.get(request.ongId()));
+        detalle.setCantidadOfrecida(request.cantidadOfrecida());
+        return detalle;
+    }
+
+    private static String clave(Long primero, Long segundo) {
+        return primero + ":" + segundo;
+    }
+
     private Map<String, Integer> indexarInventario(Set<Long> ongIds) {
         Map<String, Integer> indice = new HashMap<>();
         for (InventarioOng inventario : inventarioOngRepository.findByOngIdIn(ongIds)) {
-            String clave = inventario.getOng().getId() + ":" + inventario.getRecurso().getId();
-            indice.put(clave, inventario.getCantidadDisponible());
+            indice.put(clave(inventario.getOng().getId(), inventario.getRecurso().getId()),
+                    inventario.getCantidadDisponible());
         }
         return indice;
     }

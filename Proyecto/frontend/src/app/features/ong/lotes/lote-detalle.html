@@ -6,64 +6,101 @@
 } @else {
   @let l = lote()!;
 
-  <div class="d-flex justify-content-between align-items-start mb-3">
+  <div class="d-flex justify-content-between align-items-start gap-3 mb-3">
     <div>
       <h1 class="h3 mb-1">{{ l.titulo }}</h1>
-      <span class="badge" [class]="badgeGravedad(l.emergencia.nivelGravedad)">
-        {{ l.emergencia.nivelGravedadEtiqueta }}
-      </span>
+      <div class="d-flex flex-wrap gap-2">
+        <span class="badge" [class]="badgeGravedad(l.emergencia.nivelGravedad)">
+          {{ l.emergencia.nivelGravedadEtiqueta }}
+        </span>
+        @if (yaOferto() !== null) {
+          <span class="badge" [class]="yaOferto() ? 'text-bg-success' : 'text-bg-warning'">
+            {{ yaOferto() ? 'Tu ONG ya ofertó' : 'Tu ONG todavía no ofertó' }}
+          </span>
+        }
+      </div>
     </div>
-    <a class="btn btn-outline-secondary btn-sm" routerLink="/ong/lotes">Volver al listado</a>
-  </div>
-
-  <div class="card mb-4">
-    <div class="card-body">
-      <h2 class="h5 card-title">Emergencia</h2>
-      <dl class="row mb-0">
-        <dt class="col-sm-3">Zona afectada</dt>
-        <dd class="col-sm-9">{{ l.emergencia.zonaAfectada }}</dd>
-
-        <dt class="col-sm-3">Municipio</dt>
-        <dd class="col-sm-9">{{ l.emergencia.municipio }}</dd>
-
-        <dt class="col-sm-3">Descripción</dt>
-        <dd class="col-sm-9">{{ l.emergencia.descripcion }}</dd>
-
-        <dt class="col-sm-3">Registrada</dt>
-        <dd class="col-sm-9">{{ l.emergencia.fechaRegistro | date: 'medium' }}</dd>
-
-        <dt class="col-sm-3">Apertura de ofertas</dt>
-        <dd class="col-sm-9">
-          {{ l.fechaAperturaOfertas ? (l.fechaAperturaOfertas | date: 'medium') : 'Sin definir aún' }}
-        </dd>
-
-        <dt class="col-sm-3">Cierre de ofertas</dt>
-        <dd class="col-sm-9">
-          {{ l.fechaCierreOfertas ? (l.fechaCierreOfertas | date: 'medium') : 'Sin definir aún' }}
-        </dd>
-      </dl>
+    <div class="text-end">
+      <button
+        type="button"
+        class="btn btn-primary"
+        [disabled]="!l.convocatoriaAbierta || !puedeOfertar()"
+        (click)="abrirModal()"
+      >
+        Registrar oferta
+      </button>
+      @if (!puedeOfertar()) {
+        <p class="text-body-secondary small mt-1 mb-0">
+          Solo un representante de ONG puede registrar ofertas.
+        </p>
+      } @else if (!l.convocatoriaAbierta) {
+        <p class="text-body-secondary small mt-1 mb-0">
+          La convocatoria de ofertas para esta emergencia está cerrada.
+        </p>
+      }
     </div>
   </div>
 
-  <div class="card mb-4">
-    <div class="card-body">
-      <h2 class="h5 card-title">Recursos solicitados</h2>
-      <table class="table table-sm mb-0">
-        <thead>
-          <tr>
-            <th>Recurso</th>
-            <th>Cantidad requerida</th>
-          </tr>
-        </thead>
-        <tbody>
-          @for (item of l.items; track item.id) {
-            <tr>
-              <td>{{ item.recursoNombre }}</td>
-              <td>{{ item.cantidadRequerida }} {{ item.unidadMedida }}</td>
-            </tr>
-          }
-        </tbody>
-      </table>
+  <div class="row g-4 mb-4">
+    <div class="col-lg-6">
+      <div class="card h-100">
+        <div class="card-body">
+          <h2 class="h5 card-title">Emergencia</h2>
+          <dl class="row mb-0">
+            <dt class="col-sm-4">Zona afectada</dt>
+            <dd class="col-sm-8">{{ l.emergencia.zonaAfectada }}</dd>
+
+            <dt class="col-sm-4">Municipio</dt>
+            <dd class="col-sm-8">{{ l.emergencia.municipio }}</dd>
+
+            <dt class="col-sm-4">Descripción</dt>
+            <dd class="col-sm-8">{{ l.emergencia.descripcion }}</dd>
+
+            <dt class="col-sm-4">Registrada</dt>
+            <dd class="col-sm-8">{{ l.emergencia.fechaRegistro | date: fechaDia }}</dd>
+
+            <dt class="col-sm-4">Apertura de ofertas</dt>
+            <dd class="col-sm-8">
+              {{
+                l.fechaAperturaOfertas
+                  ? (l.fechaAperturaOfertas | date: fechaLarga)
+                  : 'Sin definir aún'
+              }}
+            </dd>
+
+            <dt class="col-sm-4">Cierre de ofertas</dt>
+            <dd class="col-sm-8 mb-0">
+              {{
+                l.fechaCierreOfertas ? (l.fechaCierreOfertas | date: fechaLarga) : 'Sin definir aún'
+              }}
+            </dd>
+          </dl>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-6">
+      <div class="card h-100">
+        <div class="card-body">
+          <h2 class="h5 card-title">Recursos solicitados</h2>
+          <table class="table table-sm mb-0">
+            <thead>
+              <tr>
+                <th>Recurso</th>
+                <th>Cantidad requerida</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (item of l.items; track item.id) {
+                <tr>
+                  <td>{{ item.recursoNombre }}</td>
+                  <td>{{ item.cantidadRequerida }} {{ item.unidadMedida }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -92,7 +129,14 @@
               <tbody>
                 @for (oferta of misOfertas(); track oferta.id) {
                   <tr>
-                    <td>{{ oferta.fechaOferta | date: 'short' }}</td>
+                    <td>
+                      {{ oferta.fechaOferta | date: fechaListado }}
+                      @if (oferta.fechaModificacion) {
+                        <div class="small text-body-secondary">
+                          Modificada: {{ oferta.fechaModificacion | date: fechaListado }}
+                        </div>
+                      }
+                    </td>
                     <td>
                       <span class="badge" [class]="badgeEstado(oferta.estado)">{{
                         oferta.estadoEtiqueta
@@ -108,14 +152,32 @@
                       </div>
                     </td>
                     <td>{{ totalOfrecido(oferta) }} en {{ oferta.aportes.length }} recurso(s)</td>
-                    <td class="text-end">
-                      <button
-                        type="button"
-                        class="btn btn-outline-primary btn-sm"
-                        (click)="verDetalle(oferta)"
-                      >
-                        Ver detalle
-                      </button>
+                    <td>
+                      <div class="d-flex gap-2 justify-content-end">
+                        <button
+                          type="button"
+                          class="btn btn-outline-primary btn-sm"
+                          (click)="verDetalle(oferta)"
+                        >
+                          Ver detalle
+                        </button>
+                        @if (esModificable(oferta)) {
+                          <button
+                            type="button"
+                            class="btn btn-outline-secondary btn-sm"
+                            (click)="editar(oferta)"
+                          >
+                            Editar
+                          </button>
+                          <button
+                            type="button"
+                            class="btn btn-outline-danger btn-sm"
+                            (click)="ofertaAEliminar.set(oferta)"
+                          >
+                            Eliminar
+                          </button>
+                        }
+                      </div>
                     </td>
                   </tr>
                 }
@@ -127,27 +189,7 @@
     </div>
   }
 
-  <div class="d-flex gap-2">
-    <button
-      type="button"
-      class="btn btn-primary"
-      [disabled]="!l.convocatoriaAbierta || !puedeOfertar()"
-      (click)="abrirModal()"
-    >
-      Registrar oferta
-    </button>
-    <!-- TODO: botón "Actualizar oferta" — en standby hasta tener la identidad real de la ONG (login contra Bonita). -->
-  </div>
-
-  @if (!puedeOfertar()) {
-    <p class="text-body-secondary small mt-2">
-      Solo un representante de ONG puede registrar ofertas.
-    </p>
-  } @else if (!l.convocatoriaAbierta) {
-    <p class="text-body-secondary small mt-2">
-      La convocatoria de ofertas para esta emergencia está cerrada.
-    </p>
-  }
+  <a class="btn btn-outline-secondary" routerLink="/ong/lotes">Volver al listado</a>
 
   @if (ofertaSeleccionada(); as oferta) {
     <app-oferta-detalle-modal [oferta]="oferta" (cerrar)="ofertaSeleccionada.set(null)" />
@@ -156,8 +198,25 @@
   @if (modalAbierto()) {
     <app-oferta-form-modal
       [lote]="l"
-      (registrada)="onOfertaRegistrada($event)"
+      [oferta]="ofertaEnEdicion()"
+      (guardada)="onOfertaGuardada($event)"
       (cerrar)="cerrarModal()"
+    />
+  }
+
+  @if (ofertaAEliminar(); as oferta) {
+    <app-confirm-modal
+      titulo="Eliminar oferta"
+      [mensaje]="
+        '¿Seguro que querés eliminar la oferta #' +
+        oferta.id +
+        '? Esta acción no se puede deshacer.'
+      "
+      detalle="Si querés cambiar las ONGs participantes, después podés registrar una oferta nueva."
+      textoConfirmar="Eliminar"
+      [procesando]="eliminando()"
+      (confirmar)="confirmarEliminacion()"
+      (cancelar)="ofertaAEliminar.set(null)"
     />
   }
 }
