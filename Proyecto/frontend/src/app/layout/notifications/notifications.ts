@@ -1,15 +1,32 @@
-import { Component, computed, output, signal } from '@angular/core';
+import { Component, computed, inject, OnInit, output, signal } from '@angular/core';
+import { Notificaciones } from '@core/services/notificaciones';
+import { Notificacion } from '@core/models/notificacion';
 
 @Component({
   selector: 'app-notifications',
   styleUrl: './notifications.scss',
   templateUrl: './notifications.html',
 })
-export class Notifications {
-  protected readonly notificaciones = signal<NotificationItem[]>([]);
+export class Notifications implements OnInit {
+  protected readonly notificaciones = signal<Notificacion[]>([]);
   protected readonly pendientes = computed(() => this.notificaciones().length);
   protected readonly panelAbierto = signal(false);
   readonly panelCambiado = output<boolean>();
+  private readonly notificacionesService = inject(Notificaciones);
+
+  ngOnInit(): void {
+    this.cargar();
+  }
+
+  private cargar(): void {
+    this.notificacionesService.listar().subscribe({
+      next: (notificaciones) => this.notificaciones.set(notificaciones),
+      error: (error) => {
+        console.error('No se pudieron cargar las notificaciones', error);
+      },
+    });
+  }
+
 
   protected alternarPanel(): void {
     this.panelAbierto.update((abierto) => !abierto);
@@ -21,13 +38,13 @@ export class Notifications {
   }
 
   protected eliminar(id: number): void {
-    this.notificaciones.update((items) => items.filter((item) => item.id !== id));
+    this.notificacionesService.eliminar(id).subscribe({
+      next: () => {
+        this.notificaciones.update((items) => items.filter((item) => item.id !== id));
+      },
+      error: (error) => {
+        console.error('No se pudo eliminar la notificación', error);
+      },
+    });
   }
-}
-
-interface NotificationItem {
-  id: number;
-  title: string;
-  description: string;
-  createdAt?: string;
 }

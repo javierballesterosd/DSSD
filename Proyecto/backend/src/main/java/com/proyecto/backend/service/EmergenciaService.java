@@ -3,8 +3,10 @@ package com.proyecto.backend.service;
 
 import com.proyecto.backend.client.BonitaClient;
 import com.proyecto.backend.client.BonitaSession;
+import com.proyecto.backend.dto.auth.LoginResponse;
 import com.proyecto.backend.dto.emergencia.EmergenciaRequestDTO;
 import com.proyecto.backend.dto.emergencia.EmergenciaResponseDTO;
+import com.proyecto.backend.dto.notificacion.DescriptorAudiencia;
 import com.proyecto.backend.exception.AccesoDenegadoException;
 import com.proyecto.backend.exception.BonitaIntegrationException;
 import com.proyecto.backend.exception.InvalidCredentialsException;
@@ -39,6 +41,7 @@ public class EmergenciaService {
     private final MunicipioRepository municipioRepository;
     private final BonitaClient bonitaClient;
     private final EmergenciaMapper emergenciaMapper;
+    private final NotificacionService notificacionService;
 
     /**
      * Registra una emergencia, inicia el caso en Bonita
@@ -48,6 +51,7 @@ public class EmergenciaService {
     public EmergenciaResponseDTO registrarEmergencia(
             EmergenciaRequestDTO requestDTO,
             Long municipioId,
+            LoginResponse remitente,
             BonitaSession session) {
 
         String etapa = "Inicio del registro";
@@ -148,6 +152,8 @@ public class EmergenciaService {
                     emergenciaId, municipioId, caseId
             );
 
+            crearNotificacionEmergencia(guardada, municipio, remitente);
+
             return emergenciaMapper.toDto(finalizada);
 
         } catch (ResourceNotFoundException e) {
@@ -226,5 +232,23 @@ public class EmergenciaService {
             );
             throw e;
         }
+    }
+
+    private void crearNotificacionEmergencia(
+            Emergencia emergencia,
+            Municipio municipio,
+            LoginResponse remitente
+    ) {
+        String titulo = "Nueva emergencia registrada";
+        String descripcion = String.format("Se ha registrado una nueva emergencia en el municipio de %s. Nivel de gravedad: %s. Zona afectada: %s.",
+                municipio.getNombre(), emergencia.getNivelGravedad().name(), emergencia.getZonaAfectada());
+
+        notificacionService.crear(
+                "COORDINADOR",
+                new DescriptorAudiencia(municipio.getRegion().getBonitaGroupPath()),
+                titulo,
+                descripcion,
+                remitente
+        );
     }
 }

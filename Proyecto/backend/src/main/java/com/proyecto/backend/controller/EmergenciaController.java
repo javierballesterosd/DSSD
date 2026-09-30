@@ -2,6 +2,7 @@ package com.proyecto.backend.controller;
 
 import com.proyecto.backend.dto.emergencia.EmergenciaRequestDTO;
 import com.proyecto.backend.dto.emergencia.EmergenciaResponseDTO;
+import com.proyecto.backend.dto.auth.LoginResponse;
 import com.proyecto.backend.service.AuthService;
 import com.proyecto.backend.service.EmergenciaService;
 import jakarta.servlet.http.HttpSession;
@@ -24,8 +25,13 @@ public class EmergenciaController {
             @Valid @RequestBody EmergenciaRequestDTO requestDTO, HttpSession session) {
         // El municipio sale del usuario logueado, no del request
         Long municipioId = authService.municipioDelUsuario(session);
+        LoginResponse remitente = authService.currentUser(session);
         EmergenciaResponseDTO respuesta = emergenciaService.registrarEmergencia(
-                requestDTO, municipioId, authService.bonitaSession(session));
+                requestDTO,
+                municipioId,
+                remitente,
+                authService.bonitaSession(session)
+        );
         return ResponseEntity.status(HttpStatus.CREATED).body(respuesta);
     }
 }

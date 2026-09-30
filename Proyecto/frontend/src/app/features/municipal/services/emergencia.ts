@@ -1,6 +1,7 @@
 import { inject, Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { environment } from '../../../../environments/environment';
 
 import {
   EmergenciaRequest,
@@ -12,7 +13,7 @@ import {
 })
 export class EmergenciaService {
   private readonly http = inject(HttpClient);
-  private readonly apiUrl = '/api/v1/emergencias';
+  private readonly apiUrl = `${environment.apiUrl}/v1/emergencias`;
 
   registrarEmergencia(
     emergencia: EmergenciaRequest
