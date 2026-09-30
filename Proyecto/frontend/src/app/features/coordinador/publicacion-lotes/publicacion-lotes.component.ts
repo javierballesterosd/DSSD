@@ -29,6 +29,7 @@ type ItemLoteFormGroup = FormGroup<ItemLoteForm>;
 
 type PublicacionLotesForm = {
   titulo: FormControl<string>;
+  fechaCierreOfertas: FormControl<string>;
   items: FormArray<ItemLoteFormGroup>;
 };
 
@@ -90,7 +91,7 @@ export class PublicacionLotesComponent implements OnInit {
 
   form: FormGroup<PublicacionLotesForm> = this.fb.group({
     titulo: this.fb.nonNullable.control('', [Validators.required, Validators.maxLength(150)]),
-
+    fechaCierreOfertas: this.fb.nonNullable.control('', [Validators.required]),
     items: this.fb.array<ItemLoteFormGroup>([]),
   });
 
@@ -170,6 +171,7 @@ export class PublicacionLotesComponent implements OnInit {
 
     this.form.reset({
       titulo: '',
+      fechaCierreOfertas: '',
     });
 
     this.items.clear();
@@ -188,6 +190,7 @@ export class PublicacionLotesComponent implements OnInit {
 
     this.form.reset({
       titulo: '',
+      fechaCierreOfertas: '',
     });
 
     this.items.clear();
@@ -281,6 +284,8 @@ export class PublicacionLotesComponent implements OnInit {
     const request: LoteRequest = {
       titulo: valores.titulo,
 
+      fechaCierreOfertas: valores.fechaCierreOfertas,
+
       items: valores.items.map((item) => ({
         recursoId: item.recursoId,
 
@@ -312,6 +317,7 @@ export class PublicacionLotesComponent implements OnInit {
 
         this.form.reset({
           titulo: '',
+          fechaCierreOfertas: '',
         });
 
         this.items.clear();

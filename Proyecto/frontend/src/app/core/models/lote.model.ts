@@ -5,6 +5,7 @@ export type EstadoLote = 'ACTIVO' | 'FINALIZADO' | 'CANCELADO';
 
 export interface LoteRequest {
   titulo: string;
+  fechaCierreOfertas: string;
   items: ItemLoteRequest[];
 }
 

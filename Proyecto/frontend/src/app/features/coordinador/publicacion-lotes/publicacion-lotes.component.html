@@ -502,6 +502,47 @@
 
         </div>
 
+        <!-- ================================================= -->
+        <!-- CIERRE DE OFERTAS -->
+        <!-- ================================================= -->
+
+        <div class="mb-4">
+
+          <label
+            for="fechaCierreOfertas"
+            class="form-label fw-bold"
+          >
+            Fecha y hora de cierre de ofertas
+          </label>
+
+          <input
+            id="fechaCierreOfertas"
+            type="datetime-local"
+            class="form-control"
+            formControlName="fechaCierreOfertas"
+            [class.is-invalid]="
+      form.controls.fechaCierreOfertas.touched &&
+      form.controls.fechaCierreOfertas.invalid
+    "
+          />
+
+          @if (
+          form.controls.fechaCierreOfertas.touched &&
+          form.controls.fechaCierreOfertas.invalid
+          ) {
+
+          <div class="invalid-feedback">
+            La fecha y hora de cierre de ofertas son obligatorias.
+          </div>
+
+          }
+
+          <div class="form-text">
+            Indique hasta qué fecha y hora los proveedores podrán presentar ofertas.
+          </div>
+
+        </div>
+
 
         <!-- ================================================= -->
         <!-- RECURSOS -->
