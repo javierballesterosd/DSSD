@@ -17,6 +17,11 @@ import java.util.List;
 
 @Component
 public class LoteMapper {
+    private final ItemLoteMapper itemLoteMapper;
+
+    public LoteMapper(ItemLoteMapper itemLoteMapper) {
+        this.itemLoteMapper = itemLoteMapper;
+    }
 
     public LoteResumenResponse toResumenResponse(Lote lote) {
         return new LoteResumenResponse(
@@ -75,6 +80,36 @@ public class LoteMapper {
                 item.getRecurso().getNombre(),
                 item.getRecurso().getUnidadMedida(),
                 item.getCantidadRequerida()
+        );
+    }
+
+    public Lote toEntity(
+            LoteRequestDTO requestDTO,
+            Emergencia emergencia
+    ) {
+        return Lote.builder()
+                .titulo(requestDTO.getTitulo())
+                .estado(EstadoLote.ACTIVO)
+                .fechaCreacion(LocalDateTime.now())
+                .fechaAperturaOfertas(LocalDateTime.now())
+                .fechaCierreOfertas(requestDTO.getFechaCierreOfertas())
+                .emergencia(emergencia)
+                .build();
+    }
+
+    public LoteResponseDTO toDto(Lote lote) {
+        return new LoteResponseDTO(
+                lote.getId(),
+                lote.getTitulo(),
+                lote.getEstado(),
+                lote.getFechaCreacion(),
+                lote.getFechaAperturaOfertas(),
+                lote.getFechaCierreOfertas(),
+                lote.getEmergencia().getId(),
+                lote.getItems()
+                        .stream()
+                        .map(itemLoteMapper::toDto)
+                        .toList()
         );
     }
 }
