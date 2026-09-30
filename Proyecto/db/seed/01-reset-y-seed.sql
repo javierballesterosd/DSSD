@@ -29,6 +29,7 @@ DROP INDEX IF EXISTS ux_lote_un_no_cancelado_por_emergencia;
 -- Edición y baja lógica de ofertas. Hibernate crea el check del enum una sola vez y ddl-auto=update
 -- no lo regenera: se borra para que acepte estados nuevos (ELIMINADA).
 ALTER TABLE oferta ADD COLUMN IF NOT EXISTS fecha_modificacion timestamp;
+ALTER TABLE oferta ADD COLUMN IF NOT EXISTS numero_version integer NOT NULL DEFAULT 0;
 ALTER TABLE oferta DROP CONSTRAINT IF EXISTS oferta_estado_check;
 
 -- 1) Regiones y municipios. Clave de negocio = path del grupo en la organización RescueSync de Bonita.

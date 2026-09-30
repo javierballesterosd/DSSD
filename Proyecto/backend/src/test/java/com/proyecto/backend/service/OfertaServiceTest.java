@@ -4,10 +4,13 @@ import com.proyecto.backend.dto.DetalleOfertaRequest;
 import com.proyecto.backend.dto.OfertaEdicionRequest;
 import com.proyecto.backend.dto.OfertaRequest;
 import com.proyecto.backend.dto.OfertaResponse;
+import com.proyecto.backend.dto.OfertaVersionResponse;
 import com.proyecto.backend.exception.AccesoDenegadoException;
+import com.proyecto.backend.exception.RecursoNoEncontradoException;
 import com.proyecto.backend.exception.ReglaNegocioException;
 import com.proyecto.backend.mapper.OfertaMapper;
 import com.proyecto.backend.model.DetalleOferta;
+import com.proyecto.backend.model.DetalleOfertaVersion;
 import com.proyecto.backend.model.Emergencia;
 import com.proyecto.backend.model.EstadoOferta;
 import com.proyecto.backend.model.EstadoLote;
@@ -15,8 +18,10 @@ import com.proyecto.backend.model.InventarioOng;
 import com.proyecto.backend.model.ItemLote;
 import com.proyecto.backend.model.Lote;
 import com.proyecto.backend.model.Oferta;
+import com.proyecto.backend.model.OfertaVersion;
 import com.proyecto.backend.model.Ong;
 import com.proyecto.backend.model.Recurso;
+import com.proyecto.backend.model.TipoCambioOferta;
 import com.proyecto.backend.repository.InventarioOngRepository;
 import com.proyecto.backend.repository.ItemLoteRepository;
 import com.proyecto.backend.repository.LoteRepository;
@@ -54,6 +59,7 @@ class OfertaServiceTest {
 
     /** La ONG del usuario logueado en todos los casos: Cruz Solidaria (ongA). */
     private static final Long ONG_USUARIO = 1L;
+    private static final String USERNAME = "ong.cruzsolidaria";
 
     private OfertaService ofertaService;
 
@@ -123,7 +129,7 @@ class OfertaServiceTest {
         OfertaRequest request = new OfertaRequest(10L, Set.of(1L),
                 List.of(new DetalleOfertaRequest(200L, 1L, 100)));
 
-        assertThatThrownBy(() -> ofertaService.registrar(request, ONG_USUARIO))
+        assertThatThrownBy(() -> ofertaService.registrar(request, ONG_USUARIO, USERNAME))
                 .isInstanceOf(ReglaNegocioException.class)
                 .hasMessageContaining("todavía no abrió");
     }
@@ -135,7 +141,7 @@ class OfertaServiceTest {
         OfertaRequest request = new OfertaRequest(10L, Set.of(1L),
                 List.of(new DetalleOfertaRequest(200L, 1L, 100)));
 
-        assertThatThrownBy(() -> ofertaService.registrar(request, ONG_USUARIO))
+        assertThatThrownBy(() -> ofertaService.registrar(request, ONG_USUARIO, USERNAME))
                 .isInstanceOf(ReglaNegocioException.class)
                 .hasMessageContaining("ya cerró");
     }
@@ -146,7 +152,7 @@ class OfertaServiceTest {
         OfertaRequest request = new OfertaRequest(10L, Set.of(1L),
                 List.of(new DetalleOfertaRequest(200L, 1L, 100)));
 
-        assertThatThrownBy(() -> ofertaService.registrar(request, ONG_USUARIO))
+        assertThatThrownBy(() -> ofertaService.registrar(request, ONG_USUARIO, USERNAME))
                 .isInstanceOf(ReglaNegocioException.class)
                 .hasMessageContaining("no está abierto");
     }
@@ -158,7 +164,7 @@ class OfertaServiceTest {
         OfertaRequest request = new OfertaRequest(10L, Set.of(1L),
                 List.of(new DetalleOfertaRequest(999L, 1L, 100)));
 
-        assertThatThrownBy(() -> ofertaService.registrar(request, ONG_USUARIO))
+        assertThatThrownBy(() -> ofertaService.registrar(request, ONG_USUARIO, USERNAME))
                 .isInstanceOf(ReglaNegocioException.class)
                 .hasMessageContaining("no pertenece al lote");
     }
@@ -172,7 +178,7 @@ class OfertaServiceTest {
         OfertaRequest request = new OfertaRequest(10L, Set.of(2L),
                 List.of(new DetalleOfertaRequest(200L, 2L, 100)));
 
-        assertThatThrownBy(() -> ofertaService.registrar(request, ONG_USUARIO))
+        assertThatThrownBy(() -> ofertaService.registrar(request, ONG_USUARIO, USERNAME))
                 .isInstanceOf(ReglaNegocioException.class)
                 .hasMessageContaining("debe incluir a tu ONG")
                 .hasMessageContaining("Cruz Solidaria");
@@ -202,7 +208,7 @@ class OfertaServiceTest {
                         new DetalleOfertaRequest(200L, 2L, 400)
                 ));
 
-        assertThatThrownBy(() -> ofertaService.registrar(request, ONG_USUARIO))
+        assertThatThrownBy(() -> ofertaService.registrar(request, ONG_USUARIO, USERNAME))
                 .isInstanceOf(ReglaNegocioException.class)
                 .hasMessageContaining("Cruz Solidaria");
     }
@@ -222,7 +228,7 @@ class OfertaServiceTest {
         OfertaRequest request = new OfertaRequest(10L, Set.of(1L, 2L),
                 List.of(new DetalleOfertaRequest(200L, 1L, 500)));
 
-        assertThatThrownBy(() -> ofertaService.registrar(request, ONG_USUARIO))
+        assertThatThrownBy(() -> ofertaService.registrar(request, ONG_USUARIO, USERNAME))
                 .isInstanceOf(ReglaNegocioException.class)
                 .hasMessageContaining("Manos Unidas");
     }
@@ -256,13 +262,41 @@ class OfertaServiceTest {
                         new DetalleOfertaRequest(200L, 2L, 200)
                 ));
 
-        OfertaResponse response = ofertaService.registrar(request, ONG_USUARIO);
+        OfertaResponse response = ofertaService.registrar(request, ONG_USUARIO, USERNAME);
 
         assertThat(response.id()).isEqualTo(500L);
         assertThat(response.estado()).isEqualTo("PENDIENTE");
         assertThat(response.ongs()).hasSize(2);
         assertThat(response.aportes()).hasSize(1);
         assertThat(response.aportes().get(0).totalOfrecido()).isEqualTo(1000);
+        assertThat(response.numeroVersion()).isEqualTo(1);
+    }
+
+    @Test
+    void registrarGuardaLaVersionUnoConSnapshotUsuarioYOng() {
+        InventarioOng inventarioA = new InventarioOng();
+        inventarioA.setOng(ongA);
+        inventarioA.setRecurso(raciones);
+        inventarioA.setCantidadDisponible(800);
+        when(ongRepository.findAllById(any())).thenReturn(List.of(ongA));
+        when(inventarioOngRepository.findByOngIdIn(anyCollection())).thenReturn(List.of(inventarioA));
+        when(ofertaRepository.save(any(Oferta.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        ofertaService.registrar(new OfertaRequest(10L, Set.of(1L),
+                List.of(new DetalleOfertaRequest(200L, 1L, 300))), ONG_USUARIO, USERNAME);
+
+        org.mockito.ArgumentCaptor<Oferta> captor = org.mockito.ArgumentCaptor.forClass(Oferta.class);
+        org.mockito.Mockito.verify(ofertaRepository).save(captor.capture());
+        Oferta guardada = captor.getValue();
+        assertThat(guardada.getNumeroVersion()).isEqualTo(1);
+        assertThat(guardada.getVersiones()).hasSize(1);
+        OfertaVersion v1 = guardada.getVersiones().get(0);
+        assertThat(v1.getNumero()).isEqualTo(1);
+        assertThat(v1.getTipoCambio()).isEqualTo(TipoCambioOferta.CREACION);
+        assertThat(v1.getEstado()).isEqualTo(EstadoOferta.PENDIENTE);
+        assertThat(v1.getUsuario()).isEqualTo(USERNAME);
+        assertThat(v1.getOng()).isSameAs(ongA);
+        assertThat(v1.getDetalles()).extracting(DetalleOfertaVersion::getCantidadOfrecida).containsExactly(300);
     }
 
     @Test
@@ -362,7 +396,7 @@ class OfertaServiceTest {
                 new DetalleOfertaRequest(200L, 1L, 600),
                 new DetalleOfertaRequest(201L, 2L, 50)));
 
-        OfertaResponse response = ofertaService.actualizar(50L, request, ONG_USUARIO);
+        OfertaResponse response = ofertaService.actualizar(50L, request, ONG_USUARIO, USERNAME);
 
         assertThat(oferta.getDetalles()).hasSize(2);
         assertThat(oferta.getDetalles()).contains(racionesA);
@@ -373,11 +407,47 @@ class OfertaServiceTest {
     }
 
     @Test
+    void editarGuardaUnaVersionNuevaConLasCantidadesNuevas() {
+        Oferta oferta = ofertaPendienteEnConsorcio();
+        oferta.setNumeroVersion(1);
+        when(inventarioOngRepository.findByOngIdIn(anyCollection())).thenReturn(List.of(
+                inventario(ongA, raciones, 800), inventario(ongB, raciones, 500), inventario(ongB, frazadas, 100)));
+
+        ofertaService.actualizar(50L, new OfertaEdicionRequest(List.of(
+                new DetalleOfertaRequest(200L, 1L, 600),
+                new DetalleOfertaRequest(201L, 2L, 50))), 2L, "ong.manos");
+
+        assertThat(oferta.getNumeroVersion()).isEqualTo(2);
+        assertThat(oferta.getVersiones()).hasSize(1);
+        OfertaVersion v2 = oferta.getVersiones().get(0);
+        assertThat(v2.getNumero()).isEqualTo(2);
+        assertThat(v2.getTipoCambio()).isEqualTo(TipoCambioOferta.EDICION);
+        assertThat(v2.getUsuario()).isEqualTo("ong.manos");
+        assertThat(v2.getOng()).isSameAs(ongB);
+        assertThat(v2.getDetalles())
+                .extracting(d -> d.getItemLote().getId() + ":" + d.getOng().getId() + "=" + d.getCantidadOfrecida())
+                .containsExactlyInAnyOrder("200:1=600", "201:2=50");
+    }
+
+    @Test
+    void edicionRechazadaNoCreaVersion() {
+        Oferta oferta = ofertaPendienteEnConsorcio();
+        lote.setFechaCierreOfertas(java.time.LocalDateTime.now().minusMinutes(1));
+
+        assertThatThrownBy(() -> ofertaService.actualizar(50L,
+                new OfertaEdicionRequest(List.of(new DetalleOfertaRequest(200L, 1L, 100))), ONG_USUARIO, USERNAME))
+                .isInstanceOf(ReglaNegocioException.class);
+
+        assertThat(oferta.getVersiones()).isEmpty();
+        assertThat(oferta.getNumeroVersion()).isZero();
+    }
+
+    @Test
     void rechazaEdicionDeUnaOngQueNoParticipa() {
         ofertaPendienteEnConsorcio();
         OfertaEdicionRequest request = new OfertaEdicionRequest(List.of(new DetalleOfertaRequest(200L, 1L, 100)));
 
-        assertThatThrownBy(() -> ofertaService.actualizar(50L, request, 3L))
+        assertThatThrownBy(() -> ofertaService.actualizar(50L, request, 3L, USERNAME))
                 .isInstanceOf(AccesoDenegadoException.class);
     }
 
@@ -387,7 +457,7 @@ class OfertaServiceTest {
         lote.setFechaCierreOfertas(java.time.LocalDateTime.now().minusMinutes(1));
         OfertaEdicionRequest request = new OfertaEdicionRequest(List.of(new DetalleOfertaRequest(200L, 1L, 100)));
 
-        assertThatThrownBy(() -> ofertaService.actualizar(50L, request, ONG_USUARIO))
+        assertThatThrownBy(() -> ofertaService.actualizar(50L, request, ONG_USUARIO, USERNAME))
                 .isInstanceOf(ReglaNegocioException.class)
                 .hasMessageContaining("ya cerró");
     }
@@ -397,7 +467,7 @@ class OfertaServiceTest {
         ofertaPendienteEnConsorcio().setEstado(EstadoOferta.VALIDADA);
         OfertaEdicionRequest request = new OfertaEdicionRequest(List.of(new DetalleOfertaRequest(200L, 1L, 100)));
 
-        assertThatThrownBy(() -> ofertaService.actualizar(50L, request, ONG_USUARIO))
+        assertThatThrownBy(() -> ofertaService.actualizar(50L, request, ONG_USUARIO, USERNAME))
                 .isInstanceOf(ReglaNegocioException.class)
                 .hasMessageContaining("ya no se puede modificar");
     }
@@ -410,7 +480,7 @@ class OfertaServiceTest {
                 new DetalleOfertaRequest(200L, 2L, 100),
                 new DetalleOfertaRequest(200L, 3L, 100)));
 
-        assertThatThrownBy(() -> ofertaService.actualizar(50L, request, ONG_USUARIO))
+        assertThatThrownBy(() -> ofertaService.actualizar(50L, request, ONG_USUARIO, USERNAME))
                 .isInstanceOf(ReglaNegocioException.class)
                 .hasMessageContaining("no está entre las ONGs de la oferta");
     }
@@ -422,7 +492,7 @@ class OfertaServiceTest {
                 inventario(ongA, raciones, 800), inventario(ongB, raciones, 500)));
         OfertaEdicionRequest request = new OfertaEdicionRequest(List.of(new DetalleOfertaRequest(200L, 1L, 100)));
 
-        assertThatThrownBy(() -> ofertaService.actualizar(50L, request, ONG_USUARIO))
+        assertThatThrownBy(() -> ofertaService.actualizar(50L, request, ONG_USUARIO, USERNAME))
                 .isInstanceOf(ReglaNegocioException.class)
                 .hasMessageContaining("Manos Unidas");
     }
@@ -432,7 +502,7 @@ class OfertaServiceTest {
         Oferta oferta = ofertaPendienteEnConsorcio();
 
         // La elimina ongB, que también participa.
-        ofertaService.eliminar(50L, 2L);
+        ofertaService.eliminar(50L, 2L, USERNAME);
 
         assertThat(oferta.getEstado()).isEqualTo(EstadoOferta.ELIMINADA);
         assertThat(oferta.getFechaModificacion()).isNotNull();
@@ -440,10 +510,25 @@ class OfertaServiceTest {
     }
 
     @Test
+    void laBajaGuardaUnaVersionConEstadoEliminadaYLasCantidadesVigentes() {
+        Oferta oferta = ofertaPendienteEnConsorcio();
+
+        ofertaService.eliminar(50L, 2L, "ong.manos");
+
+        assertThat(oferta.getVersiones()).hasSize(1);
+        OfertaVersion baja = oferta.getVersiones().get(0);
+        assertThat(baja.getTipoCambio()).isEqualTo(TipoCambioOferta.BAJA);
+        assertThat(baja.getEstado()).isEqualTo(EstadoOferta.ELIMINADA);
+        assertThat(baja.getOng()).isSameAs(ongB);
+        assertThat(baja.getDetalles()).extracting(DetalleOfertaVersion::getCantidadOfrecida)
+                .containsExactlyInAnyOrder(500, 200);
+    }
+
+    @Test
     void rechazaBajaDeUnaOngQueNoParticipa() {
         ofertaPendienteEnConsorcio();
 
-        assertThatThrownBy(() -> ofertaService.eliminar(50L, 3L))
+        assertThatThrownBy(() -> ofertaService.eliminar(50L, 3L, USERNAME))
                 .isInstanceOf(AccesoDenegadoException.class);
     }
 
@@ -452,7 +537,7 @@ class OfertaServiceTest {
         ofertaPendienteEnConsorcio();
         lote.setFechaCierreOfertas(java.time.LocalDateTime.now().minusMinutes(1));
 
-        assertThatThrownBy(() -> ofertaService.eliminar(50L, ONG_USUARIO))
+        assertThatThrownBy(() -> ofertaService.eliminar(50L, ONG_USUARIO, USERNAME))
                 .isInstanceOf(ReglaNegocioException.class)
                 .hasMessageContaining("ya cerró");
     }
@@ -461,7 +546,7 @@ class OfertaServiceTest {
     void rechazaBajaDeOfertaYaEliminada() {
         ofertaPendienteEnConsorcio().setEstado(EstadoOferta.ELIMINADA);
 
-        assertThatThrownBy(() -> ofertaService.eliminar(50L, ONG_USUARIO))
+        assertThatThrownBy(() -> ofertaService.eliminar(50L, ONG_USUARIO, USERNAME))
                 .isInstanceOf(ReglaNegocioException.class)
                 .hasMessageContaining("ya no se puede modificar");
     }
@@ -471,5 +556,84 @@ class OfertaServiceTest {
         when(ofertaRepository.findLoteIdsConOfertaDeOng(1L)).thenReturn(List.of(10L, 11L));
 
         assertThat(ofertaService.lotesConOfertaDeOng(1L)).containsExactly(10L, 11L);
+    }
+
+    // ---------- Historial ----------
+
+    private OfertaVersion versionDe(Oferta oferta, int numero, TipoCambioOferta tipo) {
+        OfertaVersion version = new OfertaVersion();
+        version.setOferta(oferta);
+        version.setNumero(numero);
+        version.setTipoCambio(tipo);
+        version.setEstado(oferta.getEstado());
+        version.setFecha(java.time.LocalDateTime.now());
+        version.setUsuario(USERNAME);
+        version.setOng(ongA);
+        DetalleOfertaVersion detalle = new DetalleOfertaVersion();
+        detalle.setVersion(version);
+        detalle.setItemLote(itemRaciones);
+        detalle.setOng(ongA);
+        detalle.setCantidadOfrecida(numero * 100);
+        version.getDetalles().add(detalle);
+        return version;
+    }
+
+    @Test
+    void listaLasVersionesDeLaMasNuevaALaMasVieja() {
+        Oferta oferta = ofertaPendienteEnConsorcio();
+        oferta.getVersiones().add(versionDe(oferta, 1, TipoCambioOferta.CREACION));
+        oferta.getVersiones().add(versionDe(oferta, 2, TipoCambioOferta.EDICION));
+
+        List<OfertaVersionResponse> versiones = ofertaService.listarVersiones(50L, "ONG", ONG_USUARIO);
+
+        assertThat(versiones).extracting(OfertaVersionResponse::numero).containsExactly(2, 1);
+        assertThat(versiones.get(0).tipoCambioEtiqueta()).isEqualTo("Edición");
+        assertThat(versiones.get(0).aportes().get(0).totalOfrecido()).isEqualTo(200);
+    }
+
+    @Test
+    void elAuditorPuedeVerElHistorialDeCualquierOferta() {
+        Oferta oferta = ofertaPendienteEnConsorcio();
+        oferta.getVersiones().add(versionDe(oferta, 1, TipoCambioOferta.CREACION));
+
+        assertThat(ofertaService.listarVersiones(50L, "AUDITOR", null)).hasSize(1);
+    }
+
+    @Test
+    void rechazaHistorialParaUnaOngQueNoParticipa() {
+        ofertaPendienteEnConsorcio();
+
+        assertThatThrownBy(() -> ofertaService.listarVersiones(50L, "ONG", 3L))
+                .isInstanceOf(AccesoDenegadoException.class);
+    }
+
+    @Test
+    void rechazaHistorialParaOtrosRoles() {
+        ofertaPendienteEnConsorcio();
+
+        assertThatThrownBy(() -> ofertaService.listarVersiones(50L, "MUNICIPAL", null))
+                .isInstanceOf(AccesoDenegadoException.class);
+    }
+
+    @Test
+    void historialDeOfertaInexistenteDa404() {
+        when(ofertaRepository.findById(99L)).thenReturn(java.util.Optional.empty());
+
+        assertThatThrownBy(() -> ofertaService.listarVersiones(99L, "AUDITOR", null))
+                .isInstanceOf(RecursoNoEncontradoException.class);
+    }
+
+    @Test
+    void listarTodasIncluyeLasEliminadas() {
+        Oferta eliminada = ofertaPendienteEnConsorcio();
+        eliminada.setEstado(EstadoOferta.ELIMINADA);
+        eliminada.setNumeroVersion(3);
+        when(ofertaRepository.findAllParaAuditoria(null)).thenReturn(List.of(eliminada));
+
+        List<OfertaResponse> todas = ofertaService.listarTodas(null);
+
+        assertThat(todas).hasSize(1);
+        assertThat(todas.get(0).estado()).isEqualTo("ELIMINADA");
+        assertThat(todas.get(0).numeroVersion()).isEqualTo(3);
     }
 }

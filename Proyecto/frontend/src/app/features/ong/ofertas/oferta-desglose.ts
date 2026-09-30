@@ -1,5 +1,5 @@
 import { Component, input } from '@angular/core';
-import { OfertaResponse } from '../../../core/models/oferta';
+import { AporteRecurso } from '../../../core/models/oferta';
 import { colorOng } from '../../../shared/ong-colores';
 
 /** Tabla de lo ofrecido: una fila por recurso, con el desglose por ONG y el total. */
@@ -16,7 +16,7 @@ import { colorOng } from '../../../shared/ong-colores';
         </tr>
       </thead>
       <tbody>
-        @for (aporte of oferta().aportes; track aporte.itemLoteId) {
+        @for (aporte of aportes(); track aporte.itemLoteId) {
           <tr>
             <td>{{ aporte.recursoNombre }}</td>
             <td>
@@ -38,6 +38,6 @@ import { colorOng } from '../../../shared/ong-colores';
   `,
 })
 export class OfertaDesglose {
-  readonly oferta = input.required<OfertaResponse>();
+  readonly aportes = input.required<AporteRecurso[]>();
   protected readonly colorOng = colorOng;
 }

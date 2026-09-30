@@ -2,7 +2,12 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { Service, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { environment } from '../../../../environments/environment';
-import { OfertaEdicionRequest, OfertaRequest, OfertaResponse } from '../../../core/models/oferta';
+import {
+  OfertaEdicionRequest,
+  OfertaRequest,
+  OfertaResponse,
+  OfertaVersion,
+} from '../../../core/models/oferta';
 
 @Service()
 export class Ofertas {
@@ -18,6 +23,20 @@ export class Ofertas {
   /** Ids de los lotes donde la ONG del usuario logueado ya ofertó (oferta vigente). */
   lotesConMisOfertas(): Observable<number[]> {
     return this.http.get<number[]>(`${environment.apiUrl}/ofertas/mias/lotes`);
+  }
+
+  /** Historial de versiones de una oferta, de la más nueva a la más vieja. */
+  versiones(id: number): Observable<OfertaVersion[]> {
+    return this.http.get<OfertaVersion[]>(`${environment.apiUrl}/ofertas/${id}/versiones`);
+  }
+
+  /** Todas las ofertas, incluidas las eliminadas (solo auditor). */
+  todas(loteId?: number): Observable<OfertaResponse[]> {
+    let params = new HttpParams();
+    if (loteId !== undefined) {
+      params = params.set('loteId', loteId);
+    }
+    return this.http.get<OfertaResponse[]>(`${environment.apiUrl}/ofertas`, { params });
   }
 
   registrar(request: OfertaRequest): Observable<OfertaResponse> {

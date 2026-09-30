@@ -14,6 +14,7 @@ import jakarta.persistence.JoinTable;
 import jakarta.persistence.ManyToMany;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
+import jakarta.persistence.OrderBy;
 import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -47,6 +48,10 @@ public class Oferta {
     @Column(name = "fecha_modificacion")
     private LocalDateTime fechaModificacion;
 
+    /** Número de la última versión registrada (1 al crearla). */
+    @Column(name = "numero_version", nullable = false)
+    private Integer numeroVersion = 0;
+
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "lote_id", nullable = false)
     private Lote lote;
@@ -62,6 +67,10 @@ public class Oferta {
 
     @OneToMany(mappedBy = "oferta", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<DetalleOferta> detalles = new ArrayList<>();
+
+    @OneToMany(mappedBy = "oferta", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OrderBy("numero desc")
+    private List<OfertaVersion> versiones = new ArrayList<>();
 
     @OneToMany(mappedBy = "oferta", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Actividad> actividades = new ArrayList<>();

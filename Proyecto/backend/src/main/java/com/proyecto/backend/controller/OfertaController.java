@@ -1,8 +1,10 @@
 package com.proyecto.backend.controller;
 
+import com.proyecto.backend.dto.auth.LoginResponse;
 import com.proyecto.backend.dto.OfertaEdicionRequest;
 import com.proyecto.backend.dto.OfertaRequest;
 import com.proyecto.backend.dto.OfertaResponse;
+import com.proyecto.backend.dto.OfertaVersionResponse;
 import com.proyecto.backend.service.AuthService;
 import com.proyecto.backend.service.OfertaService;
 import jakarta.servlet.http.HttpSession;
@@ -45,11 +47,25 @@ public class OfertaController {
         return ofertaService.lotesConOfertaDeOng(authService.ongDelUsuario(session));
     }
 
+    /** Todas las ofertas, incluidas las eliminadas (solo auditor). */
+    @GetMapping
+    public List<OfertaResponse> todas(@RequestParam(required = false) Long loteId, HttpSession session) {
+        authService.auditorDelUsuario(session);
+        return ofertaService.listarTodas(loteId);
+    }
+
+    /** Historial de versiones de una oferta (ONGs participantes y auditor). */
+    @GetMapping("/{id}/versiones")
+    public List<OfertaVersionResponse> versiones(@PathVariable Long id, HttpSession session) {
+        LoginResponse usuario = authService.currentUser(session);
+        return ofertaService.listarVersiones(id, usuario.getRole(), usuario.getOngId());
+    }
+
     @PostMapping
     public ResponseEntity<OfertaResponse> registrar(@Valid @RequestBody OfertaRequest request,
                                                     HttpSession session) {
         Long ongIdUsuario = authService.ongDelUsuario(session);
-        OfertaResponse creada = ofertaService.registrar(request, ongIdUsuario);
+        OfertaResponse creada = ofertaService.registrar(request, ongIdUsuario, username(session));
         return ResponseEntity.created(java.net.URI.create("/api/ofertas/" + creada.id())).body(creada);
     }
 
@@ -58,14 +74,18 @@ public class OfertaController {
     public OfertaResponse actualizar(@PathVariable Long id, @Valid @RequestBody OfertaEdicionRequest request,
                                      HttpSession session) {
         Long ongIdUsuario = authService.ongDelUsuario(session);
-        return ofertaService.actualizar(id, request, ongIdUsuario);
+        return ofertaService.actualizar(id, request, ongIdUsuario, username(session));
     }
 
     /** Baja lógica de una oferta pendiente, dentro de la ventana del lote. */
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> eliminar(@PathVariable Long id, HttpSession session) {
         Long ongIdUsuario = authService.ongDelUsuario(session);
-        ofertaService.eliminar(id, ongIdUsuario);
+        ofertaService.eliminar(id, ongIdUsuario, username(session));
         return ResponseEntity.noContent().build();
+    }
+
+    private String username(HttpSession session) {
+        return authService.currentUser(session).getUsername();
     }
 }

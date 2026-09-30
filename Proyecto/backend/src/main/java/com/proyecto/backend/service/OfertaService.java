@@ -4,18 +4,22 @@ import com.proyecto.backend.dto.DetalleOfertaRequest;
 import com.proyecto.backend.dto.OfertaEdicionRequest;
 import com.proyecto.backend.dto.OfertaRequest;
 import com.proyecto.backend.dto.OfertaResponse;
+import com.proyecto.backend.dto.OfertaVersionResponse;
 import com.proyecto.backend.exception.AccesoDenegadoException;
 import com.proyecto.backend.exception.RecursoNoEncontradoException;
 import com.proyecto.backend.exception.ReglaNegocioException;
 import com.proyecto.backend.mapper.OfertaMapper;
 import com.proyecto.backend.model.DetalleOferta;
+import com.proyecto.backend.model.DetalleOfertaVersion;
 import com.proyecto.backend.model.EstadoLote;
 import com.proyecto.backend.model.EstadoOferta;
 import com.proyecto.backend.model.InventarioOng;
 import com.proyecto.backend.model.ItemLote;
 import com.proyecto.backend.model.Lote;
 import com.proyecto.backend.model.Oferta;
+import com.proyecto.backend.model.OfertaVersion;
 import com.proyecto.backend.model.Ong;
+import com.proyecto.backend.model.TipoCambioOferta;
 import com.proyecto.backend.repository.InventarioOngRepository;
 import com.proyecto.backend.repository.ItemLoteRepository;
 import com.proyecto.backend.repository.LoteRepository;
@@ -26,6 +30,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -55,7 +60,7 @@ public class OfertaService {
     }
 
     @Transactional
-    public OfertaResponse registrar(OfertaRequest request, Long ongIdUsuario) {
+    public OfertaResponse registrar(OfertaRequest request, Long ongIdUsuario, String username) {
         Lote lote = loteRepository.findById(request.loteId())
                 .orElseThrow(() -> new ReglaNegocioException("El lote no existe"));
         validarConvocatoriaAbierta(lote);
@@ -86,6 +91,7 @@ public class OfertaService {
         for (DetalleOfertaRequest detalleRequest : request.detalles()) {
             oferta.getDetalles().add(nuevoDetalle(oferta, itemsDelLote, ongsPorId, detalleRequest));
         }
+        registrarVersion(oferta, TipoCambioOferta.CREACION, username, ongsPorId.get(ongIdUsuario));
 
         Oferta guardada = ofertaRepository.save(oferta);
         return ofertaMapper.toResponse(guardada);
@@ -96,7 +102,8 @@ public class OfertaService {
      * no cambian: para eso se elimina la oferta y se registra otra.
      */
     @Transactional
-    public OfertaResponse actualizar(Long ofertaId, OfertaEdicionRequest request, Long ongIdUsuario) {
+    public OfertaResponse actualizar(Long ofertaId, OfertaEdicionRequest request, Long ongIdUsuario,
+                                     String username) {
         Oferta oferta = buscarModificable(ofertaId, ongIdUsuario);
 
         Map<Long, Ong> ongsPorId = new HashMap<>();
@@ -124,6 +131,7 @@ public class OfertaService {
                 clave(detalle.getItemLote().getId(), detalle.getOng().getId())));
 
         oferta.setFechaModificacion(LocalDateTime.now());
+        registrarVersion(oferta, TipoCambioOferta.EDICION, username, ongsPorId.get(ongIdUsuario));
         Oferta guardada = ofertaRepository.save(oferta);
         log.info("Oferta {} editada por la ONG {}", ofertaId, ongIdUsuario);
         return ofertaMapper.toResponse(guardada);
@@ -131,10 +139,13 @@ public class OfertaService {
 
     /** Baja lógica: la oferta pasa a ELIMINADA y conserva sus detalles para trazabilidad. */
     @Transactional
-    public void eliminar(Long ofertaId, Long ongIdUsuario) {
+    public void eliminar(Long ofertaId, Long ongIdUsuario, String username) {
         Oferta oferta = buscarModificable(ofertaId, ongIdUsuario);
         oferta.setEstado(EstadoOferta.ELIMINADA);
         oferta.setFechaModificacion(LocalDateTime.now());
+        Ong ongAutor = oferta.getOngs().stream()
+                .filter(ong -> ong.getId().equals(ongIdUsuario)).findFirst().orElseThrow();
+        registrarVersion(oferta, TipoCambioOferta.BAJA, username, ongAutor);
         ofertaRepository.save(oferta);
         log.info("Oferta {} eliminada por la ONG {}", ofertaId, ongIdUsuario);
     }
@@ -153,20 +164,71 @@ public class OfertaService {
                 .toList();
     }
 
+    /** Historial de versiones de una oferta, de la más nueva a la más vieja. Lo ven las ONGs participantes y el auditor. */
+    @Transactional(readOnly = true)
+    public List<OfertaVersionResponse> listarVersiones(Long ofertaId, String rol, Long ongIdUsuario) {
+        Oferta oferta = ofertaRepository.findById(ofertaId)
+                .orElseThrow(() -> new RecursoNoEncontradoException("La oferta " + ofertaId + " no existe"));
+        if ("ONG".equals(rol)) {
+            exigirParticipacion(oferta, ongIdUsuario);
+        } else if (!"AUDITOR".equals(rol)) {
+            throw new AccesoDenegadoException("No tenés permiso para ver el historial de ofertas");
+        }
+        return oferta.getVersiones().stream()
+                .sorted(Comparator.comparing(OfertaVersion::getNumero).reversed())
+                .map(ofertaMapper::toVersionResponse)
+                .toList();
+    }
+
+    /** Todas las ofertas, incluidas las eliminadas, para auditoría. */
+    @Transactional(readOnly = true)
+    public List<OfertaResponse> listarTodas(Long loteId) {
+        return ofertaRepository.findAllParaAuditoria(loteId).stream()
+                .map(ofertaMapper::toResponse)
+                .toList();
+    }
+
+    /** Guarda una foto de la oferta tal como quedó tras el cambio. */
+    private void registrarVersion(Oferta oferta, TipoCambioOferta tipo, String username, Ong ongAutor) {
+        oferta.setNumeroVersion(oferta.getNumeroVersion() + 1);
+
+        OfertaVersion version = new OfertaVersion();
+        version.setOferta(oferta);
+        version.setNumero(oferta.getNumeroVersion());
+        version.setTipoCambio(tipo);
+        version.setEstado(oferta.getEstado());
+        version.setFecha(LocalDateTime.now());
+        version.setUsuario(username);
+        version.setOng(ongAutor);
+        for (DetalleOferta detalle : oferta.getDetalles()) {
+            DetalleOfertaVersion copia = new DetalleOfertaVersion();
+            copia.setVersion(version);
+            copia.setItemLote(detalle.getItemLote());
+            copia.setOng(detalle.getOng());
+            copia.setCantidadOfrecida(detalle.getCantidadOfrecida());
+            version.getDetalles().add(copia);
+        }
+        oferta.getVersiones().add(version);
+    }
+
     /** Oferta que la ONG del usuario puede editar o eliminar: participa, está pendiente y la ventana sigue abierta. */
     private Oferta buscarModificable(Long ofertaId, Long ongIdUsuario) {
         Oferta oferta = ofertaRepository.findById(ofertaId)
                 .orElseThrow(() -> new RecursoNoEncontradoException("La oferta " + ofertaId + " no existe"));
-        boolean participa = oferta.getOngs().stream().anyMatch(ong -> ong.getId().equals(ongIdUsuario));
-        if (!participa) {
-            throw new AccesoDenegadoException("Tu ONG no participa de esta oferta");
-        }
+        exigirParticipacion(oferta, ongIdUsuario);
         if (oferta.getEstado() != EstadoOferta.PENDIENTE) {
             throw new ReglaNegocioException("La oferta está en estado «" + oferta.getEstado().getEtiqueta()
                     + "» y ya no se puede modificar");
         }
         validarConvocatoriaAbierta(oferta.getLote());
         return oferta;
+    }
+
+    private void exigirParticipacion(Oferta oferta, Long ongIdUsuario) {
+        boolean participa = oferta.getOngs().stream().anyMatch(ong -> ong.getId().equals(ongIdUsuario));
+        if (!participa) {
+            throw new AccesoDenegadoException("Tu ONG no participa de esta oferta");
+        }
     }
 
     private void validarConvocatoriaAbierta(Lote lote) {
