@@ -29,8 +29,8 @@ public class EmergenciaController {
         EmergenciaResponseDTO respuesta = emergenciaService.registrarEmergencia(
                 requestDTO,
                 municipioId,
-                authService.bonitaSession(session),
-                remitente
+                remitente,
+                authService.bonitaSession(session)
         );
         return ResponseEntity.status(HttpStatus.CREATED).body(respuesta);
     }
