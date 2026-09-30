@@ -2,6 +2,7 @@ package com.proyecto.backend.client;
 
 import com.proyecto.backend.exception.BonitaIntegrationException;
 import com.proyecto.backend.exception.InvalidCredentialsException;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -15,6 +16,7 @@ import java.util.List;
 import java.util.Map;
 
 @Component
+@Slf4j
 public class BonitaClient {
 
     private final RestClient restClient;
@@ -105,6 +107,8 @@ public class BonitaClient {
 
     /** Id del proceso habilitado con el nombre configurado (bonita.process.name). */
     public String buscarProcesoId(BonitaSession session, String nombreProceso) {
+        log.info("Buscando proceso en Bonita. nombre={}", nombreProceso);
+
         List<Map<String, Object>> procesos = restClient.get()
                 .uri(uriBuilder -> uriBuilder
                         .path("/API/bpm/process")
@@ -119,15 +123,29 @@ public class BonitaClient {
                 .body(new ParameterizedTypeReference<List<Map<String, Object>>>() {});
 
         if (procesos == null || procesos.isEmpty()) {
+            log.error("No se encontró el proceso habilitado en Bonita. nombre={}",
+                    nombreProceso);
+
             throw new BonitaIntegrationException(
-                    "No hay un proceso habilitado con el nombre '" + nombreProceso + "' en Bonita");
+                    "No hay un proceso habilitado con el nombre '"
+                            + nombreProceso + "' en Bonita"
+            );
         }
 
-        return String.valueOf(procesos.get(0).get("id"));
+        String processId = String.valueOf(procesos.get(0).get("id"));
+
+        log.info(
+                "Proceso encontrado en Bonita. nombre={}, processId={}",
+                nombreProceso, processId
+        );
+
+        return processId;
     }
 
     /** Inicia un caso del proceso (sin contrato de inicio) y devuelve su id. */
     public String iniciarCaso(BonitaSession session, String processId) {
+        log.info("Iniciando caso en Bonita. processId={}", processId);
+
         Map<?, ?> respuesta = restClient.post()
                 .uri("/API/bpm/process/{id}/instantiation", processId)
                 .headers(h -> aplicarSesion(h, session))
@@ -135,17 +153,42 @@ public class BonitaClient {
                 .body(Map.of())
                 .retrieve()
                 .body(Map.class);
+
         if (respuesta == null || respuesta.get("caseId") == null) {
-            throw new BonitaIntegrationException("Bonita no devolvió el id del caso creado");
+            log.error(
+                    "Bonita no devolvió el ID del caso. processId={}",
+                    processId
+            );
+
+            throw new BonitaIntegrationException(
+                    "Bonita no devolvió el id del caso creado"
+            );
         }
-        return respuesta.get("caseId").toString();
+
+        String caseId = respuesta.get("caseId").toString();
+
+        log.info(
+                "Caso iniciado correctamente en Bonita. processId={}, caseId={}",
+                processId, caseId
+        );
+
+        return caseId;
     }
 
     /**
      * Id de la tarea humana pendiente del caso con ese nombre. La tarea se crea en forma asíncrona
      * después de iniciar el caso, así que se reintenta unas veces.
      */
-    public String buscarTareaPendiente(BonitaSession session, String caseId, String nombreTarea) {
+    public String buscarTareaPendiente(
+            BonitaSession session,
+            String caseId,
+            String nombreTarea) {
+
+        log.info(
+                "Buscando tarea pendiente en Bonita. caseId={}, tarea={}",
+                caseId, nombreTarea
+        );
+
         for (int intento = 0; intento < TAREA_REINTENTOS; intento++) {
             List<Map<String, Object>> tareas = restClient.get()
                     .uri(uriBuilder -> uriBuilder
@@ -158,22 +201,61 @@ public class BonitaClient {
                     .headers(h -> aplicarSesion(h, session))
                     .retrieve()
                     .body(new ParameterizedTypeReference<List<Map<String, Object>>>() {});
+
             if (tareas != null && !tareas.isEmpty()) {
-                return String.valueOf(tareas.get(0).get("id"));
+                String tareaId = String.valueOf(tareas.get(0).get("id"));
+
+                log.info(
+                        "Tarea encontrada en Bonita. caseId={}, tareaId={}, intento={}",
+                        caseId, tareaId, intento + 1
+                );
+
+                return tareaId;
             }
+
+            log.warn(
+                    "Tarea aún no disponible. caseId={}, tarea={}, intento={}/{}",
+                    caseId, nombreTarea, intento + 1, TAREA_REINTENTOS
+            );
+
             try {
                 Thread.sleep(TAREA_ESPERA_MS);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
-                break;
+
+                log.error(
+                        "Se interrumpió la búsqueda de la tarea. caseId={}",
+                        caseId, e
+                );
+
+                throw new BonitaIntegrationException(
+                        "Se interrumpió la espera de la tarea '"
+                                + nombreTarea + "' en el caso " + caseId,
+                        e
+                );
             }
         }
+
+        log.error(
+                "La tarea no apareció después de los reintentos. " +
+                        "caseId={}, tarea={}, reintentos={}",
+                caseId, nombreTarea, TAREA_REINTENTOS
+        );
+
         throw new BonitaIntegrationException(
-                "La tarea '" + nombreTarea + "' no apareció en el caso " + caseId);
+                "La tarea '" + nombreTarea
+                        + "' no apareció en el caso " + caseId
+        );
     }
 
     /** Asigna la tarea al usuario de la sesión y la completa con los datos del contrato. */
-    public void ejecutarTarea(BonitaSession session, String taskId, Map<String, Object> contrato) {
+    public void ejecutarTarea(
+            BonitaSession session,
+            String taskId,
+            Map<String, Object> contrato) {
+
+        log.info("Ejecutando tarea en Bonita. taskId={}", taskId);
+
         restClient.post()
                 .uri("/API/bpm/userTask/{id}/execution?assign=true", taskId)
                 .headers(h -> aplicarSesion(h, session))
@@ -181,6 +263,8 @@ public class BonitaClient {
                 .body(contrato)
                 .retrieve()
                 .toBodilessEntity();
+
+        log.info("Tarea ejecutada correctamente en Bonita. taskId={}", taskId);
     }
 
     // Bonita exige la cookie de sesión y el token anti-CSRF en cada llamada
