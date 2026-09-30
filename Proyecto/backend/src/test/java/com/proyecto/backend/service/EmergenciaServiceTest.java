@@ -96,7 +96,7 @@ class EmergenciaServiceTest {
     void creaNotificacionParaCoordinadoresDeLaRegion() {
         EmergenciaRequestDTO request = request();
 
-        emergenciaService.registrarEmergencia(request, 5L, bonitaSession, remitente);
+        emergenciaService.registrarEmergencia(request, 5L, remitente, bonitaSession);
 
         ArgumentCaptor<String> rolCaptor = ArgumentCaptor.forClass(String.class);
         ArgumentCaptor<DescriptorAudiencia> audienciaCaptor =
@@ -117,7 +117,7 @@ class EmergenciaServiceTest {
 
     @Test
     void laNotificacionUsaElRemitenteMunicipalSinCambiarlo() {
-        emergenciaService.registrarEmergencia(request(), 5L, bonitaSession, remitente);
+        emergenciaService.registrarEmergencia(request(), 5L, remitente, bonitaSession);
 
         verify(notificacionService).crear(
                 any(String.class),
@@ -140,7 +140,7 @@ class EmergenciaServiceTest {
         )).thenThrow(error);
 
         assertThatThrownBy(() ->
-                emergenciaService.registrarEmergencia(request(), 5L, bonitaSession, remitente)
+                emergenciaService.registrarEmergencia(request(), 5L, remitente, bonitaSession)
         ).isSameAs(error);
 
         verify(emergenciaRepository, times(1)).save(any(Emergencia.class));
