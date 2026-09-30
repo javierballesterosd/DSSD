@@ -2,8 +2,10 @@ package com.proyecto.backend.service;
 
 import com.proyecto.backend.client.BonitaClient;
 import com.proyecto.backend.client.BonitaSession;
+import com.proyecto.backend.dto.auth.LoginResponse;
 import com.proyecto.backend.dto.emergencia.EmergenciaRequestDTO;
 import com.proyecto.backend.dto.emergencia.EmergenciaResponseDTO;
+import com.proyecto.backend.dto.notificacion.DescriptorAudiencia;
 import com.proyecto.backend.exception.ResourceNotFoundException;
 import com.proyecto.backend.mapper.EmergenciaMapper;
 import com.proyecto.backend.model.Emergencia;
@@ -28,6 +30,7 @@ public class EmergenciaService {
     private final MunicipioRepository municipioRepository;
     private final BonitaClient bonitaClient;
     private final EmergenciaMapper emergenciaMapper;
+    private final NotificacionService notificacionService;
 
     /**
      * Guarda la emergencia del municipio del usuario, inicia el caso en Bonita y completa la tarea
@@ -35,7 +38,8 @@ public class EmergenciaService {
      */
     @Transactional
     public EmergenciaResponseDTO registrarEmergencia(EmergenciaRequestDTO requestDTO, Long municipioId,
-                                                     BonitaSession session) {
+                                                     BonitaSession session,
+                                                     LoginResponse remitente) {
         Municipio municipio = municipioRepository.findById(municipioId)
                 .orElseThrow(() -> new ResourceNotFoundException("Municipio no encontrado con ID: " + municipioId));
 
@@ -43,7 +47,7 @@ public class EmergenciaService {
         emergencia.setFechaRegistro(LocalDateTime.now());
         Emergencia guardada = emergenciaRepository.save(emergencia);
 
-        String processId = bonitaClient.buscarProcesoId(session, "Sistema");
+        String processId = bonitaClient.buscarProcesoId(session, "Sistema P1");
 
         String caseId = bonitaClient.iniciarCaso(
                 session,
@@ -62,6 +66,27 @@ public class EmergenciaService {
         bonitaClient.ejecutarTarea(session, tareaId, contrato);
 
         guardada.setBonitaCaseId(caseId);
+
+        crearNotificacionEmergencia(guardada, municipio, remitente);
+
         return emergenciaMapper.toDto(emergenciaRepository.save(guardada));
+    }
+
+    private void crearNotificacionEmergencia(
+            Emergencia emergencia,
+            Municipio municipio,
+            LoginResponse remitente
+    ) {
+        String titulo = "Nueva emergencia registrada";
+        String descripcion = String.format("Se ha registrado una nueva emergencia en el municipio de %s. Nivel de gravedad: %s. Zona afectada: %s.",
+                municipio.getNombre(), emergencia.getNivelGravedad().name(), emergencia.getZonaAfectada());
+
+        notificacionService.crear(
+                "COORDINADOR",
+                new DescriptorAudiencia(municipio.getRegion().getBonitaGroupPath()),
+                titulo,
+                descripcion,
+                remitente
+        );
     }
 }

@@ -14,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 @Service
@@ -41,6 +42,24 @@ public class OngService {
         return ongRepository.findByBonitaGroupPath(path)
                 .orElseThrow(() -> new RecursoNoEncontradoException(
                         "No hay una ONG registrada para el grupo de Bonita " + path));
+    }
+
+    public Ong obtenerPorGrupoBonitaEnJerarquia(String path) {
+        String grupo = path;
+        while (grupo != null && !grupo.isBlank()) {
+            Optional<Ong> ong = ongRepository.findByBonitaGroupPath(grupo);
+            if (ong.isPresent()) {
+                return ong.get();
+            }
+            grupo = grupoPadre(grupo);
+        }
+        throw new RecursoNoEncontradoException(
+                "No hay una ONG registrada en la jerarquía del grupo de Bonita " + path);
+    }
+
+    private String grupoPadre(String path) {
+        int ultimoSeparador = path.lastIndexOf('/');
+        return ultimoSeparador <= 0 ? null : path.substring(0, ultimoSeparador);
     }
 
     public List<InventarioOngResponse> inventarioPorOng(Set<Long> ongIds) {

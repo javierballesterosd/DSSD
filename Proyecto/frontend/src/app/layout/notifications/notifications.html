@@ -30,10 +30,10 @@
         @for (notificacion of notificaciones(); track notificacion.id) {
           <article class="notification-card">
             <div class="notification-content">
-              <h3 class="notification-title">{{ notificacion.title }}</h3>
-              <p class="notification-description">{{ notificacion.description }}</p>
-              @if (notificacion.createdAt) {
-                <time class="notification-date">{{ notificacion.createdAt }}</time>
+              <h3 class="notification-title">{{ notificacion.titulo }}</h3>
+              <p class="notification-description">{{ notificacion.descripcion }}</p>
+              @if (notificacion.fechaCreacion) {
+                <time class="notification-date">{{ notificacion.fechaCreacion }}</time>
               }
             </div>
 
