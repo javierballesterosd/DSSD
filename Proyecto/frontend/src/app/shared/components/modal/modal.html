@@ -1,0 +1,22 @@
+<div class="modal d-block" tabindex="-1" (click)="onBackdropClick($event)">
+  <div class="modal-dialog modal-dialog-scrollable" [class]="tamano()">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">{{ titulo() }}</h5>
+        <button
+          type="button"
+          class="btn-close"
+          aria-label="Cerrar"
+          (click)="cerrar.emit()"
+        ></button>
+      </div>
+      <div class="modal-body">
+        <ng-content></ng-content>
+      </div>
+      <div class="modal-footer justify-content-center gap-2">
+        <ng-content select="[modal-footer]"></ng-content>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="modal-backdrop show"></div>

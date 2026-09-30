@@ -78,7 +78,7 @@ Todas las entregas son obligatorias: no realizarlas implica perder la cursada. N
 ## Stack
 
 - **Backend**: Spring Boot 4.1.1, Java 21, Maven. Dependencias: web, data-jpa, validation, postgresql.
-- **Frontend**: Angular 22, TypeScript, npm. Tests con Vitest, formato con Prettier.
+- **Frontend**: Angular 22, TypeScript, npm, Bootstrap 5. Tests con Vitest, formato con Prettier.
 - **Base de datos**: PostgreSQL 15 en Docker (pgAdmin incluido).
 
 ## Arquitectura
@@ -92,7 +92,7 @@ com.proyecto.backend
   controller/    endpoints REST; solo reciben y devuelven DTOs, sin lógica de negocio
   service/       lógica de negocio y transacciones (@Transactional)
   repository/    interfaces Spring Data JPA
-  model/         entidades JPA y enums del dominio (Gravedad, EstadoOferta, Rol)
+  model/         entidades JPA y enums del dominio (NivelGravedad, EstadoOferta, EstadoLote)
   dto/           request/response; nunca se exponen entidades en la API
   mapper/        conversión entidad <-> DTO
   client/        clientes HTTP hacia sistemas externos (Bonita, Sistema Nacional)
@@ -114,7 +114,7 @@ Componentes standalone, signals y control flow moderno (`@if`, `@for`). Estructu
 
 ```
 core/       singletons de la app, se cargan una vez
-  guards/     guards de rutas (auth-guard; también por rol)
+  guards/     guards de rutas (auth-guard)
   services/   servicios globales (auth, cliente HTTP base)
   models/     interfaces y tipos TypeScript compartidos (espejo de los DTOs del backend)
 layout/     estructura visual de la app (navbar, notifications)
@@ -126,13 +126,123 @@ features/   una carpeta por funcionalidad o pantalla (lazy-loaded desde app.rout
 Reglas:
 - Cada feature vive en `features/<nombre>/` con sus componentes, servicios y rutas propias. Puede haber una por perfil (municipal, coordinador, ong, auditor) o por proceso (emergencias, lotes, ofertas).
 - `core` no depende de `features`. `features` puede usar `core` y `shared`. `shared` no depende del resto.
-- Rutas protegidas con `authGuard` (y verificación de rol para RBAC) en `app.routes.ts`.
+- Rutas protegidas con `authGuard` en `app.routes.ts` (sin verificación de rol, ver "Identidad, login y ONGs").
 - Llamadas HTTP solo desde servicios, nunca desde componentes.
 - Estado de UI con signals.
 
+### Rutas del frontend y cómo agregar una pantalla
+
+Cada perfil tiene su propio archivo de rutas, cargado con lazy loading desde `app.routes.ts`. Los perfiles (`MUNICIPAL`, `COORDINADOR`, `ONG`, `AUDITOR`, definidos en `core/models/rol.ts`) son un concepto de UI/menú, no de control de acceso: **hoy no hay restricción por rol**, cualquier usuario logueado puede entrar a cualquier pantalla.
+
+| Ruta | Feature |
+|---|---|
+| `/login` | `features/auth/` (pública) |
+| `/municipal/...` | `features/municipal/municipal.routes.ts` |
+| `/coordinador/...` | `features/coordinador/coordinador.routes.ts` |
+| `/ong/...` | `features/ong/ong.routes.ts` |
+| `/auditor/...` | `features/auditor/auditor.routes.ts` |
+
+Todo lo que no es `/login` está dentro de `MainLayout` (navbar + contenido) y protegido por `authGuard`; `/` redirige al inicio del rol del usuario. Cualquier otra ruta muestra la página 404.
+
+Para agregar una pantalla a un perfil (ej. `ong`):
+1. Crear el componente en `features/ong/` (o en una subcarpeta si tiene varias piezas).
+2. Agregar la ruta en `features/ong/ong.routes.ts`: `{ path: 'ofertas', component: Ofertas }`. No hace falta tocar `app.routes.ts`.
+3. Agregar el link en `NAV_LINKS` de `layout/navbar/navbar.ts` para que aparezca en el menú.
+
+## Identidad, login y ONGs (vinculación con Bonita)
+
+Por indicación de la cátedra, **los usuarios viven en la organización de Bonita**, no en una tabla propia. La app no guarda usuarios, contraseñas ni roles.
+
+### Login
+1. El front hace `POST /api/auth/login` con `{ username, password }`.
+2. El backend (`BonitaClient`) llama a `POST {BONITA_BASE_URL}/loginservice` (form-urlencoded) y obtiene las cookies `JSESSIONID` y `X-Bonita-API-Token`.
+3. Con esa sesión consulta a Bonita el usuario y su **membership** (rol + grupo). Cada usuario debe tener **exactamente una** membership.
+4. El rol de Bonita se traduce al rol de la app: `Operador Municipal` → `MUNICIPAL`, `Coordinador Regional` → `COORDINADOR`, `Representante de ONG` → `ONG`, `Auditor` → `AUDITOR`.
+5. La sesión de Bonita se guarda en la `HttpSession` del backend (cookie de sesión del backend). Endpoints: `POST /api/auth/login`, `GET /api/auth/me`, `POST /api/auth/logout`.
+6. Cada intento de login deja un log (`INFO` si funciona; `WARN`/`ERROR` con el motivo si falla). Las contraseñas no se loguean.
+
+En el front, `Auth` (`core/services/auth.ts`) llama a esos endpoints con `withCredentials`, y al arrancar la app restaura la sesión con `GET /api/auth/me`. `authGuard` deja pasar solo a usuarios logueados. Los errores de login se muestran con un toast (`ToastService`). Sigue sin haber restricción por rol en las rutas del front.
+
+### Organización de Bonita (`RescueSync`)
+La organización se define en `RescueSync.xml` (dentro del `.bos` del proceso, carpeta `Modelado/`). Para usarla: en Bonita Studio, importar el `.bos`, **activar** la organización RescueSync y hacer **Desplegar**. Si el login devuelve 401 para un usuario que debería existir, casi seguro la organización no está activa/desplegada (por ejemplo, quedó activa ACME).
+
+Todos los usuarios de ejemplo tienen contraseña `bpm`.
+
+| Rol | Grupo | Usuarios |
+|---|---|---|
+| Operador Municipal | subgrupo de una región (ver abajo) | `operador.laplata`, `operador.citybell`, `operador.berisso`, `operador.lobos`, `operador.quilmes` |
+| Coordinador Regional | grupo de su región (ver abajo) | `coord.norte`, `coord.sur`, `coord.region3`, `coord.region4` |
+| Auditor | `Sistema Nacional` | `auditor.nacional`, `Usuario1` |
+| Representante de ONG | subgrupo de `ONG` (ver abajo) | ver abajo |
+
+### Municipios y regiones
+Los municipios son **subgrupos de una región**, y las regiones son subgrupos de `/Municipio`. Un Coordinador Regional pertenece a una región y trabaja con las emergencias de los municipios de esa región.
+
+| Región (path en Bonita) | Coordinador | Municipios (path) | Operador |
+|---|---|---|---|
+| `/Municipio/Region1` | `coord.norte` | `/Municipio/Region1/LaPlata` | `operador.laplata` |
+| | | `/Municipio/Region1/CityBell` | `operador.citybell` |
+| `/Municipio/Region2` | `coord.sur` | `/Municipio/Region2/Berisso` | `operador.berisso` |
+| `/Municipio/Region3` | `coord.region3` | `/Municipio/Region3/Lobos` | `operador.lobos` |
+| `/Municipio/Region4` | `coord.region4` | `/Municipio/Region4/Quilmes` | `operador.quilmes` |
+
+Igual que con las ONGs, el vínculo con la base es por **path**: `municipio.bonita_group_path` y `region.bonita_group_path` (únicos, obligatorios), y `municipio.region_id` apunta a su región. En el login:
+- `MUNICIPAL`: el path del grupo (`/Municipio/Region1/LaPlata`) resuelve el municipio y su región; la respuesta trae `municipioId`, `municipioNombre`, `regionId` y `regionNombre`.
+- `COORDINADOR`: el path del grupo (`/Municipio/Region1`) resuelve la región; la respuesta trae `regionId` y `regionNombre`.
+- Los demás roles reciben esos campos en `null`.
+
+Al registrar una emergencia el municipio sale del usuario logueado (no del request) y se manda a Bonita el `regionGroupPath`, para que la app filtre las tareas del coordinador por región.
+
+### Regla: un lote por emergencia
+Una emergencia tiene **un solo lote no cancelado**. Si el coordinador cancela el lote (por ejemplo, porque nadie ofertó) y arma otro, cada publicación conserva su propia **ventana de ofertas** (`lote.fecha_apertura_ofertas` / `lote.fecha_cierre_ofertas`); por eso las fechas viven en el lote y no en la emergencia. La base lo garantiza con un índice único parcial (`lote(emergencia_id) WHERE estado <> 'CANCELADO'`) y `LoteRepository.existsByEmergenciaIdAndEstadoNot` queda listo para que la creación de lotes lo valide. `OfertaService.registrar` rechaza ofertas antes de la apertura o después del cierre del lote.
+
+### Edición y baja de ofertas
+- Mientras la ventana del lote esté abierta y la oferta siga `PENDIENTE`, **cualquier ONG que participe** de la oferta puede editarla o eliminarla desde el detalle del lote (botones "Editar" y "Eliminar", este último con confirmación).
+- **Editar** (`PUT /api/ofertas/{id}`) cambia solo las cantidades. Las ONGs participantes no se pueden cambiar: para eso hay que eliminar la oferta y registrar una nueva.
+- **Eliminar** (`DELETE /api/ofertas/{id}`) es una **baja lógica**: la oferta pasa al estado `ELIMINADA`, conserva sus detalles y deja de aparecer en los listados.
+- La oferta registra la fecha de su última modificación (`fecha_modificacion`). El historial de versiones queda pendiente de definición con la cátedra.
+- Fuera de la ventana, con una oferta no pendiente o desde una ONG que no participa, el backend rechaza la operación (400 / 403).
+
+> **Enums y base de datos:** Hibernate crea un *check constraint* con los valores de cada enum persistido (por ejemplo `oferta_estado_check`) y `ddl-auto=update` no lo actualiza. Si se agrega un valor a un enum, hay que borrar ese constraint (el seed ya lo hace para `oferta_estado_check`), o la base rechaza el valor nuevo.
+
+### Proceso 1 en Bonita: instanciación y ventana de ofertas
+- El modelo vigente es `Modelado/rescueSync-V1.3.bos` (Proceso 1 con variables, contratos, operaciones y dos timers; detalle en `.claude/docs/bonita-modelo.md`). Después de importarlo hay que **mapear los actores** en Studio (Municipio → Operador Municipal, Centro Coordinador Regional → Coordinador Regional, ONG → Representante de ONG), activar RescueSync y desplegar.
+- Al registrar una emergencia, `EmergenciaService` usa la sesión de Bonita del usuario: busca el proceso por nombre (`bonita.process.name`, por defecto `Proceso 1`), inicia el caso sin contrato, espera la tarea "Registrar emergencia" y la ejecuta con `{emergenciaId, municipioId, nivelGravedad, zonaAfectada, descripcion, regionGroupPath}`. Si Bonita falla, se revierte el alta.
+- La tarea "Desglosar" del coordinador se completa al publicar el lote con `{loteId, fechaAperturaOfertas, fechaCierreOfertas}` (`BonitaClient.ejecutarTarea`, todavía por integrar con `feature/publicacion-lotes`). **La apertura y el cierre los elige el usuario al publicar el lote**: el proceso ya lo soporta sin cambios. El timer "Apertura de convocatoria" espera hasta `fechaAperturaOfertas` (si ya pasó, abre enseguida) y el boundary timer vence en `fechaCierreOfertas`. Las fechas se mandan como `LocalDateTime` sin zona (se interpretan en `America/Argentina/Buenos_Aires`) y el backend debe validar cierre posterior a apertura.
+
+### ONGs como subgrupos de `ONG`
+Cada ONG es un **subgrupo de `/ONG`** en Bonita, y todos sus representantes tienen el rol `Representante de ONG`. Hay una ONG por subgrupo y puede tener varios usuarios:
+
+| Subgrupo (path en Bonita) | ONG | Usuarios |
+|---|---|---|
+| `/ONG/CruzRojaLaPlata` | Cruz Roja Argentina – Filial La Plata | `ong.cruzroja`, `ong.cruzroja.2`, `ong.cruzroja.3` |
+| `/ONG/CaritasBuenosAires` | Cáritas Arquidiócesis de Buenos Aires | `ong.caritas`, `ong.caritas.2`, `ong.caritas.3` |
+| `/ONG/BomberosLaPlata` | Bomberos Voluntarios de La Plata | `ong.bomberos.1`, `ong.bomberos.2` |
+| `/ONG/BancoAlimentosBA` | Fundación Banco de Alimentos Buenos Aires | `ong.bancoalimentos.1`, `ong.bancoalimentos.2` |
+| `/ONG/TechoBuenosAires` | Techo Argentina – Regional Buenos Aires | `ong.techo.1` |
+
+### Cómo se vincula una ONG de Bonita con la base local
+- La tabla `ong` tiene la columna **`bonita_group_path`** (única, obligatoria) con el path del subgrupo, por ejemplo `/ONG/CaritasBuenosAires`.
+- Se vincula por **path y no por el id numérico** del grupo de Bonita: el id lo asigna cada Bonita al desplegar la organización y es distinto en cada máquina; el path sale del XML y es igual para todo el equipo.
+- En el login de un usuario con rol `ONG`, el backend arma el path del grupo (`parent_path` + `name`), busca la fila en `ong` (`OngService.obtenerPorGrupoBonita`) y devuelve `ongId` y `ongNombre` en la respuesta. Para los otros roles esos campos son `null`.
+- Si el subgrupo existe en Bonita pero no hay fila en `ong` con ese path, el login falla (404) con un mensaje claro.
+
+### Cómo agregar una ONG nueva
+1. En Bonita Studio: crear el subgrupo bajo `ONG`, agregar los usuarios y sus memberships (rol `Representante de ONG`), y volver a desplegar la organización. Compartir el `.bos`/XML actualizado con el equipo.
+2. En la base: insertar la fila con el mismo path, por ejemplo `INSERT INTO ong (razon_social, bonita_group_path) VALUES ('Nueva ONG', '/ONG/NuevaOng');`. Idealmente sumarla también a `db/seed/01-reset-y-seed.sql`.
+
+### Datos de ejemplo (seed)
+`db/seed/01-reset-y-seed.sql` **borra todos los datos** (municipios, recursos, ONGs, emergencias y lo que depende de ellos) y carga el juego de datos común: 4 regiones y 5 municipios (ver arriba), 10 recursos, las 5 ONGs con su inventario y 2 emergencias: una en La Plata con un lote activo (ventana: abre hoy a las 18:00 y cierra en una semana) y una en Berisso con un lote cancelado y otro activo (ventana: abre mañana a las 08:00 y cierra mañana a las 23:00). Las fechas son relativas al día en que se corre el seed. También adapta el esquema (tablas/columnas de región, municipio y lote, `oferta.fecha_modificacion` y el check de estados de oferta). Correrlo antes de levantar el backend (la entidad `Ong` exige `bonita_group_path`):
+
+```bash
+docker exec -i postgres_db psql -U postgres -d rescuesync < db/seed/01-reset-y-seed.sql
+```
+
+La UI usa **Bootstrap 5** (solo CSS, sin JS ni librerías de componentes). Se carga desde `angular.json`.
+
 ## Variables de entorno y puertos
 
-La configuración sale de un `.env` en la raíz del repo (ignorado por git). Copiá `.env.example` a `.env` y completá los valores. Lo leen tanto Docker Compose como el backend cuando corre en local.
+La configuración sale de un `.env` en la raíz del repo (ignorado por git). Creá ese archivo a mano con las variables de la tabla (no hay plantilla versionada). Lo leen tanto Docker Compose como el backend cuando corre en local.
 
 | Variable | Uso | Valor de ejemplo |
 |---|---|---|
@@ -142,6 +252,7 @@ La configuración sale de un `.env` en la raíz del repo (ignorado por git). Cop
 | `PGADMIN_EMAIL` / `PGADMIN_PASSWORD` | Login de pgAdmin | (completar) |
 | `SERVER_PORT` | Puerto del backend cuando corre en local (`./mvnw spring-boot:run`) | `8080` |
 | `BACKEND_PORT` | Puerto del host donde Docker publica el backend | `8080` |
+| `BONITA_BASE_URL` | URL base de Bonita (opcional; por defecto `http://localhost:8080/bonita`) | `http://localhost:8080/bonita` |
 
 **Puertos y URLs**
 
@@ -162,7 +273,7 @@ La configuración sale de un `.env` en la raíz del repo (ignorado por git). Cop
 
 ## Cómo correrlo
 
-Requisitos: Docker, Java 21 y Node.js con npm. Antes de nada, copiá `.env.example` a `.env` y completalo (ver [Variables de entorno y puertos](#variables-de-entorno-y-puertos)).
+Requisitos: Docker, Java 21 y Node.js con npm. Antes de nada, creá el `.env` en la raíz (ver [Variables de entorno y puertos](#variables-de-entorno-y-puertos)).
 
 Para desarrollo local se levanta solo la base y se corren backend y frontend a mano:
 

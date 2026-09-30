@@ -3,10 +3,7 @@
     <a class="navbar-brand" [routerLink]="homeUrl()">RescueSync</a>
 
     <div class="d-flex align-items-center gap-2 ms-auto">
-      <app-notifications
-        #notificaciones
-        (panelCambiado)="cerrarMenuSiEsNecesario($event)"
-      />
+      <app-notifications #notificaciones (panelCambiado)="cerrarMenuSiEsNecesario($event)" />
 
       <div class="dropdown navbar-menu">
         <button
@@ -35,13 +32,14 @@
             @if (usuario(); as u) {
               <div class="dropdown-item-text">
                 {{ u.username }} · {{ rolLabel[u.role] }}
+                @if (u.municipioNombre ?? u.ongNombre ?? u.regionNombre; as org) {
+                  · {{ org }}
+                }
               </div>
             }
 
             <div class="dropdown-divider"></div>
-            <button type="button" class="dropdown-item text-danger" (click)="salir()">
-              Salir
-            </button>
+            <button type="button" class="dropdown-item text-danger" (click)="salir()">Salir</button>
           </div>
         }
       </div>

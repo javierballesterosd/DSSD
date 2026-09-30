@@ -15,13 +15,10 @@ public class EmergenciaRequestDTO {
     private NivelGravedad nivelGravedad;
 
     @NotBlank(message = "La zona afectada es obligatoria")
-    @Size(max = 255, message = "La zona no puede superar los 255 caracteres")
+    @Size(max = 200, message = "La zona no puede superar los 255 caracteres")
     private String zonaAfectada;
 
     @NotBlank(message = "La descripción es obligatoria")
     @Size(min = 10, message = "La descripción debe tener al menos 10 caracteres")
     private String descripcion;
-
-    @NotNull(message = "El ID del municipio es obligatorio")
-    private Long municipioId;
 }

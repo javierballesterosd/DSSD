@@ -4,9 +4,13 @@ import com.proyecto.backend.dto.lote.LoteRequestDTO;
 import com.proyecto.backend.dto.lote.LoteResponseDTO;
 import com.proyecto.backend.exception.ResourceNotFoundException;
 import com.proyecto.backend.mapper.ItemLoteMapper;
+import com.proyecto.backend.dto.LoteDetalleResponse;
+import com.proyecto.backend.dto.LoteResumenResponse;
+import com.proyecto.backend.exception.RecursoNoEncontradoException;
 import com.proyecto.backend.mapper.LoteMapper;
 import com.proyecto.backend.model.Emergencia;
 import com.proyecto.backend.model.ItemLote;
+import com.proyecto.backend.model.EstadoLote;
 import com.proyecto.backend.model.Lote;
 import com.proyecto.backend.model.Recurso;
 import com.proyecto.backend.repository.EmergenciaRepository;
@@ -19,6 +23,7 @@ import com.proyecto.backend.model.EstadoLote;
 
 import java.time.LocalDateTime;
 import java.util.Optional;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -72,4 +77,16 @@ public class LoteService {
 
         return loteMapper.toDto(loteGuardado);
     }
+    public List<LoteResumenResponse> listarPublicados(EstadoLote estado) {
+        return loteRepository.findByEstado(estado).stream()
+                .map(loteMapper::toResumenResponse)
+                .toList();
+    }
+
+    public LoteDetalleResponse obtenerDetalle(Long id) {
+        Lote lote = loteRepository.findDetalleById(id)
+                .orElseThrow(() -> new RecursoNoEncontradoException("No existe el lote " + id));
+        return loteMapper.toDetalleResponse(lote);
+    }
 }
+

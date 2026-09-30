@@ -43,9 +43,12 @@ public class Lote {
     @Column(name = "fecha_creacion", nullable = false)
     private LocalDateTime fechaCreacion;
 
-    /** Fecha estimada de inicio del despliegue. */
-    @Column(name = "fecha_inicio")
-    private LocalDateTime fechaInicio;
+    /** Ventana de recepción de ofertas de este lote: cada publicación conserva la suya. */
+    @Column(name = "fecha_apertura_ofertas")
+    private LocalDateTime fechaAperturaOfertas;
+
+    @Column(name = "fecha_cierre_ofertas")
+    private LocalDateTime fechaCierreOfertas;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "emergencia_id", nullable = false)

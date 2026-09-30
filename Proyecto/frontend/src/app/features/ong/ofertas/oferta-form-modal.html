@@ -1,0 +1,180 @@
+<app-modal
+  [titulo]="titulo()"
+  tamano="modal-xl"
+  (cerrar)="paso() === 'exito' ? cerrarConExito() : cerrar.emit()"
+>
+  @if (paso() === 'formulario') {
+    @if (errorMensaje()) {
+      <div class="alert alert-danger d-flex align-items-start gap-2">
+        <span class="fs-4">⚠</span>
+        <div>
+          <p class="mb-1 fw-semibold">{{ errorMensaje() }}</p>
+          @if (errorDetalles().length > 0) {
+            <ul class="mb-0 small">
+              @for (detalle of errorDetalles(); track detalle) {
+                <li>{{ detalle }}</li>
+              }
+            </ul>
+          }
+        </div>
+      </div>
+    }
+
+    <div class="mb-3">
+      <h6>ONGs participantes</h6>
+      @if (modoEdicion()) {
+        <div class="d-flex flex-wrap gap-2">
+          @for (ong of columnas(); track ong.id) {
+            <span class="chip-ong" [style.--ong-color]="colorOng(ong.id)">
+              {{ ong.razonSocial }}
+              @if (esOngPropia(ong.id)) {
+                <span class="fw-normal">(tu ONG)</span>
+              }
+            </span>
+          }
+        </div>
+        <p class="small text-body-secondary mt-2 mb-0">
+          Para cambiar las ONGs participantes, eliminá esta oferta y registrá una nueva.
+        </p>
+      } @else {
+        <app-ong-selector
+          [ongs]="ongsDisponibles()"
+          [seleccionadas]="ongsSeleccionadas()"
+          [ongPropiaId]="ongPropiaId()"
+          (agregar)="toggleOng($event, true)"
+          (quitar)="toggleOng($event, false)"
+        />
+      }
+    </div>
+
+    @if (columnas().length > 0) {
+      <div class="table-responsive grilla-oferta">
+        <table class="table table-bordered align-middle mb-0">
+          <thead>
+            <tr>
+              <th>Recurso</th>
+              <th>Cant. solicitada</th>
+              @for (ong of columnas(); track ong.id) {
+                <th [class.table-danger]="ongEsInvalida(ong.id)">
+                  <span class="chip-ong" [style.--ong-color]="colorOng(ong.id)">{{
+                    ong.razonSocial
+                  }}</span>
+                  @if (esOngPropia(ong.id)) {
+                    <div class="small fw-normal text-body-secondary">Tu ONG</div>
+                  }
+                  @if (ongEsInvalida(ong.id)) {
+                    <div class="small fw-normal">No está aportando nada</div>
+                  }
+                </th>
+              }
+              <th>Total ofrecido</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (item of lote().items; track item.id) {
+              <tr>
+                <td>{{ item.recursoNombre }}</td>
+                <td>{{ item.cantidadRequerida }} {{ item.unidadMedida }}</td>
+                @for (ong of columnas(); track ong.id) {
+                  <td>
+                    @if (estado(item.id, ong.id) === 'sin-recurso') {
+                      <span class="text-body-secondary small">No cuenta con este recurso</span>
+                    } @else {
+                      <input
+                        type="number"
+                        min="0"
+                        step="1"
+                        class="form-control form-control-sm celda-oferta"
+                        [class.is-invalid]="
+                          estado(item.id, ong.id) === 'excede-inventario' ||
+                          estado(item.id, ong.id) === 'invalida'
+                        "
+                        [attr.list]="'sugerencias-' + item.id + '-' + ong.id"
+                        [value]="cantidad(item.id, ong.id)"
+                        (input)="setCantidad(item.id, ong.id, $any($event.target).value)"
+                      />
+                      <datalist [id]="'sugerencias-' + item.id + '-' + ong.id">
+                        @for (sugerencia of sugerenciasCelda(item.id, ong.id); track sugerencia) {
+                          <option [value]="sugerencia"></option>
+                        }
+                      </datalist>
+                      @if (estado(item.id, ong.id) === 'excede-inventario') {
+                        <div class="invalid-feedback d-block small">
+                          Tiene {{ disponible(item.id, ong.id) }} {{ item.unidadMedida }}
+                          disponibles
+                        </div>
+                      }
+                    }
+                  </td>
+                }
+                <td>
+                  {{ totalFila(item.id) }} {{ item.unidadMedida }}
+                  @if (filaExcedeSolicitado(item.id)) {
+                    <div class="text-warning-emphasis small">
+                      Estás ofreciendo más de lo solicitado
+                    </div>
+                  }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+
+    @if (motivos().length > 0) {
+      <div class="alert alert-warning py-2 small mt-3 mb-0">
+        <ul class="mb-0 ps-3">
+          @for (motivo of motivos(); track motivo) {
+            <li>{{ motivo }}</li>
+          }
+        </ul>
+      </div>
+    }
+  } @else {
+    @let oferta = ofertaGuardada()!;
+    <div class="alert alert-success d-flex align-items-center gap-2">
+      <span class="fs-4">✓</span>
+      <div>
+        @if (modoEdicion()) {
+          <strong>¡Oferta actualizada!</strong>
+          <div>
+            Guardaste los cambios de la oferta #{{ oferta.id }} para el lote «{{
+              oferta.loteTitulo
+            }}».
+          </div>
+        } @else {
+          <strong>¡Oferta registrada con éxito!</strong>
+          <div>
+            Registraste tu oferta para el lote «{{ oferta.loteTitulo }}» de la emergencia de
+            {{ oferta.emergenciaZona }}.
+          </div>
+        }
+      </div>
+    </div>
+    <app-oferta-desglose [oferta]="oferta" />
+  }
+
+  <div modal-footer>
+    @if (paso() === 'formulario') {
+      <button type="button" class="btn btn-secondary" (click)="cerrar.emit()">Cancelar</button>
+      <button
+        type="button"
+        class="btn btn-primary"
+        [disabled]="!formularioValido() || enviando()"
+        (click)="guardar()"
+      >
+        @if (enviando()) {
+          <span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>
+        }
+        @if (modoEdicion()) {
+          {{ enviando() ? 'Guardando…' : 'Guardar cambios' }}
+        } @else {
+          {{ enviando() ? 'Registrando…' : 'Registrar oferta' }}
+        }
+      </button>
+    } @else {
+      <button type="button" class="btn btn-primary" (click)="cerrarConExito()">OK</button>
+    }
+  </div>
+</app-modal>

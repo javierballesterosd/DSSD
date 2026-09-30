@@ -1,0 +1,36 @@
+import { HttpClient, HttpParams } from '@angular/common/http';
+import { Service, inject } from '@angular/core';
+import { Observable } from 'rxjs';
+import { environment } from '../../../../environments/environment';
+import { OfertaEdicionRequest, OfertaRequest, OfertaResponse } from '../../../core/models/oferta';
+
+@Service()
+export class Ofertas {
+  private readonly http = inject(HttpClient);
+
+  /** Ofertas del lote en las que participa la ONG del usuario logueado. */
+  misOfertas(loteId: number): Observable<OfertaResponse[]> {
+    return this.http.get<OfertaResponse[]>(`${environment.apiUrl}/ofertas/mias`, {
+      params: new HttpParams().set('loteId', loteId),
+    });
+  }
+
+  /** Ids de los lotes donde la ONG del usuario logueado ya ofertó (oferta vigente). */
+  lotesConMisOfertas(): Observable<number[]> {
+    return this.http.get<number[]>(`${environment.apiUrl}/ofertas/mias/lotes`);
+  }
+
+  registrar(request: OfertaRequest): Observable<OfertaResponse> {
+    return this.http.post<OfertaResponse>(`${environment.apiUrl}/ofertas`, request);
+  }
+
+  /** Cambia las cantidades de una oferta pendiente (dentro de la ventana del lote). */
+  actualizar(id: number, request: OfertaEdicionRequest): Observable<OfertaResponse> {
+    return this.http.put<OfertaResponse>(`${environment.apiUrl}/ofertas/${id}`, request);
+  }
+
+  /** Baja lógica: la oferta queda en estado ELIMINADA. */
+  eliminar(id: number): Observable<void> {
+    return this.http.delete<void>(`${environment.apiUrl}/ofertas/${id}`);
+  }
+}
