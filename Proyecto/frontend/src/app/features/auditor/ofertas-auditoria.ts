@@ -46,7 +46,7 @@ function normalizar(texto: string): string {
     </div>
 
     @if (cargando()) {
-      <div class="text-center py-4"><span class="spinner-border" aria-hidden="true"></span></div>
+      <p class="text-body-secondary">Cargando ofertas…</p>
     } @else if (error()) {
       <div class="alert alert-danger">No se pudieron cargar las ofertas.</div>
     } @else if (filtradas().length === 0) {

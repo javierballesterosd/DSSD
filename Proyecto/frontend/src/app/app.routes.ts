@@ -1,11 +1,13 @@
 import { Routes } from '@angular/router';
 import { authGuard } from './core/guards/auth-guard';
 import { homeRedirectGuard } from './core/guards/home-redirect-guard';
+import { rolGuard } from './core/guards/rol-guard';
 import { MainLayout } from './layout/main-layout/main-layout';
 import { NotFound } from './shared/components/not-found/not-found';
 
 /**
- * Cada perfil tiene su propio archivo de rutas en features/<perfil>/<perfil>.routes.ts.
+ * Cada perfil tiene su propio archivo de rutas en features/<perfil>/<perfil>.routes.ts, y solo
+ * entra el usuario con ese rol (rolGuard); el backend valida lo mismo en cada endpoint.
  * Para agregar una pantalla, editá solo el archivo de tu perfil (ver README).
  */
 export const routes: Routes = [
@@ -21,20 +23,24 @@ export const routes: Routes = [
       { path: '', pathMatch: 'full', canActivate: [homeRedirectGuard], children: [] },
       {
         path: 'municipal',
+        canActivate: [rolGuard('MUNICIPAL')],
         loadChildren: () =>
           import('./features/municipal/municipal.routes').then((m) => m.MUNICIPAL_ROUTES),
       },
       {
         path: 'coordinador',
+        canActivate: [rolGuard('COORDINADOR')],
         loadChildren: () =>
           import('./features/coordinador/coordinador.routes').then((m) => m.COORDINADOR_ROUTES),
       },
       {
         path: 'ong',
+        canActivate: [rolGuard('ONG')],
         loadChildren: () => import('./features/ong/ong.routes').then((m) => m.ONG_ROUTES),
       },
       {
         path: 'auditor',
+        canActivate: [rolGuard('AUDITOR')],
         loadChildren: () =>
           import('./features/auditor/auditor.routes').then((m) => m.AUDITOR_ROUTES),
       },

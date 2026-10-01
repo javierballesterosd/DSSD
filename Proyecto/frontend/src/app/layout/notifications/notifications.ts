@@ -1,8 +1,11 @@
+import { DatePipe } from '@angular/common';
 import { Component, computed, inject, OnInit, output, signal } from '@angular/core';
 import { Notificaciones } from '@core/services/notificaciones';
 import { Notificacion } from '@core/models/notificacion';
+import { FECHA_LARGA } from '@shared/formatos-fecha';
 
 @Component({
+  imports: [DatePipe],
   selector: 'app-notifications',
   styleUrl: './notifications.scss',
   templateUrl: './notifications.html',
@@ -11,6 +14,7 @@ export class Notifications implements OnInit {
   protected readonly notificaciones = signal<Notificacion[]>([]);
   protected readonly pendientes = computed(() => this.notificaciones().length);
   protected readonly panelAbierto = signal(false);
+  protected readonly fechaLarga = FECHA_LARGA;
   readonly panelCambiado = output<boolean>();
   private readonly notificacionesService = inject(Notificaciones);
 

@@ -1,0 +1,20 @@
+@if (cargando()) {
+  <p class="text-body-secondary">Cargando lote…</p>
+} @else if (error() || !lote()) {
+  <div class="alert alert-danger">No se pudo cargar el lote.</div>
+  <a class="btn btn-secondary" routerLink="/coordinador/lotes">Volver al listado</a>
+} @else {
+  @let l = lote()!;
+
+  <app-lote-ficha [lote]="l">
+    <span ficha-badges class="badge" [class]="estadoBadge()">{{ estadoLabel() }}</span>
+    @if (convocatoria(); as texto) {
+      <span ficha-badges class="badge text-bg-light border">{{ texto }}</span>
+    }
+    <div ficha-acciones class="small text-body-secondary text-end">
+      Lote #{{ l.id }} · Emergencia #{{ l.emergencia.id }}
+    </div>
+  </app-lote-ficha>
+
+  <a class="btn btn-outline-secondary" routerLink="/coordinador/lotes">Volver al listado</a>
+}

@@ -1,18 +1,14 @@
-import { DatePipe, NgTemplateOutlet } from '@angular/common';
+import { DatePipe } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import {
-  NIVEL_GRAVEDAD_BADGE,
-  NIVEL_GRAVEDAD_COLOR,
-  NivelGravedad,
-} from '../../../core/models/emergencia';
 import { LoteDetalle as LoteDetalleModel } from '../../../core/models/lote';
 import { ESTADO_OFERTA_BADGE, OfertaResponse } from '../../../core/models/oferta';
 import { Auth } from '../../../core/services/auth';
 import { ToastService } from '../../../core/services/toast';
 import { ConfirmModal } from '../../../shared/components/confirm-modal/confirm-modal';
-import { FECHA_DIA, FECHA_LARGA, FECHA_LISTADO } from '../../../shared/formatos-fecha';
+import { LoteFicha } from '../../../shared/components/lote-ficha/lote-ficha';
+import { FECHA_LISTADO } from '../../../shared/formatos-fecha';
 import { colorOng } from '../../../shared/ong-colores';
 import { OfertaDetalleModal } from '../ofertas/oferta-detalle-modal';
 import { OfertaFormModal } from '../ofertas/oferta-form-modal';
@@ -23,7 +19,7 @@ import { Ofertas } from '../services/ofertas';
   imports: [
     RouterLink,
     DatePipe,
-    NgTemplateOutlet,
+    LoteFicha,
     OfertaFormModal,
     OfertaDetalleModal,
     ConfirmModal,
@@ -37,8 +33,6 @@ export class LoteDetalle implements OnInit {
   private readonly ofertasService = inject(Ofertas);
   private readonly auth = inject(Auth);
   private readonly toast = inject(ToastService);
-
-  protected readonly nivelGravedadBadge = NIVEL_GRAVEDAD_BADGE;
 
   protected readonly lote = signal<LoteDetalleModel | null>(null);
   protected readonly cargando = signal(true);
@@ -55,8 +49,6 @@ export class LoteDetalle implements OnInit {
   protected readonly ofertaAEliminar = signal<OfertaResponse | null>(null);
   protected readonly eliminando = signal(false);
   protected readonly colorOng = colorOng;
-  protected readonly fechaLarga = FECHA_LARGA;
-  protected readonly fechaDia = FECHA_DIA;
   protected readonly fechaListado = FECHA_LISTADO;
 
   /** Solo un representante de ONG puede ofertar (el backend responde 403 al resto). */
@@ -74,14 +66,6 @@ export class LoteDetalle implements OnInit {
   ngOnInit(): void {
     this.cargarLote();
     this.cargarMisOfertas();
-  }
-
-  protected colorGravedad(nivel: string): string {
-    return NIVEL_GRAVEDAD_COLOR[nivel as NivelGravedad] ?? 'secondary';
-  }
-
-  protected badgeGravedad(nivel: string): string {
-    return this.nivelGravedadBadge[nivel as NivelGravedad] ?? 'text-bg-secondary';
   }
 
   protected badgeEstado(estado: string): string {

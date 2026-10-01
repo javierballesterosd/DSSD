@@ -205,6 +205,45 @@ class AuthServiceTest {
                 .isInstanceOf(AccesoDenegadoException.class);
     }
 
+    private void sesionDeCoordinador() {
+        sesionCon("Coordinador Regional", new BonitaGroup("12", "Region1", "Región 1", "/Municipio"));
+        Region region = new Region();
+        region.setId(1L);
+        region.setNombre("Región 1");
+        when(regionService.obtenerPorGrupoBonitaEnJerarquia("/Municipio/Region1")).thenReturn(region);
+    }
+
+    @Test
+    void regionDelUsuarioDevuelveLaRegionDelCoordinador() {
+        sesionDeCoordinador();
+
+        assertThat(authService.regionDelUsuario(httpSession)).isEqualTo(1L);
+    }
+
+    @Test
+    void regionDelUsuarioRechazaOtrosRoles() {
+        sesionCon("Auditor", new BonitaGroup("13", "Sistema Nacional", "Sistema Nacional", null));
+
+        assertThatThrownBy(() -> authService.regionDelUsuario(httpSession))
+                .isInstanceOf(AccesoDenegadoException.class);
+    }
+
+    @Test
+    void requerirRolDevuelveElUsuarioSiTieneUnoDeLosRoles() {
+        sesionDeCoordinador();
+
+        assertThat(authService.requerirRol(httpSession, "ONG", "COORDINADOR").getRole())
+                .isEqualTo("COORDINADOR");
+    }
+
+    @Test
+    void requerirRolRechazaUnRolNoPermitido() {
+        sesionDeCoordinador();
+
+        assertThatThrownBy(() -> authService.requerirRol(httpSession, "ONG", "AUDITOR"))
+                .isInstanceOf(AccesoDenegadoException.class);
+    }
+
     @Test
     void ongDelUsuarioSinSesionFalla() {
         assertThatThrownBy(() -> authService.ongDelUsuario(httpSession))

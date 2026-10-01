@@ -33,7 +33,9 @@
               <h3 class="notification-title">{{ notificacion.titulo }}</h3>
               <p class="notification-description">{{ notificacion.descripcion }}</p>
               @if (notificacion.fechaCreacion) {
-                <time class="notification-date">{{ notificacion.fechaCreacion }}</time>
+                <time class="notification-date" [attr.datetime]="notificacion.fechaCreacion">{{
+                  notificacion.fechaCreacion | date: fechaLarga
+                }}</time>
               }
             </div>
 

@@ -24,3 +24,33 @@
   justify-content: center;
   gap: 0.75rem;
 }
+
+/* Gravedad Crítica: violeta propio (Bootstrap no trae la variante). Mismas clases que arma la app
+   para el resto de las gravedades: `text-bg-<color>` y `bg-<color>-subtle`. */
+.text-bg-critica {
+  color: #fff !important;
+  background-color: var(--bs-purple) !important;
+}
+
+.bg-critica-subtle {
+  background-color: color-mix(in srgb, var(--bs-purple) 16%, white) !important;
+}
+
+/* Tarjetas de los listados (lotes y emergencias) */
+.tarjeta-hover {
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.tarjeta-hover:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--bs-box-shadow) !important;
+}
+
+.clamp-3 {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+}

@@ -1,0 +1,48 @@
+@if (cargando()) {
+  <p class="text-body-secondary">Cargando emergencia…</p>
+} @else if (error() || !emergencia()) {
+  <div class="alert alert-danger">No se pudo cargar la emergencia.</div>
+  <a class="btn btn-secondary" routerLink="/municipal/emergencias">Volver al listado</a>
+} @else {
+  @let e = emergencia()!;
+
+  <section class="rounded-4 px-4 py-3 mb-4" [class]="'bg-' + color() + '-subtle'">
+    <div class="d-flex flex-wrap gap-2">
+      <span class="badge" [class]="badge()">{{ e.nivelGravedadEtiqueta }}</span>
+      <span class="badge" [class]="estadoLoteBadge()">{{ estadoLoteLabel() }}</span>
+    </div>
+    <h1 class="h4 fw-semibold mt-2 mb-1">{{ e.zonaAfectada }}</h1>
+    <div class="small text-body-secondary">{{ e.municipio }} · Emergencia #{{ e.id }}</div>
+    <hr class="opacity-25 my-2" />
+    <div class="row g-3">
+      <div class="col-md-4">
+        <div class="small text-uppercase text-body-secondary">Registrada</div>
+        <div class="fw-semibold">{{ e.fechaRegistro | date: fechaLarga }}</div>
+      </div>
+      <div class="col-md-4">
+        <div class="small text-uppercase text-body-secondary">Nivel de gravedad</div>
+        <div class="fw-semibold">{{ e.nivelGravedadEtiqueta }}</div>
+      </div>
+      <div class="col-md-4">
+        <div class="small text-uppercase text-body-secondary">Lote de necesidades</div>
+        <div class="fw-semibold">{{ estadoLoteLabel() }}</div>
+      </div>
+    </div>
+  </section>
+
+  <div class="card border-0 shadow-sm mb-3">
+    <div class="card-body py-3">
+      <h2 class="h6 card-title">Descripción</h2>
+      <p class="mb-0">{{ e.descripcion }}</p>
+    </div>
+  </div>
+
+  <div class="card border-0 shadow-sm mb-4">
+    <div class="card-body py-3">
+      <h2 class="h6 card-title">Seguimiento</h2>
+      <p class="mb-0">{{ seguimiento() }}</p>
+    </div>
+  </div>
+
+  <a class="btn btn-outline-secondary" routerLink="/municipal/emergencias">Volver al listado</a>
+}

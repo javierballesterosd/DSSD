@@ -6,28 +6,13 @@
 } @else {
   @let l = lote()!;
 
-  @let c = colorGravedad(l.emergencia.nivelGravedad);
-  @let registrada = l.emergencia.fechaRegistro | date: fechaDia;
-  @let apertura =
-    l.fechaAperturaOfertas ? (l.fechaAperturaOfertas | date: fechaLarga) : 'Sin definir aún';
-  @let cierre =
-    l.fechaCierreOfertas ? (l.fechaCierreOfertas | date: fechaLarga) : 'Sin definir aún';
-
-  <ng-template #badgesTpl>
-    <div class="d-flex flex-wrap gap-2">
-      <span class="badge" [class]="badgeGravedad(l.emergencia.nivelGravedad)">
-        {{ l.emergencia.nivelGravedadEtiqueta }}
+  <app-lote-ficha [lote]="l">
+    @if (yaOferto() !== null) {
+      <span ficha-badges class="badge" [class]="yaOferto() ? 'text-bg-success' : 'text-bg-warning'">
+        {{ yaOferto() ? 'Tu ONG ya ofertó' : 'Tu ONG todavía no ofertó' }}
       </span>
-      @if (yaOferto() !== null) {
-        <span class="badge" [class]="yaOferto() ? 'text-bg-success' : 'text-bg-warning'">
-          {{ yaOferto() ? 'Tu ONG ya ofertó' : 'Tu ONG todavía no ofertó' }}
-        </span>
-      }
-    </div>
-  </ng-template>
-
-  <ng-template #accionesTpl>
-    <div class="text-end">
+    }
+    <div ficha-acciones class="text-end">
       <button
         type="button"
         class="btn btn-primary"
@@ -46,58 +31,7 @@
         </p>
       }
     </div>
-  </ng-template>
-
-  <section class="rounded-4 px-4 py-3 mb-4" [class]="'bg-' + c + '-subtle'">
-    <div class="d-flex flex-wrap justify-content-between align-items-start gap-3">
-      <div>
-        <ng-container [ngTemplateOutlet]="badgesTpl" />
-        <h1 class="h4 fw-semibold mt-2 mb-1">{{ l.titulo }}</h1>
-        <div class="small text-body-secondary">
-          {{ l.emergencia.zonaAfectada }} · {{ l.emergencia.municipio }}
-        </div>
-      </div>
-      <ng-container [ngTemplateOutlet]="accionesTpl" />
-    </div>
-    <hr class="opacity-25 my-2" />
-    <div class="row g-3">
-      <div class="col-md-4">
-        <div class="small text-uppercase text-body-secondary">Registrada</div>
-        <div class="fw-semibold">{{ registrada }}</div>
-      </div>
-      <div class="col-md-4">
-        <div class="small text-uppercase text-body-secondary">Apertura de ofertas</div>
-        <div class="fw-semibold">{{ apertura }}</div>
-      </div>
-      <div class="col-md-4">
-        <div class="small text-uppercase text-body-secondary">Cierre de ofertas</div>
-        <div class="fw-semibold">{{ cierre }}</div>
-      </div>
-    </div>
-  </section>
-
-  <div class="card border-0 shadow-sm mb-3">
-    <div class="card-body py-3">
-      <h2 class="h6 card-title">Descripción</h2>
-      <p class="mb-0">{{ l.emergencia.descripcion }}</p>
-    </div>
-  </div>
-
-  <div class="card border-0 shadow-sm mb-4">
-    <div class="card-body py-3">
-      <h2 class="h6 card-title mb-3">Recursos solicitados</h2>
-      <div class="row row-cols-2 row-cols-md-3 row-cols-lg-6 g-2">
-        @for (item of l.items; track item.id) {
-          <div class="col">
-            <div class="border rounded-3 px-3 py-2 h-100 bg-body-tertiary">
-              <div class="small text-body-secondary">{{ item.recursoNombre }}</div>
-              <div class="fw-semibold">{{ item.cantidadRequerida }} {{ item.unidadMedida }}</div>
-            </div>
-          </div>
-        }
-      </div>
-    </div>
-  </div>
+  </app-lote-ficha>
 
   @if (puedeOfertar()) {
     <div class="card mb-4">

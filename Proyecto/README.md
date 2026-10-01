@@ -129,8 +129,8 @@ features/   una carpeta por funcionalidad o pantalla (lazy-loaded desde app.rout
 
 Reglas:
 - Cada feature vive en `features/<nombre>/` con sus componentes, servicios y rutas propias. Puede haber una por perfil (municipal, coordinador, ong, auditor) o por proceso (emergencias, lotes, ofertas).
-- `core` no depende de `features`. `features` puede usar `core` y `shared`. `shared` no depende del resto.
-- Rutas protegidas con `authGuard` en `app.routes.ts` (sin verificación de rol, ver "Identidad, login y ONGs").
+- `core` no depende de `features`. `features` puede usar `core` y `shared`. `shared` no depende del resto, salvo los tipos y constantes de `core/models` que usan sus componentes de presentación (`LoteFicha`, `LoteTarjeta`, `EmergenciaTarjeta`).
+- Rutas protegidas con `authGuard` y `rolGuard` en `app.routes.ts` (ver "Funcionalidades por rol").
 - Llamadas HTTP solo desde servicios, nunca desde componentes. Todos los servicios usan `@Service()`, nombre corto de clase (`Lotes`, `Emergencias`, `Recursos`, `Notificaciones`, `Ofertas`, `Ongs`) y `apiUrl` tomado de `environment` (nunca de `environment.development`: el build de producción usa `/api` y nginx lo proxea al backend). Si lo usa más de un perfil va en `core/services/<recurso>.ts`; si es de un solo feature, en `features/<x>/services/`.
 - Modelos: un archivo por concepto en `core/models/` (`lote.ts`, `emergencia.ts`, `recurso.ts`...), espejo de los records del backend.
 - Errores: se muestran con `ToastService` usando `mensajeDeError(err, fallback)` (`core/services/errores.ts`), que lee el `mensaje` del backend. Los de notificaciones no se muestran (solo `console.error`).
@@ -139,22 +139,71 @@ Reglas:
 
 ### Rutas del frontend y cómo agregar una pantalla
 
-Cada perfil tiene su propio archivo de rutas, cargado con lazy loading desde `app.routes.ts`. Los perfiles (`MUNICIPAL`, `COORDINADOR`, `ONG`, `AUDITOR`, definidos en `core/models/rol.ts`) son un concepto de UI/menú, no de control de acceso: **hoy no hay restricción por rol**, cualquier usuario logueado puede entrar a cualquier pantalla.
+Cada perfil tiene su propio archivo de rutas, cargado con lazy loading desde `app.routes.ts`. Los perfiles (`MUNICIPAL`, `COORDINADOR`, `ONG`, `AUDITOR`, definidos en `core/models/rol.ts`) controlan el acceso: `rolGuard(rol)` (`core/guards/rol-guard.ts`) deja entrar a cada bloque de rutas solo al usuario con ese rol y manda al resto al inicio de su propio perfil. El backend valida lo mismo en cada endpoint (ver "Funcionalidades por rol").
 
-| Ruta | Feature |
-|---|---|
-| `/login` | `features/auth/` (pública) |
-| `/municipal/...` | `features/municipal/municipal.routes.ts` |
-| `/coordinador/...` | `features/coordinador/coordinador.routes.ts` |
-| `/ong/...` | `features/ong/ong.routes.ts` |
-| `/auditor/...` | `features/auditor/auditor.routes.ts` |
+| Ruta | Feature | Rol | Inicio (la raíz redirige acá) |
+|---|---|---|---|
+| `/login` | `features/auth/` (pública) | | |
+| `/municipal/...` | `features/municipal/municipal.routes.ts` | `MUNICIPAL` | `/municipal/emergencias` |
+| `/coordinador/...` | `features/coordinador/coordinador.routes.ts` | `COORDINADOR` | `/coordinador/emergencias` |
+| `/ong/...` | `features/ong/ong.routes.ts` | `ONG` | `/ong/lotes` |
+| `/auditor/...` | `features/auditor/auditor.routes.ts` | `AUDITOR` | `/auditor/ofertas` |
 
-Todo lo que no es `/login` está dentro de `MainLayout` (navbar + contenido) y protegido por `authGuard`; `/` redirige al inicio del rol del usuario. Cualquier otra ruta muestra la página 404.
+Todo lo que no es `/login` está dentro de `MainLayout` (navbar + contenido) y protegido por `authGuard`; `/` redirige al inicio del rol del usuario. Cualquier otra ruta muestra la página 404. No hay pantallas de inicio vacías: el inicio de cada perfil es su listado, con las acciones que necesita.
 
 Para agregar una pantalla a un perfil (ej. `ong`):
 1. Crear el componente en `features/ong/` (o en una subcarpeta si tiene varias piezas).
 2. Agregar la ruta en `features/ong/ong.routes.ts`: `{ path: 'ofertas', component: Ofertas }`. No hace falta tocar `app.routes.ts`.
 3. Agregar el link en `NAV_LINKS` de `layout/navbar/navbar.ts` para que aparezca en el menú.
+
+### Guía de diseño de pantallas
+
+Las pantallas de ONG (`features/ong/lotes/`) son la referencia; las de municipal y coordinador siguen el mismo armado.
+
+- **Listado**: `<h1 class="h3">` (con la acción principal como `btn btn-primary` a la derecha) y una grilla `row row-cols-1 row-cols-md-2 row-cols-xl-3 g-4` de tarjetas clickeables. Usar `LoteTarjeta` (`shared/components/lote-tarjeta/`) o `EmergenciaTarjeta` (`shared/components/emergencia-tarjeta/`): encabezado con el color de la gravedad, descripción recortada y pie con fecha y badge de estado.
+- **Detalle**: sección `rounded-4` con el fondo de la gravedad, badges arriba, título `h4` y datos con rótulos `small text-uppercase text-body-secondary`; debajo, tarjetas `card border-0 shadow-sm`; al pie, `btn btn-outline-secondary` "Volver al listado". Para un lote usar `LoteFicha` (`shared/components/lote-ficha/`), que acepta badges (`ficha-badges`) y acciones (`ficha-acciones`) proyectados.
+- **Formulario**: `h1.h3` + `card border-0 shadow-sm`, botón principal `btn btn-primary` y "Volver al listado" `btn btn-outline-secondary`. Al guardar se muestra un toast y se navega al detalle de lo creado.
+- **Estados**: "Cargando…" y listas vacías en `text-body-secondary`; errores de carga en `alert alert-danger`; errores de una acción con `ToastService`.
+- **Gravedad**: `NIVEL_GRAVEDAD_BADGE` y `NIVEL_GRAVEDAD_COLOR` (`core/models/emergencia.ts`): Baja gris, Media amarillo, Alta rojo, Crítica violeta (`text-bg-critica` / `bg-critica-subtle`, en `styles.scss`).
+- **Fechas**: formatos de `shared/formatos-fecha.ts` con el `date` pipe: `FECHA_LISTADO` en listados, `FECHA_LARGA` en detalles y notificaciones, `FECHA_DIA` sin hora.
+
+## Funcionalidades por rol
+
+Cada usuario tiene un solo rol. El front lo aplica con `rolGuard` en las rutas y el backend en cada endpoint (`AuthService`: `municipioDelUsuario`, `regionDelUsuario`, `ongDelUsuario`, `auditorDelUsuario`, `requerirRol`). Sin sesión la API responde 401; con un rol que no corresponde, 403.
+
+| Funcionalidad | Municipal | CCR | ONG | Auditor | Pantalla | Endpoint |
+|---|:-:|:-:|:-:|:-:|---|---|
+| Registrar emergencia (de su municipio) | ✔ | | | | `/municipal/emergencias/nueva` | `POST /api/emergencias` |
+| Listar las emergencias de su municipio, con el estado de su lote | ✔ | | | | `/municipal/emergencias` | `GET /api/emergencias/mias` |
+| Ver el detalle de una emergencia | ✔ (de su municipio) | ✔ (de su región) | | ✔ (solo API) | `/municipal/emergencias/:id` | `GET /api/emergencias/{id}` |
+| Listar las emergencias de su región para desglosar | | ✔ | | | `/coordinador/emergencias` | `GET /api/emergencias/para-lotes` |
+| Publicar un lote (solo emergencias de su región) | | ✔ | | | `/coordinador/emergencias/:id/lote/nuevo` | `POST /api/emergencias/{id}/lotes` |
+| Listar los lotes de su región, en cualquier estado | | ✔ | | | `/coordinador/lotes` | `GET /api/lotes/mios` |
+| Listar los lotes activos de todas las regiones | | | ✔ | ✔ (solo API) | `/ong/lotes` | `GET /api/lotes` |
+| Ver el detalle de un lote con su emergencia | | ✔ (de su región) | ✔ | ✔ (solo API) | `/coordinador/lotes/:id`, `/ong/lotes/:id` | `GET /api/lotes/{id}` |
+| Registrar, editar y eliminar ofertas de su ONG | | | ✔ | | `/ong/lotes/:id` | `POST`, `PUT`, `DELETE /api/ofertas` |
+| Elegir las ONGs de una oferta conjunta y ver su stock (dentro del formulario de oferta) | | | ✔ | | `/ong/lotes/:id` | `GET /api/ongs`, `GET /api/ongs/inventario` |
+| Ver el historial de versiones de una oferta | | | ✔ (si participa) | ✔ | detalle de la oferta | `GET /api/ofertas/{id}/versiones` |
+| Ver todas las ofertas, incluidas las eliminadas | | | | ✔ | `/auditor/ofertas` | `GET /api/ofertas` |
+| Catálogo de recursos | ✔ | ✔ | ✔ | ✔ | formulario de lote | `GET /api/recursos` |
+| Ver y descartar sus notificaciones | ✔ | ✔ | ✔ | ✔ | campanita del navbar | `GET`, `DELETE /api/notificaciones` |
+
+"Solo API" significa que el endpoint lo permite pero todavía no hay pantalla para ese perfil.
+
+Reglas que valida el backend además del rol:
+- El municipio de una emergencia sale del usuario logueado, no del request.
+- El coordinador solo ve y desglosa emergencias de los municipios de su región, y solo ve los lotes de esas emergencias.
+- Al publicar un lote, la apertura de ofertas no puede ser anterior a la fecha y hora actual y el cierre tiene que ser posterior a la apertura. El formulario propone la apertura a la próxima hora en punto y el cierre dos días después.
+- Un lote no puede tener el mismo recurso más de una vez. En el formulario, el recurso que se agrega aparece arriba de los ya cargados y los recursos ya elegidos no se pueden volver a elegir.
+
+Notificaciones automáticas (se crean después del commit; si fallan solo queda el aviso en el log):
+
+| Cuándo | Quién la recibe | Código |
+|---|---|---|
+| Se registra una emergencia | Coordinadores de la región del municipio | `EmergenciaRegistradaEvent` → `NotificacionEmergenciaListener` |
+| Cambia el lote de una emergencia (hoy: al publicarlo) | Operadores del municipio de la emergencia | `LoteCambiadoEvent` → `NotificacionLoteListener` |
+
+`LoteCambiadoEvent` lleva el estado en que quedó el lote (`ACTIVO`, `CANCELADO`, `FINALIZADO`) y el listener ya arma el texto de los tres. Cuando se implementen la cancelación y la finalización de lotes alcanza con publicar el evento desde `LoteService`.
 
 ## Identidad, login y ONGs (vinculación con Bonita)
 
@@ -168,7 +217,7 @@ Por indicación de la cátedra, **los usuarios viven en la organización de Boni
 5. La sesión de Bonita se guarda en la `HttpSession` del backend (cookie de sesión del backend). Endpoints: `POST /api/auth/login`, `GET /api/auth/me`, `POST /api/auth/logout`.
 6. Cada intento de login deja un log (`INFO` si funciona; `WARN`/`ERROR` con el motivo si falla). Las contraseñas no se loguean.
 
-En el front, `Auth` (`core/services/auth.ts`) llama a esos endpoints con `withCredentials`, y al arrancar la app restaura la sesión con `GET /api/auth/me`. `authGuard` deja pasar solo a usuarios logueados. Los errores de login se muestran con un toast (`ToastService`). Sigue sin haber restricción por rol en las rutas del front.
+En el front, `Auth` (`core/services/auth.ts`) llama a esos endpoints con `withCredentials`, y al arrancar la app restaura la sesión con `GET /api/auth/me`. `authGuard` deja pasar solo a usuarios logueados y `rolGuard` restringe cada bloque de rutas a su rol. Los errores de login se muestran con un toast (`ToastService`).
 
 ### Organización de Bonita (`RescueSync`)
 La organización se define en `RescueSync.xml` (dentro del `.bos` del proceso, carpeta `Modelado/`). Para usarla: en Bonita Studio, importar el `.bos`, **activar** la organización RescueSync y hacer **Desplegar**. Si el login devuelve 401 para un usuario que debería existir, casi seguro la organización no está activa/desplegada (por ejemplo, quedó activa ACME).
