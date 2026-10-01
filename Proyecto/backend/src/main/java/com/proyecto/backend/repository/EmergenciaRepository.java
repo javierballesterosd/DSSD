@@ -1,11 +1,15 @@
 package com.proyecto.backend.repository;
 
 import com.proyecto.backend.model.Emergencia;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+
+import java.util.List;
 
 @Repository
 public interface EmergenciaRepository extends JpaRepository<Emergencia, Long> {
@@ -14,12 +18,13 @@ public interface EmergenciaRepository extends JpaRepository<Emergencia, Long> {
         SELECT e
         FROM Emergencia e
         LEFT JOIN e.lotes l
-        WHERE l.id IS NULL
+        WHERE e.municipio.region.id = :regionId
+          AND (l.id IS NULL
            OR l.id = (
                SELECT MAX(l2.id)
                FROM Lote l2
                WHERE l2.emergencia.id = e.id
-           )
+           ))
         ORDER BY
             CASE
                 WHEN l.id IS NULL THEN 0
@@ -27,5 +32,8 @@ public interface EmergenciaRepository extends JpaRepository<Emergencia, Long> {
             END ASC,
             e.fechaRegistro DESC
         """)
-    Page<Emergencia> findEmergenciasParaLotes(Pageable pageable);
+    Page<Emergencia> findEmergenciasParaLotes(@Param("regionId") Long regionId, Pageable pageable);
+
+    @EntityGraph(attributePaths = {"municipio"})
+    List<Emergencia> findByMunicipioIdOrderByFechaRegistroDesc(Long municipioId);
 }

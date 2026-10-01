@@ -13,6 +13,11 @@ export class Lotes {
     return this.http.get<LoteResumen[]>(`${this.apiUrl}/lotes`);
   }
 
+  /** Lotes de las emergencias de la región del coordinador logueado, en cualquier estado. */
+  listarMios(): Observable<LoteResumen[]> {
+    return this.http.get<LoteResumen[]>(`${this.apiUrl}/lotes/mios`);
+  }
+
   obtenerDetalle(id: number): Observable<LoteDetalle> {
     return this.http.get<LoteDetalle>(`${this.apiUrl}/lotes/${id}`);
   }

@@ -7,20 +7,22 @@ import { Notifications } from '../notifications/notifications';
 interface NavLink {
   label: string;
   path: string;
+  /** Marca el link como activo solo en esa ruta exacta (para un listado que tiene rutas hijas en el menú). */
+  exacto?: boolean;
 }
 
 /** Links del menú por perfil. Agregá acá el link de cada pantalla nueva. */
 const NAV_LINKS: Record<Rol, NavLink[]> = {
   MUNICIPAL: [
-    { label: 'Inicio', path: '/municipal' },
-    { label: 'Registrar Emergencia', path: '/municipal/emergencias/nueva' }, // <-- Enlace agregado
+    { label: 'Mis emergencias', path: '/municipal/emergencias', exacto: true },
+    { label: 'Registrar emergencia', path: '/municipal/emergencias/nueva' },
   ],
-  COORDINADOR: [{ label: 'Inicio', path: '/coordinador' }],
+  COORDINADOR: [
+    { label: 'Emergencias', path: '/coordinador/emergencias' },
+    { label: 'Mis lotes', path: '/coordinador/lotes' },
+  ],
   ONG: [{ label: 'Lotes disponibles', path: '/ong/lotes' }],
-  AUDITOR: [
-    { label: 'Inicio', path: '/auditor' },
-    { label: 'Ofertas', path: '/auditor/ofertas' },
-  ],
+  AUDITOR: [{ label: 'Ofertas', path: '/auditor/ofertas' }],
 };
 
 @Component({

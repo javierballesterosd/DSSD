@@ -14,6 +14,10 @@ public interface LoteRepository extends JpaRepository<Lote, Long> {
     @EntityGraph(attributePaths = {"emergencia", "emergencia.municipio", "items", "items.recurso"})
     List<Lote> findByEstado(EstadoLote estado);
 
+    /** Lotes (en cualquier estado) de las emergencias de los municipios de una región. */
+    @EntityGraph(attributePaths = {"emergencia", "emergencia.municipio", "items", "items.recurso"})
+    List<Lote> findByEmergenciaMunicipioRegionIdOrderByFechaCreacionDesc(Long regionId);
+
     /**
      * Regla de negocio: una emergencia tiene un solo lote no cancelado. La usa la creación de lotes
      * (LoteService.crear, rama feature/publicacion-lotes) y la respalda un índice único parcial en la base.

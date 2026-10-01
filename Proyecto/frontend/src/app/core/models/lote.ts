@@ -2,6 +2,19 @@ import type { EmergenciaResumen } from './emergencia';
 
 export type EstadoLote = 'ACTIVO' | 'FINALIZADO' | 'CANCELADO';
 
+export const ESTADO_LOTE_LABEL: Record<EstadoLote, string> = {
+  ACTIVO: 'Lote activo',
+  FINALIZADO: 'Lote finalizado',
+  CANCELADO: 'Lote cancelado',
+};
+
+/** Clase de badge Bootstrap según el estado del lote. */
+export const ESTADO_LOTE_BADGE: Record<EstadoLote, string> = {
+  ACTIVO: 'text-bg-success',
+  FINALIZADO: 'text-bg-primary',
+  CANCELADO: 'text-bg-danger',
+};
+
 export interface ItemLoteRequest {
   recursoId: number;
   cantidadRequerida: number;

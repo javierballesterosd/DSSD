@@ -39,8 +39,10 @@ public class EmergenciaMapper {
                 emergencia.getId(),
                 emergencia.getDescripcion(),
                 emergencia.getNivelGravedad(),
+                emergencia.getNivelGravedad().getEtiqueta(),
                 emergencia.getZonaAfectada(),
                 emergencia.getMunicipio().getId(),
+                emergencia.getMunicipio().getNombre(),
                 emergencia.getFechaRegistro(),
                 ultimoLote.map(Lote::getId).orElse(null),
                 ultimoLote.map(Lote::getEstado).orElse(null)

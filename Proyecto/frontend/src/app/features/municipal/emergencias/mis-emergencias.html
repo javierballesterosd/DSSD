@@ -1,0 +1,30 @@
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
+  <div>
+    <h1 class="h3 mb-0">Mis emergencias</h1>
+    @if (municipio) {
+      <div class="small text-body-secondary">Registradas por {{ municipio }}</div>
+    }
+  </div>
+  <a class="btn btn-primary" routerLink="/municipal/emergencias/nueva">Registrar emergencia</a>
+</div>
+
+@if (cargando()) {
+  <p class="text-body-secondary">Cargando emergencias…</p>
+} @else if (error()) {
+  <div class="alert alert-danger">
+    No se pudieron cargar las emergencias. Probá de nuevo más tarde.
+  </div>
+} @else if (emergencias().length === 0) {
+  <p class="text-body-secondary">Tu municipio todavía no registró emergencias.</p>
+} @else {
+  <div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-4">
+    @for (emergencia of emergencias(); track emergencia.id) {
+      <div class="col">
+        <app-emergencia-tarjeta
+          [emergencia]="emergencia"
+          [enlace]="['/municipal/emergencias', emergencia.id]"
+        />
+      </div>
+    }
+  </div>
+}

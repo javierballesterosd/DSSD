@@ -2,7 +2,12 @@ import { HttpClient } from '@angular/common/http';
 import { Service, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
-import { EmergenciaRequest, EmergenciaResponse, PaginaEmergencias } from '../models/emergencia';
+import {
+  EmergenciaParaLoteResponse,
+  EmergenciaRequest,
+  EmergenciaResponse,
+  PaginaEmergencias,
+} from '../models/emergencia';
 
 @Service()
 export class Emergencias {
@@ -17,5 +22,14 @@ export class Emergencias {
     return this.http.get<PaginaEmergencias>(`${this.apiUrl}/para-lotes`, {
       params: { page, size },
     });
+  }
+
+  /** Emergencias del municipio del operador logueado. */
+  listarMias(): Observable<EmergenciaParaLoteResponse[]> {
+    return this.http.get<EmergenciaParaLoteResponse[]>(`${this.apiUrl}/mias`);
+  }
+
+  obtener(id: number): Observable<EmergenciaParaLoteResponse> {
+    return this.http.get<EmergenciaParaLoteResponse>(`${this.apiUrl}/${id}`);
   }
 }

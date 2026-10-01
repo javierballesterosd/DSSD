@@ -6,6 +6,7 @@ import com.proyecto.backend.dto.auth.LoginResponse;
 import com.proyecto.backend.dto.EmergenciaParaLoteResponse;
 import com.proyecto.backend.dto.EmergenciaRequest;
 import com.proyecto.backend.dto.EmergenciaResponse;
+import com.proyecto.backend.exception.AccesoDenegadoException;
 import com.proyecto.backend.exception.RecursoNoEncontradoException;
 import com.proyecto.backend.mapper.EmergenciaMapper;
 import com.proyecto.backend.model.Emergencia;
@@ -24,6 +25,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 @Service
@@ -119,13 +121,47 @@ public class EmergenciaService {
     }
 
     @Transactional(readOnly = true)
-    public Page<EmergenciaParaLoteResponse> obtenerEmergenciasParaLotes(int page, int size) {
+    public Page<EmergenciaParaLoteResponse> obtenerEmergenciasParaLotes(Long regionId, int page, int size) {
         Pageable pageable = PageRequest.of(page, size);
 
         return emergenciaRepository
-                .findEmergenciasParaLotes(pageable)
-                .map(emergencia -> emergenciaMapper.toParaLoteResponse(
-                        emergencia,
-                        loteRepository.findFirstByEmergenciaIdOrderByIdDesc(emergencia.getId())));
+                .findEmergenciasParaLotes(regionId, pageable)
+                .map(this::conUltimoLote);
+    }
+
+    /** Emergencias registradas por un municipio, de la más reciente a la más antigua. */
+    @Transactional(readOnly = true)
+    public List<EmergenciaParaLoteResponse> listarDeMunicipio(Long municipioId) {
+        return emergenciaRepository.findByMunicipioIdOrderByFechaRegistroDesc(municipioId).stream()
+                .map(this::conUltimoLote)
+                .toList();
+    }
+
+    /**
+     * Detalle de una emergencia. El operador municipal solo ve las de su municipio y el coordinador
+     * las de su región; el auditor ve todas.
+     */
+    @Transactional(readOnly = true)
+    public EmergenciaParaLoteResponse obtenerDetalle(Long id, LoginResponse usuario) {
+        Emergencia emergencia = emergenciaRepository.findById(id)
+                .orElseThrow(() -> new RecursoNoEncontradoException("No existe la emergencia " + id));
+
+        Municipio municipio = emergencia.getMunicipio();
+        boolean permitido = switch (usuario.getRole()) {
+            case "MUNICIPAL" -> municipio.getId().equals(usuario.getMunicipioId());
+            case "COORDINADOR" -> municipio.getRegion().getId().equals(usuario.getRegionId());
+            case "AUDITOR" -> true;
+            default -> false;
+        };
+        if (!permitido) {
+            throw new AccesoDenegadoException("No tenés permiso para ver esta emergencia");
+        }
+        return conUltimoLote(emergencia);
+    }
+
+    private EmergenciaParaLoteResponse conUltimoLote(Emergencia emergencia) {
+        return emergenciaMapper.toParaLoteResponse(
+                emergencia,
+                loteRepository.findFirstByEmergenciaIdOrderByIdDesc(emergencia.getId()));
     }
 }

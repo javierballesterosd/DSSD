@@ -1,0 +1,29 @@
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
+  <div>
+    <h1 class="h3 mb-0">Mis lotes</h1>
+    @if (region) {
+      <div class="small text-body-secondary">Publicados para las emergencias de {{ region }}</div>
+    }
+  </div>
+  <a class="btn btn-primary" routerLink="/coordinador/emergencias">Publicar lote</a>
+</div>
+
+@if (cargando()) {
+  <p class="text-body-secondary">Cargando lotes…</p>
+} @else if (error()) {
+  <div class="alert alert-danger">No se pudieron cargar los lotes. Probá de nuevo más tarde.</div>
+} @else if (lotes().length === 0) {
+  <p class="text-body-secondary">Todavía no publicaste lotes para las emergencias de tu región.</p>
+} @else {
+  <div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-4">
+    @for (lote of lotes(); track lote.id) {
+      <div class="col">
+        <app-lote-tarjeta [lote]="lote" [enlace]="['/coordinador/lotes', lote.id]">
+          <span class="badge" [class]="estadoBadge(lote.estado)">
+            {{ estadoLabel(lote.estado) }}
+          </span>
+        </app-lote-tarjeta>
+      </div>
+    }
+  </div>
+}

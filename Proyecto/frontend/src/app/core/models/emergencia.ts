@@ -16,20 +16,20 @@ export const NIVEL_GRAVEDAD_LABEL: Record<NivelGravedad, string> = {
   CRITICA: 'Crítica',
 };
 
-/** Clase de badge Bootstrap según la gravedad. */
+/** Clase de badge según la gravedad (Bootstrap; `text-bg-critica` está en styles.scss). */
 export const NIVEL_GRAVEDAD_BADGE: Record<NivelGravedad, string> = {
   BAJA: 'text-bg-secondary',
   MEDIA: 'text-bg-warning',
   ALTA: 'text-bg-danger',
-  CRITICA: 'text-bg-dark',
+  CRITICA: 'text-bg-critica',
 };
 
-/** Color de Bootstrap según la gravedad. */
+/** Color según la gravedad, para armar `bg-<color>-subtle` (`critica` está en styles.scss). */
 export const NIVEL_GRAVEDAD_COLOR: Record<NivelGravedad, string> = {
   BAJA: 'secondary',
   MEDIA: 'warning',
   ALTA: 'danger',
-  CRITICA: 'dark',
+  CRITICA: 'critica',
 };
 
 export interface EmergenciaRequest {
@@ -58,13 +58,15 @@ export interface EmergenciaResumen {
   municipio: string;
 }
 
-/** Emergencia en la lista del coordinador, con su último lote (null si todavía no tiene). */
+/** Emergencia en los listados y el detalle de municipal y coordinador, con su último lote (null si todavía no tiene). */
 export interface EmergenciaParaLoteResponse {
   id: number;
   descripcion: string;
   nivelGravedad: NivelGravedad;
+  nivelGravedadEtiqueta: string;
   zonaAfectada: string;
   municipioId: number;
+  municipio: string;
   fechaRegistro: string;
   loteId: number | null;
   estadoLote: EstadoLote | null;

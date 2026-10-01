@@ -5,6 +5,7 @@ import com.proyecto.backend.client.BonitaSession;
 import com.proyecto.backend.dto.auth.LoginResponse;
 import com.proyecto.backend.dto.EmergenciaRequest;
 import com.proyecto.backend.dto.DescriptorAudiencia;
+import com.proyecto.backend.exception.AccesoDenegadoException;
 import com.proyecto.backend.exception.BonitaIntegrationException;
 import com.proyecto.backend.mapper.EmergenciaMapper;
 import com.proyecto.backend.model.Emergencia;
@@ -22,6 +23,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
 
+import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -30,6 +33,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -51,6 +55,7 @@ class EmergenciaServiceTest {
     private EmergenciaService emergenciaService;
     private LoginResponse remitente;
     private BonitaSession bonitaSession;
+    private Municipio municipio;
 
     @BeforeEach
     void setUp() {
@@ -82,9 +87,11 @@ class EmergenciaServiceTest {
 
         bonitaSession = new BonitaSession("session", "token");
 
-        when(municipioRepository.findById(5L)).thenReturn(Optional.of(municipio));
-        when(bonitaClient.buscarProcesoId(bonitaSession)).thenReturn("proceso-1");
-        when(emergenciaRepository.save(any(Emergencia.class))).thenAnswer(invocation -> {
+        this.municipio = municipio;
+
+        lenient().when(municipioRepository.findById(5L)).thenReturn(Optional.of(municipio));
+        lenient().when(bonitaClient.buscarProcesoId(bonitaSession)).thenReturn("proceso-1");
+        lenient().when(emergenciaRepository.save(any(Emergencia.class))).thenAnswer(invocation -> {
             Emergencia emergencia = invocation.getArgument(0);
             if (emergencia.getId() == null) {
                 emergencia.setId(20L);
@@ -171,4 +178,58 @@ class EmergenciaServiceTest {
                 NivelGravedad.ALTA, "Zona Norte", "Desborde del arroyo con familias evacuadas");
     }
 
+
+    private Emergencia emergenciaGuardada() {
+        Emergencia emergencia = new Emergencia();
+        emergencia.setId(20L);
+        emergencia.setNivelGravedad(NivelGravedad.CRITICA);
+        emergencia.setZonaAfectada("Barrio Norte");
+        emergencia.setDescripcion("Inundación en el casco urbano");
+        emergencia.setFechaRegistro(LocalDateTime.now());
+        emergencia.setMunicipio(municipio);
+        return emergencia;
+    }
+
+    @Test
+    void listaLasEmergenciasDelMunicipioConElEstadoDeSuLote() {
+        when(emergenciaRepository.findByMunicipioIdOrderByFechaRegistroDesc(5L))
+                .thenReturn(List.of(emergenciaGuardada()));
+        when(loteRepository.findFirstByEmergenciaIdOrderByIdDesc(20L)).thenReturn(Optional.empty());
+
+        var emergencias = emergenciaService.listarDeMunicipio(5L);
+
+        assertThat(emergencias).hasSize(1);
+        assertThat(emergencias.get(0).municipio()).isEqualTo("La Plata");
+        assertThat(emergencias.get(0).nivelGravedadEtiqueta()).isEqualTo("Crítica");
+        assertThat(emergencias.get(0).loteId()).isNull();
+    }
+
+    @Test
+    void elOperadorVeElDetalleDeUnaEmergenciaDeSuMunicipio() {
+        when(emergenciaRepository.findById(20L)).thenReturn(Optional.of(emergenciaGuardada()));
+        when(loteRepository.findFirstByEmergenciaIdOrderByIdDesc(20L)).thenReturn(Optional.empty());
+        remitente.setMunicipioId(5L);
+
+        assertThat(emergenciaService.obtenerDetalle(20L, remitente).id()).isEqualTo(20L);
+    }
+
+    @Test
+    void elOperadorNoVeElDetalleDeUnaEmergenciaDeOtroMunicipio() {
+        when(emergenciaRepository.findById(20L)).thenReturn(Optional.of(emergenciaGuardada()));
+        remitente.setMunicipioId(9L);
+
+        assertThatThrownBy(() -> emergenciaService.obtenerDetalle(20L, remitente))
+                .isInstanceOf(AccesoDenegadoException.class);
+    }
+
+    @Test
+    void elCoordinadorNoVeElDetalleDeUnaEmergenciaDeOtraRegion() {
+        when(emergenciaRepository.findById(20L)).thenReturn(Optional.of(emergenciaGuardada()));
+        LoginResponse coordinador = new LoginResponse();
+        coordinador.setRole("COORDINADOR");
+        coordinador.setRegionId(2L);
+
+        assertThatThrownBy(() -> emergenciaService.obtenerDetalle(20L, coordinador))
+                .isInstanceOf(AccesoDenegadoException.class);
+    }
 }

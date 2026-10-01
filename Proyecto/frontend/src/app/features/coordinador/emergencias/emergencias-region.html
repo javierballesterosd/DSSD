@@ -1,0 +1,62 @@
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
+  <div>
+    <h1 class="h3 mb-0">Emergencias</h1>
+    <div class="small text-body-secondary">
+      @if (region) {
+        Registradas por los municipios de {{ region }}.
+      }
+      Elegí una para desglosarla en un lote de necesidades.
+    </div>
+  </div>
+  <a class="btn btn-outline-primary" routerLink="/coordinador/lotes">Ver mis lotes</a>
+</div>
+
+@if (cargando()) {
+  <p class="text-body-secondary">Cargando emergencias…</p>
+} @else if (error()) {
+  <div class="alert alert-danger">
+    No se pudieron cargar las emergencias. Probá de nuevo más tarde.
+  </div>
+} @else if (emergencias().length === 0) {
+  <p class="text-body-secondary">No hay emergencias registradas en tu región.</p>
+} @else {
+  <div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-4">
+    @for (emergencia of emergencias(); track emergencia.id) {
+      <div class="col">
+        <app-emergencia-tarjeta [emergencia]="emergencia" [enlace]="enlace(emergencia)">
+          <span class="small fw-semibold text-primary mt-auto">
+            @if (puedeDesglosar(emergencia)) {
+              <i class="bi bi-diagram-3 me-1"></i>Desglosar en lotes
+            } @else {
+              <i class="bi bi-box-seam me-1"></i>Ver lote
+            }
+          </span>
+        </app-emergencia-tarjeta>
+      </div>
+    }
+  </div>
+
+  @if (totalPaginas() > 1) {
+    <div class="d-flex justify-content-between align-items-center mt-4">
+      <button
+        type="button"
+        class="btn btn-outline-secondary"
+        [disabled]="paginaActual() === 0"
+        (click)="paginaAnterior()"
+      >
+        Anterior
+      </button>
+      <span class="text-body-secondary">
+        Página <strong>{{ paginaActual() + 1 }}</strong> de <strong>{{ totalPaginas() }}</strong>
+      </span>
+      <button
+        type="button"
+        class="btn btn-outline-secondary"
+        [disabled]="paginaActual() >= totalPaginas() - 1"
+        (click)="paginaSiguiente()"
+      >
+        Siguiente
+      </button>
+    </div>
+  }
+}

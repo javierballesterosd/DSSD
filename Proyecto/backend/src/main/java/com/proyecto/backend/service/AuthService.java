@@ -129,6 +129,27 @@ public class AuthService {
         return usuario.getMunicipioId();
     }
 
+    /**
+     * Id de la región del usuario logueado. Lanza 401 si no hay sesión y 403 si el usuario
+     * no es coordinador regional.
+     */
+    public Long regionDelUsuario(HttpSession httpSession) {
+        LoginResponse usuario = currentUser(httpSession);
+        if (!"COORDINADOR".equals(usuario.getRole()) || usuario.getRegionId() == null) {
+            throw new AccesoDenegadoException("Solo un coordinador regional puede gestionar los lotes de su región");
+        }
+        return usuario.getRegionId();
+    }
+
+    /** Usuario logueado si tiene alguno de los roles indicados. Lanza 401 si no hay sesión y 403 si tiene otro rol. */
+    public LoginResponse requerirRol(HttpSession httpSession, String... roles) {
+        LoginResponse usuario = currentUser(httpSession);
+        if (!List.of(roles).contains(usuario.getRole())) {
+            throw new AccesoDenegadoException("Tu perfil no tiene permiso para realizar esta acción");
+        }
+        return usuario;
+    }
+
     /** Sesión de Bonita del usuario logueado (para invocar la API de Bonita en su nombre). */
     public BonitaSession bonitaSession(HttpSession httpSession) {
         BonitaSession session = (BonitaSession) httpSession.getAttribute(BONITA_SESSION_ATTRIBUTE);
