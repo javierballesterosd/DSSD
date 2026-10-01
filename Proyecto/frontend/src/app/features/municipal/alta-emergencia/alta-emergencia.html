@@ -18,16 +18,6 @@
         </div>
       }
 
-      @if (mensajeError()) {
-        <div
-          class="alert alert-danger alert-dismissible fade show mb-4"
-          role="alert"
-        >
-          <i class="bi bi-exclamation-triangle-fill me-2"></i>
-          {{ mensajeError() }}
-        </div>
-      }
-
       <form [formGroup]="form" (ngSubmit)="onSubmit()">
 
         <!-- Nivel de Gravedad -->

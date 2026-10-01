@@ -73,7 +73,7 @@ class AuthServiceTest {
         Ong ong = new Ong();
         ong.setId(2L);
         ong.setRazonSocial("Cáritas Arquidiócesis de Buenos Aires");
-        when(ongService.obtenerPorGrupoBonita("/ONG/CaritasBuenosAires")).thenReturn(ong);
+        when(ongService.obtenerPorGrupoBonitaEnJerarquia("/ONG/CaritasBuenosAires")).thenReturn(ong);
 
         LoginResponse response = authService.login(request("ong.caritas"), httpSession);
 
@@ -93,7 +93,7 @@ class AuthServiceTest {
         municipio.setId(5L);
         municipio.setNombre("La Plata");
         municipio.setRegion(region);
-        when(municipioService.obtenerPorGrupoBonita("/Municipio/Region1/LaPlata")).thenReturn(municipio);
+        when(municipioService.obtenerPorGrupoBonitaEnJerarquia("/Municipio/Region1/LaPlata")).thenReturn(municipio);
 
         LoginResponse response = authService.login(request("operador.laplata"), httpSession);
 
@@ -112,7 +112,7 @@ class AuthServiceTest {
         Region region = new Region();
         region.setId(1L);
         region.setNombre("Región 1");
-        when(regionService.obtenerPorGrupoBonita("/Municipio/Region1")).thenReturn(region);
+        when(regionService.obtenerPorGrupoBonitaEnJerarquia("/Municipio/Region1")).thenReturn(region);
 
         LoginResponse response = authService.login(request("coord.norte"), httpSession);
 
@@ -140,7 +140,7 @@ class AuthServiceTest {
     void loginDeSubgrupoSinOngSembradaFalla() {
         BonitaGroup grupo = new BonitaGroup("56", "OngNueva", "Ong nueva", "/ONG");
         bonitaDevuelve("ong.nueva", "Representante de ONG", grupo);
-        when(ongService.obtenerPorGrupoBonita("/ONG/OngNueva"))
+        when(ongService.obtenerPorGrupoBonitaEnJerarquia("/ONG/OngNueva"))
                 .thenThrow(new RecursoNoEncontradoException("No hay una ONG registrada"));
 
         assertThatThrownBy(() -> authService.login(request("ong.nueva"), httpSession))
@@ -165,7 +165,7 @@ class AuthServiceTest {
         Ong ong = new Ong();
         ong.setId(2L);
         ong.setRazonSocial("Cáritas Arquidiócesis de Buenos Aires");
-        when(ongService.obtenerPorGrupoBonita("/ONG/CaritasBuenosAires")).thenReturn(ong);
+        when(ongService.obtenerPorGrupoBonitaEnJerarquia("/ONG/CaritasBuenosAires")).thenReturn(ong);
 
         assertThat(authService.ongDelUsuario(httpSession)).isEqualTo(2L);
     }
@@ -176,7 +176,7 @@ class AuthServiceTest {
         Region region = new Region();
         region.setId(1L);
         region.setNombre("Región 1");
-        when(regionService.obtenerPorGrupoBonita("/Municipio/Region1")).thenReturn(region);
+        when(regionService.obtenerPorGrupoBonitaEnJerarquia("/Municipio/Region1")).thenReturn(region);
 
         assertThatThrownBy(() -> authService.ongDelUsuario(httpSession))
                 .isInstanceOf(AccesoDenegadoException.class);
@@ -192,7 +192,7 @@ class AuthServiceTest {
         municipio.setId(5L);
         municipio.setNombre("La Plata");
         municipio.setRegion(region);
-        when(municipioService.obtenerPorGrupoBonita("/Municipio/Region1/LaPlata")).thenReturn(municipio);
+        when(municipioService.obtenerPorGrupoBonitaEnJerarquia("/Municipio/Region1/LaPlata")).thenReturn(municipio);
 
         assertThat(authService.municipioDelUsuario(httpSession)).isEqualTo(5L);
     }

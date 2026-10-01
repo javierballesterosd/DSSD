@@ -5,6 +5,7 @@ import com.proyecto.backend.dto.auth.LoginResponse;
 import com.proyecto.backend.service.AuthService;
 import jakarta.servlet.http.HttpSession;
 import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -13,13 +14,10 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController //indica que la clase maneja HTTP requests y que devuelve respuestas en formato JSON.
 @RequestMapping("/api/auth") //indica ruta base para los endpoints de este controlador
+@RequiredArgsConstructor
 public class AuthController {
 
     private final AuthService authService;
-
-    public AuthController(AuthService authService) {
-        this.authService = authService;
-    }
 
     @PostMapping("/login")
     public LoginResponse login(

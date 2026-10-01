@@ -9,6 +9,8 @@ import com.proyecto.backend.service.AuthService;
 import com.proyecto.backend.service.OfertaService;
 import jakarta.servlet.http.HttpSession;
 import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -18,21 +20,18 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
 @RestController
 @RequestMapping("/api/ofertas")
+@RequiredArgsConstructor
 public class OfertaController {
 
     private final OfertaService ofertaService;
     private final AuthService authService;
-
-    public OfertaController(OfertaService ofertaService, AuthService authService) {
-        this.ofertaService = ofertaService;
-        this.authService = authService;
-    }
 
     /** Ofertas de un lote en las que participa la ONG del usuario logueado. */
     @GetMapping("/mias")
@@ -79,10 +78,10 @@ public class OfertaController {
 
     /** Baja lógica de una oferta pendiente, dentro de la ventana del lote. */
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> eliminar(@PathVariable Long id, HttpSession session) {
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void eliminar(@PathVariable Long id, HttpSession session) {
         Long ongIdUsuario = authService.ongDelUsuario(session);
         ofertaService.eliminar(id, ongIdUsuario, username(session));
-        return ResponseEntity.noContent().build();
     }
 
     private String username(HttpSession session) {

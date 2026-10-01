@@ -1,8 +1,8 @@
 package com.proyecto.backend.service;
 
 import com.proyecto.backend.dto.auth.LoginResponse;
-import com.proyecto.backend.dto.notificacion.DescriptorAudiencia;
-import com.proyecto.backend.dto.notificacion.NotificacionResponseDTO;
+import com.proyecto.backend.dto.DescriptorAudiencia;
+import com.proyecto.backend.dto.NotificacionResponse;
 import com.proyecto.backend.exception.AccesoDenegadoException;
 import com.proyecto.backend.exception.RecursoNoEncontradoException;
 import com.proyecto.backend.model.Notificacion;
@@ -30,7 +30,7 @@ public class NotificacionService {
      * Publica una notificación usando el usuario autenticado como remitente.
      */
     @Transactional
-    public NotificacionResponseDTO crear(
+    public NotificacionResponse crear(
             String rolDestinatario,
             DescriptorAudiencia audiencia,
             String titulo,
@@ -45,7 +45,7 @@ public class NotificacionService {
      * Publica una notificación para ser invocado por otro service del backend.
      */
     @Transactional
-    public NotificacionResponseDTO crear(
+    public NotificacionResponse crear(
             String rolDestinatario,
             DescriptorAudiencia audiencia,
             String titulo,
@@ -85,7 +85,7 @@ public class NotificacionService {
     }
 
     @Transactional(readOnly = true)
-    public List<NotificacionResponseDTO> listarVisibles(HttpSession session) {
+    public List<NotificacionResponse> listarVisibles(HttpSession session) {
         LoginResponse usuario = authService.currentUser(session);
         try {
             return notificacionRepository.findVisiblesParaUsuario(
@@ -197,14 +197,14 @@ public class NotificacionService {
                 || grupoUsuario.startsWith(grupoDestinatario + "/");
     }
 
-    private NotificacionResponseDTO toResponse(Notificacion notificacion) {
-        return NotificacionResponseDTO.builder()
-                .id(notificacion.getId())
-                .titulo(notificacion.getTitulo())
-                .descripcion(notificacion.getDescripcion())
-                .fechaCreacion(notificacion.getFechaCreacion())
-                .remitenteUsername(notificacion.getRemitenteUsername())
-                .audiencia(new DescriptorAudiencia(notificacion.getGrupoDestinatario()))
-                .build();
+    private NotificacionResponse toResponse(Notificacion notificacion) {
+        return new NotificacionResponse(
+                notificacion.getId(),
+                notificacion.getTitulo(),
+                notificacion.getDescripcion(),
+                notificacion.getFechaCreacion(),
+                notificacion.getRemitenteUsername(),
+                new DescriptorAudiencia(notificacion.getGrupoDestinatario())
+        );
     }
 }

@@ -1,4 +1,4 @@
-package com.proyecto.backend.dto.notificacion;
+package com.proyecto.backend.dto;
 
 /**
  * Identifica de forma explícita el público destinatario de una notificación.

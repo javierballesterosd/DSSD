@@ -8,6 +8,8 @@ import com.proyecto.backend.model.InventarioOng;
 import com.proyecto.backend.model.Ong;
 import com.proyecto.backend.repository.InventarioOngRepository;
 import com.proyecto.backend.repository.OngRepository;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -19,18 +21,14 @@ import java.util.Set;
 
 @Service
 @Transactional(readOnly = true)
+@RequiredArgsConstructor
+@Slf4j
 public class OngService {
 
     private final OngRepository ongRepository;
     private final InventarioOngRepository inventarioOngRepository;
     private final OngMapper ongMapper;
 
-    public OngService(OngRepository ongRepository, InventarioOngRepository inventarioOngRepository,
-                       OngMapper ongMapper) {
-        this.ongRepository = ongRepository;
-        this.inventarioOngRepository = inventarioOngRepository;
-        this.ongMapper = ongMapper;
-    }
 
     public List<OngResponse> listar() {
         return ongRepository.findAllByOrderByRazonSocialAsc().stream()
@@ -40,8 +38,11 @@ public class OngService {
 
     public Ong obtenerPorGrupoBonita(String path) {
         return ongRepository.findByBonitaGroupPath(path)
-                .orElseThrow(() -> new RecursoNoEncontradoException(
-                        "No hay una ONG registrada para el grupo de Bonita " + path));
+                .orElseThrow(() -> {
+                    log.warn("Ong no encontrada para el grupo de Bonita. path={}", path);
+                    return new RecursoNoEncontradoException(
+                            "No hay una ONG registrada para el grupo de Bonita " + path);
+                });
     }
 
     public Ong obtenerPorGrupoBonitaEnJerarquia(String path) {
@@ -53,6 +54,7 @@ public class OngService {
             }
             grupo = grupoPadre(grupo);
         }
+        log.warn("Ong no encontrada en la jerarquía del grupo de Bonita. path={}", path);
         throw new RecursoNoEncontradoException(
                 "No hay una ONG registrada en la jerarquía del grupo de Bonita " + path);
     }
@@ -65,6 +67,7 @@ public class OngService {
     public List<InventarioOngResponse> inventarioPorOng(Set<Long> ongIds) {
         List<Ong> ongs = ongRepository.findAllById(ongIds);
         if (ongs.size() != ongIds.size()) {
+            log.warn("Inventario solicitado para ONGs inexistentes. ongIds={}", ongIds);
             throw new RecursoNoEncontradoException("Alguna de las ONGs solicitadas no existe");
         }
 

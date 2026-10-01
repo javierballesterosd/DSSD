@@ -11,6 +11,7 @@ const ANA: Usuario = {
   lastName: 'Gómez',
   role: 'ONG',
   group: 'CruzRojaLaPlata',
+  groupPath: '/ONG/CruzRojaLaPlata',
   ongId: 1,
   ongNombre: 'Cruz Roja La Plata',
 };

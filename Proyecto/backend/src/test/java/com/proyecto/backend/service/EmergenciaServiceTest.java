@@ -3,9 +3,9 @@ package com.proyecto.backend.service;
 import com.proyecto.backend.client.BonitaClient;
 import com.proyecto.backend.client.BonitaSession;
 import com.proyecto.backend.dto.auth.LoginResponse;
-import com.proyecto.backend.dto.emergencia.EmergenciaRequestDTO;
-import com.proyecto.backend.dto.notificacion.DescriptorAudiencia;
-import com.proyecto.backend.dto.notificacion.NotificacionResponseDTO;
+import com.proyecto.backend.dto.EmergenciaRequest;
+import com.proyecto.backend.dto.DescriptorAudiencia;
+import com.proyecto.backend.exception.BonitaIntegrationException;
 import com.proyecto.backend.mapper.EmergenciaMapper;
 import com.proyecto.backend.model.Emergencia;
 import com.proyecto.backend.model.Municipio;
@@ -20,6 +20,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 
 import java.util.Map;
 import java.util.Optional;
@@ -28,7 +29,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -42,12 +44,11 @@ class EmergenciaServiceTest {
     @Mock
     private BonitaClient bonitaClient;
     @Mock
-    private NotificacionService notificacionService;
-    @Mock
     private LoteRepository loteRepository;
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
 
     private EmergenciaService emergenciaService;
-    private Municipio municipio;
     private LoginResponse remitente;
     private BonitaSession bonitaSession;
 
@@ -58,8 +59,8 @@ class EmergenciaServiceTest {
                 municipioRepository,
                 bonitaClient,
                 new EmergenciaMapper(),
-                notificacionService,
-                loteRepository
+                loteRepository,
+                eventPublisher
         );
 
         Region region = new Region();
@@ -67,7 +68,7 @@ class EmergenciaServiceTest {
         region.setNombre("Región 1");
         region.setBonitaGroupPath("/Municipio/Region1");
 
-        municipio = new Municipio();
+        Municipio municipio = new Municipio();
         municipio.setId(5L);
         municipio.setNombre("La Plata");
         municipio.setBonitaGroupPath("/Municipio/Region1/LaPlata");
@@ -82,11 +83,7 @@ class EmergenciaServiceTest {
         bonitaSession = new BonitaSession("session", "token");
 
         when(municipioRepository.findById(5L)).thenReturn(Optional.of(municipio));
-        when(bonitaClient.buscarProcesoId(bonitaSession, "Sistema")).thenReturn("proceso-1");
-        when(bonitaClient.iniciarCaso(bonitaSession, "proceso-1")).thenReturn("caso-1");
-        when(bonitaClient.buscarTareaPendiente(
-                bonitaSession, "caso-1", EmergenciaService.TAREA_REGISTRAR_EMERGENCIA
-        )).thenReturn("tarea-1");
+        when(bonitaClient.buscarProcesoId(bonitaSession)).thenReturn("proceso-1");
         when(emergenciaRepository.save(any(Emergencia.class))).thenAnswer(invocation -> {
             Emergencia emergencia = invocation.getArgument(0);
             if (emergencia.getId() == null) {
@@ -96,66 +93,82 @@ class EmergenciaServiceTest {
         });
     }
 
-    @Test
-    void creaNotificacionParaCoordinadoresDeLaRegion() {
-        EmergenciaRequestDTO request = request();
-
-        emergenciaService.registrarEmergencia(request, 5L, remitente, bonitaSession);
-
-        ArgumentCaptor<String> rolCaptor = ArgumentCaptor.forClass(String.class);
-        ArgumentCaptor<DescriptorAudiencia> audienciaCaptor =
-                ArgumentCaptor.forClass(DescriptorAudiencia.class);
-        verify(notificacionService).crear(
-                rolCaptor.capture(),
-                audienciaCaptor.capture(),
-                eq("Nueva emergencia registrada"),
-                any(String.class),
-                eq(remitente)
-        );
-
-        assertThat(rolCaptor.getValue()).isEqualTo("COORDINADOR");
-        assertThat(audienciaCaptor.getValue().grupoDestinatario())
-                .isEqualTo("/Municipio/Region1");
-        verify(bonitaClient).ejecutarTarea(eq(bonitaSession), eq("tarea-1"), any(Map.class));
+    private void bonitaResponde() {
+        when(bonitaClient.iniciarCaso(bonitaSession, "proceso-1")).thenReturn("caso-1");
+        when(bonitaClient.buscarTareaPendiente(
+                bonitaSession, "caso-1", EmergenciaService.TAREA_REGISTRAR_EMERGENCIA
+        )).thenReturn("tarea-1");
     }
 
     @Test
-    void laNotificacionUsaElRemitenteMunicipalSinCambiarlo() {
+    void registraLaEmergenciaYCompletaLaTareaEnBonita() {
+        bonitaResponde();
+
+        var respuesta = emergenciaService.registrarEmergencia(request(), 5L, remitente, bonitaSession);
+
+        verify(bonitaClient).ejecutarTarea(eq(bonitaSession), eq("tarea-1"), any(Map.class));
+        assertThat(respuesta).isNotNull();
+        verify(bonitaClient, never()).cancelarCaso(any(), any());
+    }
+
+    @Test
+    void publicaElEventoParaNotificarALosCoordinadoresDeLaRegion() {
+        bonitaResponde();
+
         emergenciaService.registrarEmergencia(request(), 5L, remitente, bonitaSession);
 
-        verify(notificacionService).crear(
-                any(String.class),
-                any(DescriptorAudiencia.class),
-                any(String.class),
-                any(String.class),
-                eq(remitente)
-        );
+        ArgumentCaptor<EmergenciaRegistradaEvent> captor =
+                ArgumentCaptor.forClass(EmergenciaRegistradaEvent.class);
+        verify(eventPublisher).publishEvent(captor.capture());
+
+        EmergenciaRegistradaEvent evento = captor.getValue();
+        assertThat(evento.regionGroupPath()).isEqualTo("/Municipio/Region1");
+        assertThat(evento.municipioNombre()).isEqualTo("La Plata");
+        assertThat(evento.remitente()).isSameAs(remitente);
     }
 
     @Test
-    void siFallaLaNotificacionLaOperacionPropagaElErrorYNoGuardaLaEmergenciaFinal() {
-        RuntimeException error = new RuntimeException("fallo de persistencia");
-        when(notificacionService.crear(
-                any(String.class),
-                any(DescriptorAudiencia.class),
-                any(String.class),
-                any(String.class),
-                eq(remitente)
-        )).thenThrow(error);
+    void siFallaLaTareaDeBonitaSeEliminaElCasoYSePropagaElError() {
+        bonitaResponde();
+        BonitaIntegrationException error = new BonitaIntegrationException("falló la tarea");
+        doThrow(error).when(bonitaClient).ejecutarTarea(any(), any(), any());
 
         assertThatThrownBy(() ->
                 emergenciaService.registrarEmergencia(request(), 5L, remitente, bonitaSession)
         ).isSameAs(error);
 
-        verify(emergenciaRepository, times(1)).save(any(Emergencia.class));
+        verify(bonitaClient).cancelarCaso(bonitaSession, "caso-1");
+        verify(eventPublisher, never()).publishEvent(any(Object.class));
     }
 
-    private EmergenciaRequestDTO request() {
-        EmergenciaRequestDTO request = new EmergenciaRequestDTO();
-        request.setNivelGravedad(NivelGravedad.ALTA);
-        request.setZonaAfectada("Zona Norte");
-        request.setDescripcion("Desborde del arroyo con familias evacuadas");
-        return request;
+    @Test
+    void siFallaAntesDeCrearElCasoNoHayNadaQueEliminar() {
+        BonitaIntegrationException error = new BonitaIntegrationException("sin conexión");
+        when(bonitaClient.iniciarCaso(bonitaSession, "proceso-1")).thenThrow(error);
+
+        assertThatThrownBy(() ->
+                emergenciaService.registrarEmergencia(request(), 5L, remitente, bonitaSession)
+        ).isSameAs(error);
+
+        verify(bonitaClient, never()).cancelarCaso(any(), any());
+    }
+
+    @Test
+    void siFallaLaCompensacionSePropagaElErrorOriginal() {
+        bonitaResponde();
+        BonitaIntegrationException error = new BonitaIntegrationException("falló la tarea");
+        doThrow(error).when(bonitaClient).ejecutarTarea(any(), any(), any());
+        doThrow(new BonitaIntegrationException("no se pudo eliminar"))
+                .when(bonitaClient).cancelarCaso(any(), any());
+
+        assertThatThrownBy(() ->
+                emergenciaService.registrarEmergencia(request(), 5L, remitente, bonitaSession)
+        ).isSameAs(error);
+    }
+
+    private EmergenciaRequest request() {
+        return new EmergenciaRequest(
+                NivelGravedad.ALTA, "Zona Norte", "Desborde del arroyo con familias evacuadas");
     }
 
 }

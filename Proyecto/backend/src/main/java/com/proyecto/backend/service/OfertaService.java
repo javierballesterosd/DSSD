@@ -25,6 +25,7 @@ import com.proyecto.backend.repository.ItemLoteRepository;
 import com.proyecto.backend.repository.LoteRepository;
 import com.proyecto.backend.repository.OfertaRepository;
 import com.proyecto.backend.repository.OngRepository;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -39,6 +40,7 @@ import java.util.Set;
 
 @Slf4j
 @Service
+@RequiredArgsConstructor
 public class OfertaService {
 
     private final LoteRepository loteRepository;
@@ -48,26 +50,16 @@ public class OfertaService {
     private final OfertaRepository ofertaRepository;
     private final OfertaMapper ofertaMapper;
 
-    public OfertaService(LoteRepository loteRepository, OngRepository ongRepository,
-                          ItemLoteRepository itemLoteRepository, InventarioOngRepository inventarioOngRepository,
-                          OfertaRepository ofertaRepository, OfertaMapper ofertaMapper) {
-        this.loteRepository = loteRepository;
-        this.ongRepository = ongRepository;
-        this.itemLoteRepository = itemLoteRepository;
-        this.inventarioOngRepository = inventarioOngRepository;
-        this.ofertaRepository = ofertaRepository;
-        this.ofertaMapper = ofertaMapper;
-    }
 
     @Transactional
     public OfertaResponse registrar(OfertaRequest request, Long ongIdUsuario, String username) {
         Lote lote = loteRepository.findById(request.loteId())
-                .orElseThrow(() -> new ReglaNegocioException("El lote no existe"));
+                .orElseThrow(() -> rechazar("El lote no existe"));
         validarConvocatoriaAbierta(lote);
 
         List<Ong> ongs = ongRepository.findAllById(request.ongIds());
         if (ongs.size() != request.ongIds().size()) {
-            throw new ReglaNegocioException("Alguna de las ONGs seleccionadas no existe");
+            throw rechazar("Alguna de las ONGs seleccionadas no existe");
         }
         Map<Long, Ong> ongsPorId = new HashMap<>();
         ongs.forEach(ong -> ongsPorId.put(ong.getId(), ong));
@@ -77,7 +69,7 @@ public class OfertaService {
             String nombre = ongRepository.findById(ongIdUsuario)
                     .map(Ong::getRazonSocial)
                     .orElse(String.valueOf(ongIdUsuario));
-            throw new ReglaNegocioException("La oferta debe incluir a tu ONG, «" + nombre + "»");
+            throw rechazar("La oferta debe incluir a tu ONG, «" + nombre + "»");
         }
 
         Map<Long, ItemLote> itemsDelLote = validarDetalles(lote, ongsPorId, request.detalles());
@@ -94,6 +86,8 @@ public class OfertaService {
         registrarVersion(oferta, TipoCambioOferta.CREACION, username, ongsPorId.get(ongIdUsuario));
 
         Oferta guardada = ofertaRepository.save(oferta);
+        log.info("Oferta registrada. ofertaId={}, loteId={}, ongId={}, usuario={}, ongs={}",
+                guardada.getId(), lote.getId(), ongIdUsuario, username, ongs.size());
         return ofertaMapper.toResponse(guardada);
     }
 
@@ -172,7 +166,7 @@ public class OfertaService {
         if ("ONG".equals(rol)) {
             exigirParticipacion(oferta, ongIdUsuario);
         } else if (!"AUDITOR".equals(rol)) {
-            throw new AccesoDenegadoException("No tenés permiso para ver el historial de ofertas");
+            throw accesoDenegado("No tenés permiso para ver el historial de ofertas");
         }
         return oferta.getVersiones().stream()
                 .sorted(Comparator.comparing(OfertaVersion::getNumero).reversed())
@@ -217,33 +211,44 @@ public class OfertaService {
                 .orElseThrow(() -> new RecursoNoEncontradoException("La oferta " + ofertaId + " no existe"));
         exigirParticipacion(oferta, ongIdUsuario);
         if (oferta.getEstado() != EstadoOferta.PENDIENTE) {
-            throw new ReglaNegocioException("La oferta está en estado «" + oferta.getEstado().getEtiqueta()
+            throw rechazar("La oferta está en estado «" + oferta.getEstado().getEtiqueta()
                     + "» y ya no se puede modificar");
         }
         validarConvocatoriaAbierta(oferta.getLote());
         return oferta;
     }
 
+    /** Rechazo de negocio: se registra en el log (warn) y se devuelve la excepción para lanzarla. */
+    private ReglaNegocioException rechazar(String mensaje) {
+        log.warn("Operación sobre ofertas rechazada: {}", mensaje);
+        return new ReglaNegocioException(mensaje);
+    }
+
+    private AccesoDenegadoException accesoDenegado(String mensaje) {
+        log.warn("Acceso denegado sobre ofertas: {}", mensaje);
+        return new AccesoDenegadoException(mensaje);
+    }
+
     private void exigirParticipacion(Oferta oferta, Long ongIdUsuario) {
         boolean participa = oferta.getOngs().stream().anyMatch(ong -> ong.getId().equals(ongIdUsuario));
         if (!participa) {
-            throw new AccesoDenegadoException("Tu ONG no participa de esta oferta");
+            throw accesoDenegado("Tu ONG no participa de esta oferta");
         }
     }
 
     private void validarConvocatoriaAbierta(Lote lote) {
         if (lote.getEstado() != EstadoLote.ACTIVO) {
-            throw new ReglaNegocioException("El lote no está abierto a ofertas");
+            throw rechazar("El lote no está abierto a ofertas");
         }
 
         LocalDateTime ahora = LocalDateTime.now();
         LocalDateTime apertura = lote.getFechaAperturaOfertas();
         if (apertura != null && apertura.isAfter(ahora)) {
-            throw new ReglaNegocioException("La convocatoria de ofertas para este lote todavía no abrió");
+            throw rechazar("La convocatoria de ofertas para este lote todavía no abrió");
         }
         LocalDateTime cierre = lote.getFechaCierreOfertas();
         if (cierre != null && !cierre.isAfter(ahora)) {
-            throw new ReglaNegocioException("La convocatoria de ofertas para este lote ya cerró");
+            throw rechazar("La convocatoria de ofertas para este lote ya cerró");
         }
     }
 
@@ -257,11 +262,11 @@ public class OfertaService {
         lote.getItems().forEach(item -> itemsDelLote.put(item.getId(), item));
         for (DetalleOfertaRequest detalle : detalles) {
             if (!itemsDelLote.containsKey(detalle.itemLoteId())) {
-                throw new ReglaNegocioException(
+                throw rechazar(
                         "El item " + detalle.itemLoteId() + " no pertenece al lote " + lote.getId());
             }
             if (!ongsPorId.containsKey(detalle.ongId())) {
-                throw new ReglaNegocioException(
+                throw rechazar(
                         "La ONG " + detalle.ongId() + " no está entre las ONGs de la oferta");
             }
         }
@@ -269,7 +274,7 @@ public class OfertaService {
         Set<String> paresVistos = new HashSet<>();
         for (DetalleOfertaRequest detalle : detalles) {
             if (!paresVistos.add(clave(detalle.itemLoteId(), detalle.ongId()))) {
-                throw new ReglaNegocioException(
+                throw rechazar(
                         "Hay más de una celda cargada para el mismo item y la misma ONG");
             }
         }
@@ -281,7 +286,7 @@ public class OfertaService {
             Integer disponible = inventarioPorOngYRecurso.get(clave(detalle.ongId(), item.getRecurso().getId()));
             if (disponible == null || detalle.cantidadOfrecida() > disponible) {
                 int maximo = disponible == null ? 0 : disponible;
-                throw new ReglaNegocioException(
+                throw rechazar(
                         "La ONG «" + ong.getRazonSocial() + "» tiene " + maximo + " "
                                 + item.getRecurso().getUnidadMedida() + " disponibles de "
                                 + item.getRecurso().getNombre());
@@ -292,7 +297,7 @@ public class OfertaService {
         detalles.forEach(detalle -> ongsQueAportan.add(detalle.ongId()));
         for (Ong ong : ongsPorId.values()) {
             if (!ongsQueAportan.contains(ong.getId())) {
-                throw new ReglaNegocioException(
+                throw rechazar(
                         "La ONG «" + ong.getRazonSocial() + "» no ofrece ningún recurso");
             }
         }

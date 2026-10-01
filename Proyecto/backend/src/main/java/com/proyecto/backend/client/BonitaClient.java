@@ -14,6 +14,9 @@ import org.springframework.web.client.RestClient;
 
 import java.util.List;
 import java.util.Map;
+import java.util.function.Supplier;
+import org.springframework.web.client.RestClientException;
+import org.springframework.web.client.RestClientResponseException;
 
 @Component
 @Slf4j
@@ -31,6 +34,24 @@ public class BonitaClient {
     @Value("${bonita.process.name:Proceso 1}")
     private String processName;
 
+
+    /**
+     * Ejecuta una llamada a Bonita y traduce cualquier falla de comunicación o respuesta HTTP de error
+     * a {@link BonitaIntegrationException}. El detalle técnico va solo en el mensaje (para los logs):
+     * la API nunca se lo muestra al usuario.
+     */
+    private <T> T llamar(String operacion, Supplier<T> llamada) {
+        try {
+            return llamada.get();
+        } catch (RestClientResponseException e) {
+            throw new BonitaIntegrationException(
+                    "Bonita respondió HTTP " + e.getStatusCode().value() + " en: " + operacion, e);
+        } catch (RestClientException e) {
+            throw new BonitaIntegrationException(
+                    "No se pudo comunicar con Bonita en: " + operacion, e);
+        }
+    }
+
     public BonitaSession login(String username, String password){
         //Bonita espera los datos del login en formato formulario, no en JSON
         MultiValueMap<String, String> form = new LinkedMultiValueMap<>();
@@ -38,7 +59,7 @@ public class BonitaClient {
         form.add("password", password);
         form.add("redirect", "false");
 
-        return restClient.post().uri("/loginservice")
+        return llamar("login", () -> restClient.post().uri("/loginservice")
                 .contentType(MediaType.APPLICATION_FORM_URLENCODED)
                 .body(form)
                 .exchange((request, response) -> {
@@ -65,28 +86,28 @@ public class BonitaClient {
                    }
 
                    return new BonitaSession(jsessionId, apiToken);
-                });
+                }));
     }
 
     public BonitaSessionInfo getCurrentSession(BonitaSession session){
-        return restClient.get()
+        return llamar("consultar sesión", () -> restClient.get()
                 .uri("/API/system/session/unusedid")
                 .header("Cookie", cookieHeader(session))
                 .retrieve()
-                .body(BonitaSessionInfo.class);
+                .body(BonitaSessionInfo.class));
     }
 
     public BonitaUser getUser(BonitaSession session, String userId){
-        return restClient.get()
+        return llamar("consultar usuario", () -> restClient.get()
                 .uri("/API/identity/user/{userId}", userId)
                 .header("Cookie", cookieHeader(session))
                 .retrieve()
-                .body(BonitaUser.class);
+                .body(BonitaUser.class));
     }
 
     //Metodo encargado de obtener rol y grupo de los usuarios
     public List<BonitaMembership> getMemberships(BonitaSession session, String userId){
-        return restClient.get()
+        return llamar("consultar membership", () -> restClient.get()
                 .uri(uriBuilder -> uriBuilder
                         .path("/API/identity/membership")
                         .queryParam("p", "0")
@@ -97,7 +118,7 @@ public class BonitaClient {
                         .build())
                 .header("Cookie", cookieHeader(session))
                 .retrieve()
-                .body(new ParameterizedTypeReference<List<BonitaMembership>>() {});
+                .body(new ParameterizedTypeReference<List<BonitaMembership>>() {}));
     }
 
 
@@ -109,7 +130,7 @@ public class BonitaClient {
     public String buscarProcesoId(BonitaSession session, String nombreProceso) {
         log.info("Buscando proceso en Bonita. nombre={}", nombreProceso);
 
-        List<Map<String, Object>> procesos = restClient.get()
+        List<Map<String, Object>> procesos = llamar("buscar proceso", () -> restClient.get()
                 .uri(uriBuilder -> uriBuilder
                         .path("/API/bpm/process")
                         .queryParam("p", "0")
@@ -120,7 +141,7 @@ public class BonitaClient {
                         .build())
                 .headers(h -> aplicarSesion(h, session))
                 .retrieve()
-                .body(new ParameterizedTypeReference<List<Map<String, Object>>>() {});
+                .body(new ParameterizedTypeReference<List<Map<String, Object>>>() {}));
 
         if (procesos == null || procesos.isEmpty()) {
             log.error("No se encontró el proceso habilitado en Bonita. nombre={}",
@@ -146,13 +167,13 @@ public class BonitaClient {
     public String iniciarCaso(BonitaSession session, String processId) {
         log.info("Iniciando caso en Bonita. processId={}", processId);
 
-        Map<?, ?> respuesta = restClient.post()
+        Map<?, ?> respuesta = llamar("iniciar caso", () -> restClient.post()
                 .uri("/API/bpm/process/{id}/instantiation", processId)
                 .headers(h -> aplicarSesion(h, session))
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(Map.of())
                 .retrieve()
-                .body(Map.class);
+                .body(Map.class));
 
         if (respuesta == null || respuesta.get("caseId") == null) {
             log.error(
@@ -190,7 +211,7 @@ public class BonitaClient {
         );
 
         for (int intento = 0; intento < TAREA_REINTENTOS; intento++) {
-            List<Map<String, Object>> tareas = restClient.get()
+            List<Map<String, Object>> tareas = llamar("buscar tarea", () -> restClient.get()
                     .uri(uriBuilder -> uriBuilder
                             .path("/API/bpm/humanTask")
                             .queryParam("p", "0")
@@ -200,7 +221,7 @@ public class BonitaClient {
                             .build())
                     .headers(h -> aplicarSesion(h, session))
                     .retrieve()
-                    .body(new ParameterizedTypeReference<List<Map<String, Object>>>() {});
+                    .body(new ParameterizedTypeReference<List<Map<String, Object>>>() {}));
 
             if (tareas != null && !tareas.isEmpty()) {
                 String tareaId = String.valueOf(tareas.get(0).get("id"));
@@ -256,15 +277,28 @@ public class BonitaClient {
 
         log.info("Ejecutando tarea en Bonita. taskId={}", taskId);
 
-        restClient.post()
+        llamar("ejecutar tarea", () -> restClient.post()
                 .uri("/API/bpm/userTask/{id}/execution?assign=true", taskId)
                 .headers(h -> aplicarSesion(h, session))
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(contrato)
                 .retrieve()
-                .toBodilessEntity();
+                .toBodilessEntity());
 
         log.info("Tarea ejecutada correctamente en Bonita. taskId={}", taskId);
+    }
+
+    /** Elimina un caso de Bonita. Se usa para compensar cuando falla algo después de iniciarlo. */
+    public void cancelarCaso(BonitaSession session, String caseId) {
+        log.warn("Eliminando caso en Bonita (compensación). caseId={}", caseId);
+
+        llamar("eliminar caso", () -> restClient.delete()
+                .uri("/API/bpm/case/{id}", caseId)
+                .headers(h -> aplicarSesion(h, session))
+                .retrieve()
+                .toBodilessEntity());
+
+        log.info("Caso eliminado en Bonita. caseId={}", caseId);
     }
 
     // Bonita exige la cookie de sesión y el token anti-CSRF en cada llamada

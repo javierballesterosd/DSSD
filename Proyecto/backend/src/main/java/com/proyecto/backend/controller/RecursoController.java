@@ -1,6 +1,6 @@
 package com.proyecto.backend.controller;
 
-import com.proyecto.backend.model.Recurso;
+import com.proyecto.backend.dto.RecursoResponse;
 import com.proyecto.backend.service.RecursoService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -17,7 +17,7 @@ public class RecursoController {
     private final RecursoService recursoService;
 
     @GetMapping
-    public List<Recurso> obtenerRecursos() {
+    public List<RecursoResponse> obtenerRecursos() {
         return recursoService.obtenerRecursos();
     }
 }

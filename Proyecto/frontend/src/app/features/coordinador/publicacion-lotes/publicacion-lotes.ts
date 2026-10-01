@@ -14,14 +14,17 @@ import {
 
 import { HttpErrorResponse } from '@angular/common/http';
 
-import { LoteService } from '@core/services/lotes/lote.service';
-import { RecursoService } from '@core/services/recursos/recurso.service';
-import { EmergenciaService } from '../../municipal/services/emergencia';
+import { Emergencias } from '@core/services/emergencias';
+import { Lotes } from '@core/services/lotes';
+import { Recursos } from '@core/services/recursos';
 
-import { Recurso } from '@core/models/recurso.model';
-import { LoteRequest, LoteResponse } from '@core/models/lote.model';
+import { Recurso } from '@core/models/recurso';
+import { LoteDetalle, LoteRequest } from '@core/models/lote';
 
-import { EmergenciaLoteResponse } from '@core/models/emergencia-lote.model';
+import { mensajeDeError } from '@core/services/errores';
+import { ToastService } from '@core/services/toast';
+
+import { EmergenciaParaLoteResponse } from '@core/models/emergencia';
 
 interface ItemLoteForm {
   recursoId: FormControl<number>;
@@ -48,24 +51,26 @@ type PublicacionLotesForm = {
   selector: 'app-publicacion-lotes',
   standalone: true,
   imports: [ReactiveFormsModule],
-  templateUrl: './publicacion-lotes.component.html',
+  templateUrl: './publicacion-lotes.html',
 })
-export class PublicacionLotesComponent implements OnInit {
+export class PublicacionLotes implements OnInit {
   private readonly fb = inject(FormBuilder);
 
-  private readonly loteService = inject(LoteService);
+  private readonly lotes = inject(Lotes);
 
-  private readonly recursoService = inject(RecursoService);
+  private readonly recursosService = inject(Recursos);
 
-  private readonly emergenciaService = inject(EmergenciaService);
+  private readonly emergenciasService = inject(Emergencias);
+
+  private readonly toast = inject(ToastService);
 
   // ==========================================================
   // EMERGENCIAS
   // ==========================================================
 
-  emergenciaSeleccionada: EmergenciaLoteResponse | null = null;
+  emergenciaSeleccionada: EmergenciaParaLoteResponse | null = null;
 
-  emergencias = signal<EmergenciaLoteResponse[]>([]);
+  emergencias = signal<EmergenciaParaLoteResponse[]>([]);
 
   cargandoEmergencias = signal<boolean>(false);
 
@@ -92,9 +97,8 @@ export class PublicacionLotesComponent implements OnInit {
 
   mensajeExito = signal<string | null>(null);
 
-  mensajeError = signal<string | null>(null);
 
-  loteCreado = signal<LoteResponse | null>(null);
+  loteCreado = signal<LoteDetalle | null>(null);
 
   // ==========================================================
   // FORMULARIO
@@ -127,7 +131,7 @@ export class PublicacionLotesComponent implements OnInit {
     this.cargandoEmergencias.set(true);
     this.errorEmergencias.set('');
 
-    this.emergenciaService.obtenerEmergenciasParaLotes(pagina, this.tamanioPagina).subscribe({
+    this.emergenciasService.listarParaLotes(pagina, this.tamanioPagina).subscribe({
       next: (respuesta) => {
         this.emergencias.set(respuesta.content);
 
@@ -164,11 +168,11 @@ export class PublicacionLotesComponent implements OnInit {
     }
   }
 
-  puedeDesglosar(emergencia: EmergenciaLoteResponse): boolean {
+  puedeDesglosar(emergencia: EmergenciaParaLoteResponse): boolean {
     return emergencia.estadoLote === null || emergencia.estadoLote === 'CANCELADO';
   }
 
-  seleccionarEmergencia(emergencia: EmergenciaLoteResponse): void {
+  seleccionarEmergencia(emergencia: EmergenciaParaLoteResponse): void {
     if (!this.puedeDesglosar(emergencia)) {
       return;
     }
@@ -176,8 +180,6 @@ export class PublicacionLotesComponent implements OnInit {
     this.emergenciaSeleccionada = emergencia;
 
     this.mensajeExito.set(null);
-
-    this.mensajeError.set(null);
 
     this.loteCreado.set(null);
 
@@ -196,8 +198,6 @@ export class PublicacionLotesComponent implements OnInit {
     this.emergenciaSeleccionada = null;
 
     this.mensajeExito.set(null);
-
-    this.mensajeError.set(null);
 
     this.loteCreado.set(null);
 
@@ -221,7 +221,7 @@ export class PublicacionLotesComponent implements OnInit {
   cargarRecursos(): void {
     this.cargandoRecursos.set(true);
 
-    this.recursoService.obtenerRecursos().subscribe({
+    this.recursosService.listar().subscribe({
       next: (recursos) => {
         this.recursos.set(recursos);
 
@@ -231,7 +231,7 @@ export class PublicacionLotesComponent implements OnInit {
       error: () => {
         this.cargandoRecursos.set(false);
 
-        this.mensajeError.set('No se pudieron cargar los recursos disponibles.');
+        this.toast.error('No se pudieron cargar los recursos', 'Intentá de nuevo más tarde.');
       },
     });
   }
@@ -268,13 +268,13 @@ export class PublicacionLotesComponent implements OnInit {
 
   onSubmit(): void {
     if (!this.emergenciaSeleccionada) {
-      this.mensajeError.set('Debe seleccionar una emergencia antes de publicar el lote.');
+      this.toast.error('No se pudo publicar el lote', 'Debe seleccionar una emergencia antes de publicar el lote.');
 
       return;
     }
 
     if (!this.puedeDesglosar(this.emergenciaSeleccionada)) {
-      this.mensajeError.set('La emergencia seleccionada no permite crear un nuevo lote.');
+      this.toast.error('No se pudo publicar el lote', 'La emergencia seleccionada no permite crear un nuevo lote.');
 
       return;
     }
@@ -288,8 +288,6 @@ export class PublicacionLotesComponent implements OnInit {
     this.cargando.set(true);
 
     this.mensajeExito.set(null);
-
-    this.mensajeError.set(null);
 
     this.loteCreado.set(null);
 
@@ -309,7 +307,7 @@ export class PublicacionLotesComponent implements OnInit {
       })),
     };
 
-    this.loteService.publicarLote(this.emergenciaSeleccionada.id, request).subscribe({
+    this.lotes.publicar(this.emergenciaSeleccionada.id, request).subscribe({
       next: (res) => {
         this.cargando.set(false);
 
@@ -350,7 +348,10 @@ export class PublicacionLotesComponent implements OnInit {
       error: (err: HttpErrorResponse) => {
         this.cargando.set(false);
 
-        this.mensajeError.set(err.error?.message || 'Ocurrió un error al publicar el lote.');
+        this.toast.error(
+          'No se pudo publicar el lote',
+          mensajeDeError(err, 'Ocurrió un error al publicar el lote.'),
+        );
       },
     });
   }

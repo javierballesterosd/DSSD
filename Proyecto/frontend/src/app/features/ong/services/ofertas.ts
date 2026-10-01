@@ -12,22 +12,23 @@ import {
 @Service()
 export class Ofertas {
   private readonly http = inject(HttpClient);
+  private readonly apiUrl = environment.apiUrl;
 
   /** Ofertas del lote en las que participa la ONG del usuario logueado. */
   misOfertas(loteId: number): Observable<OfertaResponse[]> {
-    return this.http.get<OfertaResponse[]>(`${environment.apiUrl}/ofertas/mias`, {
+    return this.http.get<OfertaResponse[]>(`${this.apiUrl}/ofertas/mias`, {
       params: new HttpParams().set('loteId', loteId),
     });
   }
 
   /** Ids de los lotes donde la ONG del usuario logueado ya ofertó (oferta vigente). */
   lotesConMisOfertas(): Observable<number[]> {
-    return this.http.get<number[]>(`${environment.apiUrl}/ofertas/mias/lotes`);
+    return this.http.get<number[]>(`${this.apiUrl}/ofertas/mias/lotes`);
   }
 
   /** Historial de versiones de una oferta, de la más nueva a la más vieja. */
   versiones(id: number): Observable<OfertaVersion[]> {
-    return this.http.get<OfertaVersion[]>(`${environment.apiUrl}/ofertas/${id}/versiones`);
+    return this.http.get<OfertaVersion[]>(`${this.apiUrl}/ofertas/${id}/versiones`);
   }
 
   /** Todas las ofertas, incluidas las eliminadas (solo auditor). */
@@ -36,20 +37,20 @@ export class Ofertas {
     if (loteId !== undefined) {
       params = params.set('loteId', loteId);
     }
-    return this.http.get<OfertaResponse[]>(`${environment.apiUrl}/ofertas`, { params });
+    return this.http.get<OfertaResponse[]>(`${this.apiUrl}/ofertas`, { params });
   }
 
   registrar(request: OfertaRequest): Observable<OfertaResponse> {
-    return this.http.post<OfertaResponse>(`${environment.apiUrl}/ofertas`, request);
+    return this.http.post<OfertaResponse>(`${this.apiUrl}/ofertas`, request);
   }
 
   /** Cambia las cantidades de una oferta pendiente (dentro de la ventana del lote). */
   actualizar(id: number, request: OfertaEdicionRequest): Observable<OfertaResponse> {
-    return this.http.put<OfertaResponse>(`${environment.apiUrl}/ofertas/${id}`, request);
+    return this.http.put<OfertaResponse>(`${this.apiUrl}/ofertas/${id}`, request);
   }
 
   /** Baja lógica: la oferta queda en estado ELIMINADA. */
   eliminar(id: number): Observable<void> {
-    return this.http.delete<void>(`${environment.apiUrl}/ofertas/${id}`);
+    return this.http.delete<void>(`${this.apiUrl}/ofertas/${id}`);
   }
 }
