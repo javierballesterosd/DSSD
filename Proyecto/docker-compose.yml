@@ -37,7 +37,7 @@ services:
       DB_NAME: ${DB_NAME}
       DB_USER: ${DB_USER}
       DB_PASSWORD: ${DB_PASSWORD}
-      BONITA_BASE_URL: http://host.docker.internal:8080/bonita
+      BONITA_BASE_URL: ${BONITA_BASE_URL}
     depends_on:
       - postgres
     networks:

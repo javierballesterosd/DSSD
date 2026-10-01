@@ -18,6 +18,7 @@ import com.proyecto.backend.model.Emergencia;
 import com.proyecto.backend.model.Municipio;
 import com.proyecto.backend.repository.EmergenciaRepository;
 import com.proyecto.backend.repository.MunicipioRepository;
+import lombok.NoArgsConstructor;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -29,6 +30,14 @@ import org.springframework.web.client.RestClientResponseException;
 import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import com.proyecto.backend.dto.lote.EmergenciaLoteResponseDTO;
+import com.proyecto.backend.model.Lote;
+import com.proyecto.backend.repository.LoteRepository;
+import java.util.Optional;
+import java.time.LocalDateTime;import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 
 @Service
 @RequiredArgsConstructor
@@ -42,6 +51,7 @@ public class EmergenciaService {
     private final BonitaClient bonitaClient;
     private final EmergenciaMapper emergenciaMapper;
     private final NotificacionService notificacionService;
+    private final LoteRepository loteRepository;
 
     /**
      * Registra una emergencia, inicia el caso en Bonita
@@ -250,5 +260,34 @@ public class EmergenciaService {
                 descripcion,
                 remitente
         );
+    }
+
+    @Transactional(readOnly = true)
+    public Page<EmergenciaLoteResponseDTO> obtenerEmergenciasParaLotes(int page, int size) {
+        Pageable pageable = PageRequest.of(
+                page,
+                size
+        );
+
+        return emergenciaRepository
+                .findEmergenciasParaLotes(pageable)
+                .map(emergencia -> {
+
+                    Optional<Lote> ultimoLote =
+                            loteRepository.findFirstByEmergenciaIdOrderByIdDesc(
+                                    emergencia.getId()
+                            );
+
+                    return new EmergenciaLoteResponseDTO(
+                            emergencia.getId(),
+                            emergencia.getDescripcion(),
+                            emergencia.getNivelGravedad(),
+                            emergencia.getZonaAfectada(),
+                            emergencia.getMunicipio().getId(),
+                            emergencia.getFechaRegistro(),
+                            ultimoLote.map(Lote::getId).orElse(null),
+                            ultimoLote.map(Lote::getEstado).orElse(null)
+                    );
+                });
     }
 }

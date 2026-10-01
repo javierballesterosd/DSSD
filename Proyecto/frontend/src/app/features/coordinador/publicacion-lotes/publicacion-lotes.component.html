@@ -1,0 +1,801 @@
+<div
+  class="container py-4"
+  style="max-width: 800px;"
+>
+
+  <div class="card shadow-sm border-0">
+
+    <!-- ================================================= -->
+    <!-- ENCABEZADO -->
+    <!-- ================================================= -->
+
+    <div class="card-header bg-primary text-white py-3">
+
+      <h3 class="mb-0 fs-4 text-center">
+        Publicación de Lotes
+      </h3>
+
+    </div>
+
+
+    <div class="card-body p-4">
+
+      <!-- ================================================= -->
+      <!-- MENSAJES -->
+      <!-- ================================================= -->
+
+      @if (mensajeExito()) {
+
+      <div
+        class="alert alert-success"
+        role="alert"
+      >
+
+        <i
+          class="bi bi-check-circle-fill me-2"
+        ></i>
+
+        {{ mensajeExito() }}
+
+      </div>
+
+      }
+
+
+      @if (mensajeError()) {
+
+      <div
+        class="alert alert-danger"
+        role="alert"
+      >
+
+        <i
+          class="bi bi-exclamation-triangle-fill me-2"
+        ></i>
+
+        {{ mensajeError() }}
+
+      </div>
+
+      }
+
+
+      <!-- ================================================= -->
+      <!-- LISTA DE EMERGENCIAS -->
+      <!-- ================================================= -->
+
+      @if (!emergenciaSeleccionada) {
+
+      <div>
+
+        <div class="mb-3">
+
+          <h4 class="mb-1">
+            Emergencias
+          </h4>
+
+          <p class="text-muted mb-0">
+            Seleccione una emergencia para desglosarla en lotes.
+          </p>
+
+        </div>
+
+
+        <!-- ================================================= -->
+        <!-- CARGANDO -->
+        <!-- ================================================= -->
+
+        @if (cargandoEmergencias()) {
+
+        <div class="text-center py-5">
+
+          <div
+            class="spinner-border text-primary"
+            role="status"
+          ></div>
+
+          <p class="text-muted mt-3 mb-0">
+            Cargando emergencias...
+          </p>
+
+        </div>
+
+        }
+
+
+        <!-- ================================================= -->
+        <!-- ERROR -->
+        <!-- ================================================= -->
+
+        @else if (errorEmergencias()) {
+
+        <div
+          class="alert alert-danger"
+          role="alert"
+        >
+
+          {{ errorEmergencias() }}
+
+        </div>
+
+        }
+
+
+        <!-- ================================================= -->
+        <!-- SIN EMERGENCIAS -->
+        <!-- ================================================= -->
+
+        @else if (emergencias().length === 0) {
+
+        <div
+          class="alert alert-info"
+          role="alert"
+        >
+
+          No hay emergencias disponibles.
+
+        </div>
+
+        }
+
+
+        <!-- ================================================= -->
+        <!-- EMERGENCIAS -->
+        <!-- ================================================= -->
+
+        @else {
+
+        @for (
+        emergencia of emergencias();
+        track emergencia.id
+        ) {
+
+        <div
+          class="border rounded p-3 mb-3"
+        >
+
+          <div
+            class="d-flex justify-content-between align-items-start gap-3"
+          >
+
+            <div class="flex-grow-1">
+
+              <h5 class="mb-2">
+                Emergencia #{{ emergencia.id }}
+              </h5>
+
+
+              <p class="mb-2">
+                {{ emergencia.descripcion }}
+              </p>
+
+
+              <div
+                class="small text-muted"
+              >
+
+                <div class="mb-1">
+
+                  <strong>
+                    Zona:
+                  </strong>
+
+                  {{ emergencia.zonaAfectada }}
+
+                </div>
+
+
+                <div class="mb-1">
+
+                  <strong>
+                    Nivel de gravedad:
+                  </strong>
+
+                  {{ emergencia.nivelGravedad }}
+
+                </div>
+
+
+                <div>
+
+                  <strong>
+                    Municipio:
+                  </strong>
+
+                  {{ emergencia.municipioId }}
+
+                </div>
+
+              </div>
+
+            </div>
+
+
+            <!-- ================================================= -->
+            <!-- ESTADO -->
+            <!-- ================================================= -->
+
+            <div class="text-end">
+
+              @if (
+              emergencia.estadoLote === null
+              ) {
+
+              <span
+                class="badge text-bg-secondary"
+              >
+                        Sin lote
+                      </span>
+
+              }
+
+              @else if (
+              emergencia.estadoLote === 'ACTIVO'
+              ) {
+
+              <span
+                class="badge text-bg-success"
+              >
+                        Lote activo
+                      </span>
+
+              }
+
+              @else if (
+              emergencia.estadoLote === 'FINALIZADO'
+              ) {
+
+              <span
+                class="badge text-bg-primary"
+              >
+                        Lote finalizado
+                      </span>
+
+              }
+
+              @else if (
+              emergencia.estadoLote === 'CANCELADO'
+              ) {
+
+              <span
+                class="badge text-bg-danger"
+              >
+                        Lote cancelado
+                      </span>
+
+              }
+
+            </div>
+
+          </div>
+
+
+          <hr>
+
+
+          <!-- ================================================= -->
+          <!-- LOTE ASOCIADO -->
+          <!-- ================================================= -->
+
+          @if (
+          emergencia.loteId !== null
+          ) {
+
+          <p
+            class="small text-muted mb-3"
+          >
+
+            Lote asociado:
+
+            <strong>
+              #{{ emergencia.loteId }}
+            </strong>
+
+          </p>
+
+          }
+
+
+          <!-- ================================================= -->
+          <!-- ACCIÓN -->
+          <!-- ================================================= -->
+
+          <div
+            class="d-flex justify-content-end"
+          >
+
+            <button
+              type="button"
+              class="btn btn-primary"
+              [disabled]="
+                      !puedeDesglosar(emergencia)
+                    "
+              (click)="
+                      seleccionarEmergencia(emergencia)
+                    "
+            >
+
+              @if (
+              puedeDesglosar(emergencia)
+              ) {
+
+              <i
+                class="bi bi-diagram-3 me-2"
+              ></i>
+
+              Desglosar en lotes
+
+              }
+
+              @else {
+
+              <i
+                class="bi bi-lock me-2"
+              ></i>
+
+              No disponible
+
+              }
+
+            </button>
+
+          </div>
+
+        </div>
+
+        }
+
+        }
+
+      </div>
+      <!-- ================================================= -->
+      <!-- PAGINACIÓN -->
+      <!-- ================================================= -->
+
+      @if (totalPaginas() > 1) {
+
+      <div
+        class="d-flex justify-content-between align-items-center mt-4 mb-4"
+      >
+
+        <button
+          type="button"
+          class="btn btn-outline-secondary"
+          (click)="paginaAnterior()"
+          [disabled]="paginaActual() === 0"
+        >
+
+          <i class="bi bi-chevron-left me-1"></i>
+
+          Anterior
+
+        </button>
+
+
+        <span class="text-body-secondary">
+
+        Página
+        <strong>
+          {{ paginaActual() + 1 }}
+        </strong>
+        de
+        <strong>
+          {{ totalPaginas() }}
+        </strong>
+
+      </span>
+
+
+        <button
+          type="button"
+          class="btn btn-outline-secondary"
+          (click)="paginaSiguiente()"
+          [disabled]="paginaActual() >= totalPaginas() - 1"
+        >
+
+          Siguiente
+
+          <i class="bi bi-chevron-right ms-1"></i>
+
+        </button>
+
+      </div>
+
+      }
+
+      }
+
+
+      <!-- ================================================= -->
+      <!-- FORMULARIO -->
+      <!-- ================================================= -->
+
+      @else {
+
+      <div
+        class="alert alert-light border mb-4"
+      >
+
+        <div>
+
+          <h5 class="mb-2">
+            Emergencia #{{ emergenciaSeleccionada.id }}
+          </h5>
+
+
+          <p class="mb-2">
+            {{ emergenciaSeleccionada.descripcion }}
+          </p>
+
+
+          <div class="small text-muted">
+
+            <strong>
+              Zona:
+            </strong>
+
+            {{ emergenciaSeleccionada.zonaAfectada }}
+
+            <span class="mx-2">
+                |
+              </span>
+
+            <strong>
+              Gravedad:
+            </strong>
+
+            {{ emergenciaSeleccionada.nivelGravedad }}
+
+          </div>
+
+        </div>
+
+      </div>
+
+
+      <!-- ================================================= -->
+      <!-- FORM -->
+      <!-- ================================================= -->
+
+      <form
+        [formGroup]="form"
+        (ngSubmit)="onSubmit()"
+      >
+
+        <!-- ================================================= -->
+        <!-- TÍTULO -->
+        <!-- ================================================= -->
+
+        <div class="mb-3">
+
+          <label
+            for="titulo"
+            class="form-label fw-bold"
+          >
+            Título del lote
+          </label>
+
+
+          <input
+            id="titulo"
+            type="text"
+            class="form-control"
+            placeholder="Ej: Asistencia alimentaria"
+            formControlName="titulo"
+            [class.is-invalid]="
+                form.controls.titulo.touched &&
+                form.controls.titulo.invalid
+              "
+          />
+
+
+          @if (
+          form.controls.titulo.touched &&
+          form.controls.titulo.invalid
+          ) {
+
+          <div class="invalid-feedback">
+            El título es obligatorio.
+          </div>
+
+          }
+
+        </div>
+
+        <!-- ================================================= -->
+        <!-- CIERRE DE OFERTAS -->
+        <!-- ================================================= -->
+
+        <div class="mb-4">
+
+          <label
+            for="fechaCierreOfertas"
+            class="form-label fw-bold"
+          >
+            Fecha y hora de cierre de ofertas
+          </label>
+
+          <input
+            id="fechaCierreOfertas"
+            type="datetime-local"
+            class="form-control"
+            formControlName="fechaCierreOfertas"
+            [class.is-invalid]="
+      form.controls.fechaCierreOfertas.touched &&
+      form.controls.fechaCierreOfertas.invalid
+    "
+          />
+
+          @if (
+          form.controls.fechaCierreOfertas.touched &&
+          form.controls.fechaCierreOfertas.invalid
+          ) {
+
+          <div class="invalid-feedback">
+            La fecha y hora de cierre de ofertas son obligatorias.
+          </div>
+
+          }
+
+          <div class="form-text">
+            Indique hasta qué fecha y hora los proveedores podrán presentar ofertas.
+          </div>
+
+        </div>
+
+
+        <!-- ================================================= -->
+        <!-- RECURSOS -->
+        <!-- ================================================= -->
+
+        <div formArrayName="items">
+
+          <div
+            class="d-flex justify-content-between align-items-center mb-3"
+          >
+
+            <h5 class="mb-0">
+              Recursos requeridos
+            </h5>
+
+
+            <button
+              type="button"
+              class="btn btn-outline-primary btn-sm"
+              (click)="agregarItem()"
+              [disabled]="cargandoRecursos()"
+            >
+
+              <i
+                class="bi bi-plus-lg me-1"
+              ></i>
+
+              Agregar recurso
+
+            </button>
+
+          </div>
+
+
+          @for (
+          item of items.controls;
+          track item;
+          let i = $index
+          ) {
+
+          <div
+            class="border rounded p-3 mb-3"
+            [formGroupName]="i"
+          >
+
+            <div
+              class="row g-3 align-items-end"
+            >
+
+              <!-- ================================================= -->
+              <!-- RECURSO -->
+              <!-- ================================================= -->
+
+              <div class="col-md-7">
+
+                <label
+                  [for]="'recurso-' + i"
+                  class="form-label fw-bold"
+                >
+                  Recurso
+                </label>
+
+
+                <select
+                  [id]="'recurso-' + i"
+                  class="form-select"
+                  formControlName="recursoId"
+                  [class.is-invalid]="
+                        item.get('recursoId')?.touched &&
+                        item.get('recursoId')?.invalid
+                      "
+                >
+
+                  <option [value]="0">
+                    Seleccione un recurso
+                  </option>
+
+
+                  @for (
+                  recurso of recursos();
+                  track recurso.id
+                  ) {
+
+                  <option
+                    [value]="recurso.id"
+                  >
+
+                    {{ recurso.nombre }}
+                    ({{ recurso.unidadMedida }})
+
+                  </option>
+
+                  }
+
+                </select>
+
+
+                @if (
+                item.get('recursoId')?.touched &&
+                item.get('recursoId')?.invalid
+                ) {
+
+                <div
+                  class="invalid-feedback"
+                >
+                  Seleccione un recurso.
+                </div>
+
+                }
+
+              </div>
+
+
+              <!-- ================================================= -->
+              <!-- CANTIDAD -->
+              <!-- ================================================= -->
+
+              <div class="col-md-3">
+
+                <label
+                  [for]="'cantidad-' + i"
+                  class="form-label fw-bold"
+                >
+                  Cantidad
+                </label>
+
+
+                <input
+                  [id]="'cantidad-' + i"
+                  type="number"
+                  min="1"
+                  class="form-control"
+                  formControlName="cantidadRequerida"
+                  [class.is-invalid]="
+                        item.get('cantidadRequerida')?.touched &&
+                        item.get('cantidadRequerida')?.invalid
+                      "
+                />
+
+
+                @if (
+                item.get('cantidadRequerida')?.touched &&
+                item.get('cantidadRequerida')?.invalid
+                ) {
+
+                <div
+                  class="invalid-feedback"
+                >
+                  Debe ser mayor a cero.
+                </div>
+
+                }
+
+              </div>
+
+
+              <!-- ================================================= -->
+              <!-- ELIMINAR -->
+              <!-- ================================================= -->
+
+              <div class="col-md-2">
+
+                <button
+                  type="button"
+                  class="btn btn-outline-danger w-100"
+                  (click)="eliminarItem(i)"
+                  [disabled]="items.length === 1"
+                  title="Eliminar recurso"
+                >
+
+                  <i
+                    class="bi bi-trash"
+                  ></i>
+
+                </button>
+
+              </div>
+
+            </div>
+
+          </div>
+
+          }
+
+        </div>
+
+
+        <!-- ================================================= -->
+        <!-- ACCIONES -->
+        <!-- ================================================= -->
+
+        <div class="mt-4">
+
+          <!-- PUBLICAR -->
+          <div class="d-grid">
+
+            <button
+              type="submit"
+              class="btn btn-primary btn-lg"
+              [disabled]="
+        cargando() ||
+        cargandoRecursos()
+      "
+            >
+
+              @if (cargando()) {
+
+              <span
+                class="spinner-border spinner-border-sm me-2"
+                role="status"
+              ></span>
+
+              Publicando...
+
+              }
+
+              @else {
+
+              <i class="bi bi-send me-2"></i>
+
+              Publicar lote
+
+              }
+
+            </button>
+
+          </div>
+
+          <!-- VOLVER -->
+          <div class="mt-3 mb-4">
+
+            <button
+              type="button"
+              class="btn btn-outline-secondary"
+              (click)="volverAemergencias()"
+            >
+
+              <i class="bi bi-arrow-left me-2"></i>
+
+              Volver a emergencias
+
+            </button>
+
+          </div>
+
+        </div>
+
+      </form>
+
+      }
+
+    </div>
+
+  </div>
+
+</div>

@@ -11,6 +11,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import com.proyecto.backend.dto.lote.EmergenciaLoteResponseDTO;
+import org.springframework.data.domain.Page;
+import org.springframework.web.bind.annotation.RequestParam;
 
 @RestController
 @RequestMapping("/api/v1/emergencias")
@@ -33,5 +36,15 @@ public class EmergenciaController {
                 authService.bonitaSession(session)
         );
         return ResponseEntity.status(HttpStatus.CREATED).body(respuesta);
+    }
+
+    @GetMapping("/para-lotes")
+    public ResponseEntity<Page<EmergenciaLoteResponseDTO>> obtenerEmergenciasParaLotes(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size
+    ) {
+        return ResponseEntity.ok(
+                emergenciaService.obtenerEmergenciasParaLotes(page, size)
+        );
     }
 }
