@@ -13,7 +13,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 
 import { LoteService } from '@core/services/lotes/lote.service';
 import { RecursoService } from '@core/services/recursos/recurso.service';
-import { EmergenciaService } from '@core/services/emergencias/emergencia.service';
+import { EmergenciaService } from '../../municipal/services/emergencia';
 
 import { Recurso } from '@core/models/recurso.model';
 import { LoteRequest, LoteResponse } from '@core/models/lote.model';

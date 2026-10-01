@@ -18,6 +18,7 @@ import com.proyecto.backend.model.Emergencia;
 import com.proyecto.backend.model.Municipio;
 import com.proyecto.backend.repository.EmergenciaRepository;
 import com.proyecto.backend.repository.MunicipioRepository;
+import lombok.NoArgsConstructor;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;

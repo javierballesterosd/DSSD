@@ -12,6 +12,7 @@ import com.proyecto.backend.model.Municipio;
 import com.proyecto.backend.model.NivelGravedad;
 import com.proyecto.backend.model.Region;
 import com.proyecto.backend.repository.EmergenciaRepository;
+import com.proyecto.backend.repository.LoteRepository;
 import com.proyecto.backend.repository.MunicipioRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -42,6 +43,8 @@ class EmergenciaServiceTest {
     private BonitaClient bonitaClient;
     @Mock
     private NotificacionService notificacionService;
+    @Mock
+    private LoteRepository loteRepository;
 
     private EmergenciaService emergenciaService;
     private Municipio municipio;
@@ -55,7 +58,8 @@ class EmergenciaServiceTest {
                 municipioRepository,
                 bonitaClient,
                 new EmergenciaMapper(),
-                notificacionService
+                notificacionService,
+                loteRepository
         );
 
         Region region = new Region();
