@@ -49,7 +49,9 @@
                 lote.fechaCierreOfertas ? (lote.fechaCierreOfertas | date: fechaDia) : 'sin definir'
               }}
             </span>
-            @if (yaOferto(lote.id) !== null) {
+            @if (noInicio(lote)) {
+              <span class="badge text-bg-secondary">Todavía no inició la convocatoria</span>
+            } @else if (yaOferto(lote.id) !== null) {
               <span
                 class="badge"
                 [class]="yaOferto(lote.id) ? 'text-bg-success' : 'text-bg-warning'"

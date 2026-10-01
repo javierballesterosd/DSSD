@@ -80,4 +80,25 @@ describe('Ofertas', () => {
     expect(req.request.method).toBe('GET');
     req.flush([10, 11]);
   });
+
+  it('pide el historial de versiones de una oferta', () => {
+    service.versiones(7).subscribe((versiones) => expect(versiones).toHaveLength(2));
+
+    const req = httpMock.expectOne(`${environment.apiUrl}/ofertas/7/versiones`);
+    expect(req.request.method).toBe('GET');
+    req.flush([{ numero: 2 }, { numero: 1 }]);
+  });
+
+  it('pide todas las ofertas al auditor, con o sin filtro por lote', () => {
+    service.todas().subscribe();
+    const sinFiltro = httpMock.expectOne(`${environment.apiUrl}/ofertas`);
+    expect(sinFiltro.request.method).toBe('GET');
+    expect(sinFiltro.request.params.has('loteId')).toBe(false);
+    sinFiltro.flush([]);
+
+    service.todas(10).subscribe();
+    const conFiltro = httpMock.expectOne((r) => r.url === `${environment.apiUrl}/ofertas`);
+    expect(conFiltro.request.params.get('loteId')).toBe('10');
+    conFiltro.flush([]);
+  });
 });

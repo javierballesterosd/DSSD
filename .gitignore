@@ -1,0 +1,16 @@
+### IDEs ###
+.idea/
+*.iml
+*.iws
+*.ipr
+.vscode/
+
+### Build y dependencias ###
+target/
+node_modules/
+dist/
+.angular/
+
+### Sistema operativo ###
+.DS_Store
+Thumbs.db

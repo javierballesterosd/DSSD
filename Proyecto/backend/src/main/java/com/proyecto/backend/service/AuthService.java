@@ -119,6 +119,15 @@ public class AuthService {
         return usuario.getOngId();
     }
 
+    /** Usuario logueado si es auditor. Lanza 401 si no hay sesión y 403 si tiene otro rol. */
+    public LoginResponse auditorDelUsuario(HttpSession httpSession) {
+        LoginResponse usuario = currentUser(httpSession);
+        if (!"AUDITOR".equals(usuario.getRole())) {
+            throw new AccesoDenegadoException("Solo un auditor puede ver todas las ofertas");
+        }
+        return usuario;
+    }
+
     /**
      * Id del municipio del usuario logueado. Lanza 401 si no hay sesión y 403 si el usuario
      * no es operador municipal.

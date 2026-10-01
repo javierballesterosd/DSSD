@@ -76,6 +76,11 @@ export class LotesDisponibles implements OnInit {
   }
 
   /** true/false si se sabe si la ONG ofertó en el lote; null si no corresponde mostrarlo. */
+  /** La ventana de ofertas del lote todavía no abrió. */
+  protected noInicio(lote: LoteResumen): boolean {
+    return !!lote.fechaAperturaOfertas && new Date(lote.fechaAperturaOfertas) > new Date();
+  }
+
   protected yaOferto(loteId: number): boolean | null {
     return this.lotesConOferta()?.has(loteId) ?? null;
   }

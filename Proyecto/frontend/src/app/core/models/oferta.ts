@@ -39,12 +39,36 @@ export interface OfertaResponse {
   fechaOferta: string;
   /** Última edición o baja; null si nunca se modificó. */
   fechaModificacion: string | null;
+  /** Número de la última versión registrada (1 = solo el alta). */
+  numeroVersion: number;
   loteId: number;
   loteTitulo: string;
   emergenciaZona: string;
   ongs: Ong[];
   aportes: AporteRecurso[];
 }
+
+/** Foto de la oferta tras un alta, una edición o una baja. */
+export interface OfertaVersion {
+  numero: number;
+  tipoCambio: string;
+  tipoCambioEtiqueta: string;
+  estado: string;
+  estadoEtiqueta: string;
+  fecha: string;
+  /** Username de Bonita de quien hizo el cambio. */
+  usuario: string;
+  ongId: number;
+  ongNombre: string;
+  aportes: AporteRecurso[];
+}
+
+/** Clase Bootstrap del badge de cada tipo de cambio de una versión. */
+export const TIPO_CAMBIO_BADGE: Record<string, string> = {
+  CREACION: 'text-bg-success',
+  EDICION: 'text-bg-info',
+  BAJA: 'text-bg-danger',
+};
 
 /** Clase Bootstrap del badge de cada estado de oferta. */
 export const ESTADO_OFERTA_BADGE: Record<string, string> = {

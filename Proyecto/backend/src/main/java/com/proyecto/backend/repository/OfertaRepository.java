@@ -27,4 +27,12 @@ public interface OfertaRepository extends JpaRepository<Oferta, Long> {
     @Query("select distinct o.lote.id from Oferta o join o.ongs g "
             + "where g.id = :ongId and o.estado <> com.proyecto.backend.model.EstadoOferta.ELIMINADA")
     List<Long> findLoteIdsConOfertaDeOng(@Param("ongId") Long ongId);
+
+    /** Todas las ofertas (incluidas las eliminadas) para auditoría, opcionalmente de un solo lote. */
+    @EntityGraph(attributePaths = {
+            "detalles", "detalles.ong", "detalles.itemLote", "detalles.itemLote.recurso",
+            "lote", "lote.emergencia"
+    })
+    @Query("select o from Oferta o where (:loteId is null or o.lote.id = :loteId) order by o.fechaOferta desc")
+    List<Oferta> findAllParaAuditoria(@Param("loteId") Long loteId);
 }
