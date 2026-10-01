@@ -14,11 +14,7 @@ import {
 })
 export class EmergenciaService {
   private readonly http = inject(HttpClient);
-<<<<<<< HEAD
   private readonly apiUrl = `api/v1/emergencias`;
-=======
-  private readonly apiUrl = '/api/v1/emergencias';
->>>>>>> c91a9d17a5631129326a5a2b805620a288ff27f8
 
   registrarEmergencia(emergencia: EmergenciaRequest): Observable<EmergenciaResponse> {
     return this.http.post<EmergenciaResponse>(this.apiUrl, emergencia);
