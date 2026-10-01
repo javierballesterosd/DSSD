@@ -239,6 +239,8 @@ Cada ONG es un **subgrupo de `/ONG`** en Bonita, y todos sus representantes tien
 docker exec -i postgres_db psql -U postgres -d rescuesync < db/seed/01-reset-y-seed.sql
 ```
 
+Con `docker compose up` el servicio `seed` lo corre solo, **una vez que el backend está healthy** y **solo si la base está vacía** (sin regiones), así que reiniciar el stack no borra tus emergencias. Para forzarlo (borra todo): `docker compose run --rm -e FORCE_SEED=1 seed`.
+
 La UI usa **Bootstrap 5** (solo CSS, sin JS ni librerías de componentes). Se carga desde `angular.json`.
 
 ## Variables de entorno y puertos
@@ -253,7 +255,8 @@ La configuración sale de un `.env` en la raíz del repo (ignorado por git). Cre
 | `PGADMIN_EMAIL` / `PGADMIN_PASSWORD` | Login de pgAdmin | (completar) |
 | `SERVER_PORT` | Puerto del backend cuando corre en local (`./mvnw spring-boot:run`) | `8080` |
 | `BACKEND_PORT` | Puerto del host donde Docker publica el backend | `8080` |
-| `BONITA_BASE_URL` | URL base de Bonita (opcional; por defecto `http://localhost:8080/bonita`) | `http://localhost:8080/bonita` |
+| `BONITA_BASE_URL` | URL base de Bonita para el backend local (opcional; por defecto `http://localhost:8080/bonita`) | `http://localhost:8080/bonita` |
+| `BONITA_DOCKER_URL` | URL de Bonita para el backend en Docker (opcional; por defecto `http://host.docker.internal:8080/bonita`, o sea Bonita Studio en el host) | `http://host.docker.internal:8080/bonita` |
 
 **Puertos y URLs**
 

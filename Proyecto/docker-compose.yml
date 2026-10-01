@@ -32,14 +32,53 @@ services:
     ports:
       - "${BACKEND_PORT:-8081}:8080"
     environment:
+      # Las ventanas de ofertas son LocalDateTime en hora argentina (igual que los timers de Bonita)
+      TZ: America/Argentina/Buenos_Aires
       DB_HOST: postgres
       DB_PORT: 5432
       DB_NAME: ${DB_NAME}
       DB_USER: ${DB_USER}
       DB_PASSWORD: ${DB_PASSWORD}
-      BONITA_BASE_URL: ${BONITA_BASE_URL}
+      # Dentro del contenedor "localhost" es el propio backend: Bonita corre en el host
+      BONITA_BASE_URL: ${BONITA_DOCKER_URL:-http://host.docker.internal:8080/bonita}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
       - postgres
+    healthcheck:
+      # Healthy cuando Spring terminó de arrancar (Hibernate ya creó/actualizó las tablas)
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/localhost/8080 && printf \"GET /actuator/health HTTP/1.0\r\n\r\n\" >&3 && grep -q UP <&3'"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 20s
+    networks:
+      - app-network
+
+  # Carga el seed una sola vez: solo si la base está vacía (no hay regiones).
+  # Para forzarlo (borra todo): docker compose run --rm -e FORCE_SEED=1 seed
+  seed:
+    image: postgres:15-alpine
+    container_name: seed_db
+    environment:
+      PGHOST: postgres
+      PGUSER: ${DB_USER}
+      PGPASSWORD: ${DB_PASSWORD}
+      PGDATABASE: ${DB_NAME}
+    volumes:
+      - ./db/seed:/seed:ro
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        if [ -n "$$FORCE_SEED" ] || [ "$$(psql -tAc 'SELECT count(*) FROM region')" = "0" ]; then
+          echo "Cargando seed..." && psql -v ON_ERROR_STOP=1 -f /seed/01-reset-y-seed.sql
+        else
+          echo "La base ya tiene datos: seed omitido."
+        fi
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: "no"
     networks:
       - app-network
 
