@@ -6,6 +6,8 @@ import com.proyecto.backend.repository.MunicipioRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Optional;
+
 @Service
 @Transactional(readOnly = true)
 public class MunicipioService {
@@ -22,4 +24,23 @@ public class MunicipioService {
                 .orElseThrow(() -> new RecursoNoEncontradoException(
                         "No hay un municipio registrado para el grupo de Bonita " + path));
     }
+
+    public Municipio obtenerPorGrupoBonitaEnJerarquia(String path) {
+        String grupo = path;
+        while (grupo != null && !grupo.isBlank()) {
+            Optional<Municipio> municipio = municipioRepository.findByBonitaGroupPath(grupo);
+            if (municipio.isPresent()) {
+                return municipio.get();
+            }
+            grupo = grupoPadre(grupo);
+        }
+        throw new RecursoNoEncontradoException(
+                "No hay un municipio registrado en la jerarquía del grupo de Bonita " + path);
+    }
+
+    private String grupoPadre(String path) {
+        int ultimoSeparador = path.lastIndexOf('/');
+        return ultimoSeparador <= 0 ? null : path.substring(0, ultimoSeparador);
+    }
+
 }

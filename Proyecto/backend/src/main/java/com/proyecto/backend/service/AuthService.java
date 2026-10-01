@@ -163,23 +163,24 @@ public class AuthService {
         response.setLastName(user.lastname());
         response.setRole(applicationRole);
         response.setGroup(membership.group().name());
+        response.setGroupPath(membership.group().path());
 
         // La ONG del representante se resuelve por el path de su subgrupo en Bonita
         if ("ONG".equals(applicationRole)) {
-            Ong ong = ongService.obtenerPorGrupoBonita(membership.group().path());
+            Ong ong = ongService.obtenerPorGrupoBonitaEnJerarquia(membership.group().path());
             response.setOngId(ong.getId());
             response.setOngNombre(ong.getRazonSocial());
         }
 
         // El municipio del operador se resuelve por el path de su subgrupo; el CCR, por el de su región
         if ("MUNICIPAL".equals(applicationRole)) {
-            Municipio municipio = municipioService.obtenerPorGrupoBonita(membership.group().path());
+            Municipio municipio = municipioService.obtenerPorGrupoBonitaEnJerarquia(membership.group().path());
             response.setMunicipioId(municipio.getId());
             response.setMunicipioNombre(municipio.getNombre());
             response.setRegionId(municipio.getRegion().getId());
             response.setRegionNombre(municipio.getRegion().getNombre());
         } else if ("COORDINADOR".equals(applicationRole)) {
-            Region region = regionService.obtenerPorGrupoBonita(membership.group().path());
+            Region region = regionService.obtenerPorGrupoBonitaEnJerarquia(membership.group().path());
             response.setRegionId(region.getId());
             response.setRegionNombre(region.getNombre());
         }
