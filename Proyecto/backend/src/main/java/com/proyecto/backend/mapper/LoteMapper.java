@@ -91,7 +91,7 @@ public class LoteMapper {
                 .titulo(requestDTO.getTitulo())
                 .estado(EstadoLote.ACTIVO)
                 .fechaCreacion(LocalDateTime.now())
-                .fechaAperturaOfertas(LocalDateTime.now())
+                .fechaAperturaOfertas(requestDTO.getFechaAperturaOfertas())
                 .fechaCierreOfertas(requestDTO.getFechaCierreOfertas())
                 .emergencia(emergencia)
                 .build();

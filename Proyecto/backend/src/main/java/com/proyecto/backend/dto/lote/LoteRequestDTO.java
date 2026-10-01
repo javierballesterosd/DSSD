@@ -19,6 +19,9 @@ public class LoteRequestDTO {
     private String titulo;
 
     @NotNull
+    private LocalDateTime fechaAperturaOfertas;
+
+    @NotNull
     private LocalDateTime fechaCierreOfertas;
 
     @NotEmpty
