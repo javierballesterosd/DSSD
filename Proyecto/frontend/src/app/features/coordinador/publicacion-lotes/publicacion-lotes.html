@@ -1,0 +1,255 @@
+<h1 class="h3 mb-4">Publicar lote</h1>
+
+@if (cargandoEmergencia()) {
+  <p class="text-body-secondary">Cargando emergencia…</p>
+} @else if (errorEmergencia() || !emergencia()) {
+  <div class="alert alert-danger">No se pudo cargar la emergencia.</div>
+  <a class="btn btn-secondary" routerLink="/coordinador/emergencias">Volver al listado</a>
+} @else {
+  @let e = emergencia()!;
+
+  <!-- ================================================= -->
+  <!-- EMERGENCIA -->
+  <!-- ================================================= -->
+
+  <section class="rounded-4 px-4 py-3 mb-4" [class]="'bg-' + color() + '-subtle'">
+    <span class="badge" [class]="badge()">{{ e.nivelGravedadEtiqueta }}</span>
+    <h2 class="h5 fw-semibold mt-2 mb-1">{{ e.zonaAfectada }}</h2>
+    <div class="small text-body-secondary mb-2">{{ e.municipio }} · Emergencia #{{ e.id }}</div>
+    <p class="mb-0">{{ e.descripcion }}</p>
+  </section>
+
+  @if (!desglosable()) {
+    <div class="alert alert-warning">
+      Esta emergencia ya tiene un lote que no está cancelado, así que no se puede publicar otro.
+    </div>
+    <div class="d-flex flex-wrap gap-2">
+      <a class="btn btn-primary" [routerLink]="['/coordinador/lotes', e.loteId]">Ver lote</a>
+      <a class="btn btn-outline-secondary" routerLink="/coordinador/emergencias">
+        Volver al listado
+      </a>
+    </div>
+  } @else {
+    <!-- ================================================= -->
+    <!-- FORMULARIO -->
+    <!-- ================================================= -->
+
+    <div class="card border-0 shadow-sm">
+      <div class="card-body p-4">
+        <form [formGroup]="form" (ngSubmit)="onSubmit()">
+          <!-- TÍTULO -->
+          <div class="mb-3">
+            <label for="titulo" class="form-label fw-semibold">Título del lote</label>
+
+            <input
+              id="titulo"
+              type="text"
+              class="form-control"
+              placeholder="Ej: Asistencia alimentaria"
+              formControlName="titulo"
+              [class.is-invalid]="form.controls.titulo.touched && form.controls.titulo.invalid"
+            />
+
+            @if (form.controls.titulo.touched && form.controls.titulo.invalid) {
+              <div class="invalid-feedback">
+                El título es obligatorio (máximo 150 caracteres).
+              </div>
+            }
+          </div>
+
+          <div class="row g-3 mb-4">
+            <!-- APERTURA DE OFERTAS -->
+            <div class="col-md-6">
+              <label for="fechaAperturaOfertas" class="form-label fw-semibold">
+                Apertura de ofertas
+              </label>
+
+              <input
+                id="fechaAperturaOfertas"
+                type="datetime-local"
+                class="form-control"
+                formControlName="fechaAperturaOfertas"
+                [min]="minimoApertura"
+                [class.is-invalid]="
+                  form.controls.fechaAperturaOfertas.touched &&
+                  form.controls.fechaAperturaOfertas.invalid
+                "
+              />
+
+              @if (
+                form.controls.fechaAperturaOfertas.touched &&
+                form.controls.fechaAperturaOfertas.invalid
+              ) {
+                <div class="invalid-feedback">
+                  @if (form.controls.fechaAperturaOfertas.hasError('pasada')) {
+                    La apertura no puede ser anterior a la fecha y hora actual.
+                  } @else {
+                    La fecha y hora de apertura de ofertas son obligatorias.
+                  }
+                </div>
+              }
+
+              <div class="form-text">Desde cuándo las ONGs pueden presentar ofertas.</div>
+            </div>
+
+            <!-- CIERRE DE OFERTAS -->
+            <div class="col-md-6">
+              <label for="fechaCierreOfertas" class="form-label fw-semibold">
+                Cierre de ofertas
+              </label>
+
+              <input
+                id="fechaCierreOfertas"
+                type="datetime-local"
+                class="form-control"
+                formControlName="fechaCierreOfertas"
+                [min]="form.controls.fechaAperturaOfertas.value || minimoApertura"
+                [class.is-invalid]="
+                  form.controls.fechaCierreOfertas.touched &&
+                  (form.controls.fechaCierreOfertas.invalid || form.hasError('ventanaInvalida'))
+                "
+              />
+
+              @if (
+                form.controls.fechaCierreOfertas.touched && form.controls.fechaCierreOfertas.invalid
+              ) {
+                <div class="invalid-feedback">
+                  La fecha y hora de cierre de ofertas son obligatorias.
+                </div>
+              } @else if (
+                form.hasError('ventanaInvalida') && form.controls.fechaCierreOfertas.touched
+              ) {
+                <div class="invalid-feedback">El cierre debe ser posterior a la apertura.</div>
+              }
+
+              <div class="form-text">Hasta cuándo las ONGs pueden presentar ofertas.</div>
+            </div>
+          </div>
+
+          <!-- ================================================= -->
+          <!-- RECURSOS -->
+          <!-- ================================================= -->
+
+          <div formArrayName="items">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+              <h2 class="h6 mb-0">Recursos requeridos</h2>
+
+              <button
+                type="button"
+                class="btn btn-outline-primary btn-sm"
+                (click)="agregarItem()"
+                [disabled]="cargandoRecursos() || sinRecursosDisponibles()"
+              >
+                <i class="bi bi-plus-lg me-1"></i>
+                Agregar recurso
+              </button>
+            </div>
+
+            @if (items.hasError('recursosRepetidos')) {
+              <div class="alert alert-danger py-2">
+                Hay recursos repetidos: cada recurso puede estar una sola vez en el lote.
+              </div>
+            }
+
+            @for (item of items.controls; track item; let i = $index) {
+              <div class="border rounded-3 p-3 mb-3 bg-body-tertiary" [formGroupName]="i">
+                <div class="row g-3 align-items-start">
+                  <!-- RECURSO -->
+                  <div class="col-md-7">
+                    <label [for]="'recurso-' + i" class="form-label fw-semibold">Recurso</label>
+
+                    <select
+                      [id]="'recurso-' + i"
+                      class="form-select"
+                      formControlName="recursoId"
+                      [class.is-invalid]="
+                        item.controls.recursoId.touched && item.controls.recursoId.invalid
+                      "
+                    >
+                      <option [value]="0">Seleccione un recurso</option>
+
+                      @for (recurso of recursos(); track recurso.id) {
+                        <option
+                          [value]="recurso.id"
+                          [disabled]="estaElegidoEnOtraFila(recurso.id, i)"
+                        >
+                          {{ recurso.nombre }} ({{ recurso.unidadMedida }})
+                        </option>
+                      }
+                    </select>
+
+                    @if (item.controls.recursoId.touched && item.controls.recursoId.invalid) {
+                      <div class="invalid-feedback">Seleccione un recurso.</div>
+                    }
+                  </div>
+
+                  <!-- CANTIDAD -->
+                  <div class="col-md-3">
+                    <label [for]="'cantidad-' + i" class="form-label fw-semibold">Cantidad</label>
+
+                    <input
+                      [id]="'cantidad-' + i"
+                      type="number"
+                      min="1"
+                      class="form-control"
+                      formControlName="cantidadRequerida"
+                      [class.is-invalid]="
+                        item.controls.cantidadRequerida.touched &&
+                        item.controls.cantidadRequerida.invalid
+                      "
+                    />
+
+                    @if (
+                      item.controls.cantidadRequerida.touched &&
+                      item.controls.cantidadRequerida.invalid
+                    ) {
+                      <div class="invalid-feedback">Debe ser mayor a cero.</div>
+                    }
+                  </div>
+
+                  <!-- ELIMINAR -->
+                  <div class="col-md-2">
+                    <span class="form-label d-none d-md-block">&nbsp;</span>
+                    <button
+                      type="button"
+                      class="btn btn-outline-danger w-100"
+                      (click)="eliminarItem(i)"
+                      [disabled]="items.length === 1"
+                      title="Eliminar recurso"
+                      aria-label="Eliminar recurso"
+                    >
+                      <i class="bi bi-trash"></i>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            }
+          </div>
+
+          <!-- ================================================= -->
+          <!-- ACCIONES -->
+          <!-- ================================================= -->
+
+          <div class="d-flex flex-wrap gap-2 mt-4">
+            <button
+              type="submit"
+              class="btn btn-primary"
+              [disabled]="cargando() || cargandoRecursos()"
+            >
+              @if (cargando()) {
+                <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                Publicando...
+              } @else {
+                Publicar lote
+              }
+            </button>
+
+            <a class="btn btn-outline-secondary" routerLink="/coordinador/emergencias">
+              Volver al listado
+            </a>
+          </div>
+        </form>
+      </div>
+    </div>
+  }
+}

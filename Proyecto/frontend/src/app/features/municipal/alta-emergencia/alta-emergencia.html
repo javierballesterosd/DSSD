@@ -1,0 +1,96 @@
+<h1 class="h3 mb-4">Registrar emergencia</h1>
+
+<div class="card border-0 shadow-sm">
+  <div class="card-body p-4">
+    <form [formGroup]="form" (ngSubmit)="onSubmit()">
+      <!-- Nivel de Gravedad -->
+      <div class="mb-3">
+        <label for="nivelGravedad" class="form-label fw-semibold">Nivel de gravedad</label>
+
+        <select id="nivelGravedad" class="form-select" formControlName="nivelGravedad">
+          @for (nivel of nivelesGravedad; track nivel) {
+            <option [value]="nivel">
+              {{ nivelGravedadLabel[nivel] }}
+            </option>
+          }
+        </select>
+
+        <div class="form-text">
+          @switch (form.controls.nivelGravedad.value) {
+            @case ('BAJA') {
+              Afecta a pocas familias, sin riesgo para la vida.
+            }
+            @case ('MEDIA') {
+              Afecta a varios barrios; hay daños materiales y riesgo limitado para las personas.
+            }
+            @case ('ALTA') {
+              Afecta a gran parte del municipio; hay personas en riesgo y servicios básicos
+              interrumpidos.
+            }
+            @case ('CRITICA') {
+              Riesgo de vida inmediato para muchas personas; requiere respuesta regional urgente.
+            }
+          }
+        </div>
+      </div>
+
+      <!-- Zona Afectada -->
+      <div class="mb-3">
+        <label for="zonaAfectada" class="form-label fw-semibold">Zona afectada</label>
+
+        <input
+          id="zonaAfectada"
+          type="text"
+          class="form-control"
+          placeholder="Ej: Barrio Norte, La Plata"
+          formControlName="zonaAfectada"
+          [class.is-invalid]="form.controls.zonaAfectada.touched && form.controls.zonaAfectada.invalid"
+        />
+
+        @if (form.controls.zonaAfectada.touched && form.controls.zonaAfectada.invalid) {
+          <div class="invalid-feedback">
+            La zona afectada es obligatoria (máximo 200 caracteres).
+          </div>
+        }
+      </div>
+
+      <!-- Descripción -->
+      <div class="mb-4">
+        <label for="descripcion" class="form-label fw-semibold">Descripción de la emergencia</label>
+
+        <textarea
+          id="descripcion"
+          rows="4"
+          class="form-control"
+          placeholder="Detalle la situación, extensión de los daños y riesgos presentes..."
+          formControlName="descripcion"
+          [class.is-invalid]="form.controls.descripcion.touched && form.controls.descripcion.invalid"
+        ></textarea>
+
+        @if (form.controls.descripcion.touched && form.controls.descripcion.invalid) {
+          <div class="invalid-feedback">
+            La descripción es obligatoria y debe tener entre 10 y 2000 caracteres.
+          </div>
+        }
+      </div>
+
+      <div class="d-flex flex-wrap gap-2">
+        <button type="submit" class="btn btn-primary" [disabled]="cargando()">
+          @if (cargando()) {
+            <span
+              class="spinner-border spinner-border-sm me-2"
+              role="status"
+              aria-hidden="true"
+            ></span>
+            Registrando...
+          } @else {
+            Registrar emergencia
+          }
+        </button>
+        <a class="btn btn-outline-secondary" routerLink="/municipal/emergencias">
+          Volver al listado
+        </a>
+      </div>
+    </form>
+  </div>
+</div>

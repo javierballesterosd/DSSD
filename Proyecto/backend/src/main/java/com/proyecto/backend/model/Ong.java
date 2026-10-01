@@ -24,6 +24,11 @@ public class Ong {
     @Column(name = "razon_social", nullable = false, unique = true, length = 200)
     private String razonSocial;
 
+    // Path del subgrupo de la ONG en la organización de Bonita (ej. /ONG/CruzRojaLaPlata).
+    // Es la clave que vincula los usuarios de Bonita con esta fila; no depende de ids de Bonita.
+    @Column(name = "bonita_group_path", nullable = false, unique = true, length = 200)
+    private String bonitaGroupPath;
+
     // Vive dentro de un Set (Oferta.ongs): igualdad por id, hashCode constante.
     @Override
     public boolean equals(Object o) {

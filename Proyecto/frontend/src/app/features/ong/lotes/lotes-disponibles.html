@@ -1,0 +1,25 @@
+<h1 class="h3 mb-4">Lotes disponibles</h1>
+
+@if (cargando()) {
+  <p class="text-body-secondary">Cargando lotes…</p>
+} @else if (error()) {
+  <div class="alert alert-danger">No se pudieron cargar los lotes. Probá de nuevo más tarde.</div>
+} @else if (lotes().length === 0) {
+  <p class="text-body-secondary">No hay lotes publicados por el momento.</p>
+} @else {
+  <div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-4">
+    @for (lote of lotes(); track lote.id) {
+      <div class="col">
+        <app-lote-tarjeta [lote]="lote" [enlace]="['/ong/lotes', lote.id]">
+          @if (noInicio(lote)) {
+            <span class="badge text-bg-secondary">Todavía no inició la convocatoria</span>
+          } @else if (yaOferto(lote.id) !== null) {
+            <span class="badge" [class]="yaOferto(lote.id) ? 'text-bg-success' : 'text-bg-warning'">
+              {{ yaOferto(lote.id) ? 'Tu ONG ya ofertó' : 'Tu ONG todavía no ofertó' }}
+            </span>
+          }
+        </app-lote-tarjeta>
+      </div>
+    }
+  </div>
+}

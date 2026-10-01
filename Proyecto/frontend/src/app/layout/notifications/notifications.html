@@ -1,1 +1,55 @@
-<p>notifications works!</p>
+<div class="dropdown">
+  <button
+    type="button"
+    class="btn btn-dark position-relative"
+    aria-label="Ver notificaciones"
+    [attr.aria-expanded]="panelAbierto()"
+    (click)="alternarPanel()"
+  >
+    <span aria-hidden="true">&#128276;</span>
+
+    @if (pendientes() > 0) {
+      <span
+        class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger"
+        aria-label="{{ pendientes() }} notificaciones pendientes"
+      >
+        {{ pendientes() }}
+      </span>
+    }
+  </button>
+
+  @if (panelAbierto()) {
+    <section class="dropdown-menu dropdown-menu-end show notifications-panel">
+      <header class="notifications-header">
+        <h2 class="notifications-title">Notificaciones</h2>
+      </header>
+
+      @if (pendientes() === 0) {
+        <p class="notifications-empty">No hay notificaciones pendientes</p>
+      } @else {
+        @for (notificacion of notificaciones(); track notificacion.id) {
+          <article class="notification-card">
+            <div class="notification-content">
+              <h3 class="notification-title">{{ notificacion.titulo }}</h3>
+              <p class="notification-description">{{ notificacion.descripcion }}</p>
+              @if (notificacion.fechaCreacion) {
+                <time class="notification-date" [attr.datetime]="notificacion.fechaCreacion">{{
+                  notificacion.fechaCreacion | date: fechaLarga
+                }}</time>
+              }
+            </div>
+
+            <button
+              type="button"
+              class="notification-dismiss"
+              aria-label="Eliminar notificación"
+              (click)="eliminar(notificacion.id)"
+            >
+              <span aria-hidden="true">&times;</span>
+            </button>
+          </article>
+        }
+      }
+    </section>
+  }
+</div>

@@ -1,1 +1,49 @@
-<p>navbar works!</p>
+<nav class="navbar bg-dark navbar-dark">
+  <div class="container-fluid">
+    <a class="navbar-brand" [routerLink]="homeUrl()">RescueSync</a>
+
+    <div class="d-flex align-items-center gap-2 ms-auto">
+      <app-notifications #notificaciones (panelCambiado)="cerrarMenuSiEsNecesario($event)" />
+
+      <div class="dropdown navbar-menu">
+        <button
+          class="navbar-toggler"
+          type="button"
+          aria-label="Abrir menú"
+          [attr.aria-expanded]="menuAbierto()"
+          (click)="notificaciones.cerrar(); menuAbierto.set(!menuAbierto())"
+        >
+          <span class="navbar-toggler-icon"></span>
+        </button>
+
+        @if (menuAbierto()) {
+          <div class="dropdown-menu dropdown-menu-end show navbar-dropdown">
+            @for (link of links(); track link.path) {
+              <a
+                class="dropdown-item"
+                [routerLink]="link.path"
+                routerLinkActive="active"
+                [routerLinkActiveOptions]="{ exact: link.exacto ?? false }"
+                (click)="menuAbierto.set(false)"
+              >
+                {{ link.label }}
+              </a>
+            }
+
+            @if (usuario(); as u) {
+              <div class="dropdown-item-text">
+                {{ u.username }} · {{ rolLabel[u.role] }}
+                @if (u.municipioNombre ?? u.ongNombre ?? u.regionNombre; as org) {
+                  · {{ org }}
+                }
+              </div>
+            }
+
+            <div class="dropdown-divider"></div>
+            <button type="button" class="dropdown-item text-danger" (click)="salir()">Salir</button>
+          </div>
+        }
+      </div>
+    </div>
+  </div>
+</nav>

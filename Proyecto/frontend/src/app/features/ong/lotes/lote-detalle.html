@@ -1,0 +1,151 @@
+@if (cargando()) {
+  <p class="text-body-secondary">Cargando lote…</p>
+} @else if (error() || !lote()) {
+  <div class="alert alert-danger">No se pudo cargar el lote.</div>
+  <a class="btn btn-secondary" routerLink="/ong/lotes">Volver al listado</a>
+} @else {
+  @let l = lote()!;
+
+  <app-lote-ficha [lote]="l">
+    @if (yaOferto() !== null) {
+      <span ficha-badges class="badge" [class]="yaOferto() ? 'text-bg-success' : 'text-bg-warning'">
+        {{ yaOferto() ? 'Tu ONG ya ofertó' : 'Tu ONG todavía no ofertó' }}
+      </span>
+    }
+    <div ficha-acciones class="text-end">
+      <button
+        type="button"
+        class="btn btn-primary"
+        [disabled]="!l.convocatoriaAbierta || !puedeOfertar()"
+        (click)="abrirModal()"
+      >
+        Registrar oferta
+      </button>
+      @if (!puedeOfertar()) {
+        <p class="text-body-secondary small mt-1 mb-0">
+          Solo un representante de ONG puede registrar ofertas.
+        </p>
+      } @else if (!l.convocatoriaAbierta) {
+        <p class="text-body-secondary small mt-1 mb-0">
+          La convocatoria de ofertas para esta emergencia está cerrada.
+        </p>
+      }
+    </div>
+  </app-lote-ficha>
+
+  @if (puedeOfertar()) {
+    <div class="card mb-4">
+      <div class="card-body">
+        <h2 class="h5 card-title">Mis ofertas para este lote</h2>
+        @if (cargandoOfertas()) {
+          <p class="text-body-secondary mb-0">Cargando ofertas…</p>
+        } @else if (errorOfertas()) {
+          <div class="alert alert-danger mb-0">No se pudieron cargar tus ofertas.</div>
+        } @else if (misOfertas().length === 0) {
+          <p class="text-body-secondary mb-0">Tu ONG todavía no ofertó para este lote.</p>
+        } @else {
+          <div class="table-responsive">
+            <table class="table table-sm align-middle mb-0">
+              <thead>
+                <tr>
+                  <th>Registrada</th>
+                  <th>Estado</th>
+                  <th>ONGs</th>
+                  <th>Total ofrecido</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (oferta of misOfertas(); track oferta.id) {
+                  <tr>
+                    <td>
+                      {{ oferta.fechaOferta | date: fechaListado }}
+                      @if (oferta.fechaModificacion) {
+                        <div class="small text-body-secondary">
+                          Modificada: {{ oferta.fechaModificacion | date: fechaListado }}
+                        </div>
+                      }
+                    </td>
+                    <td>
+                      <span class="badge" [class]="badgeEstado(oferta.estado)">{{
+                        oferta.estadoEtiqueta
+                      }}</span>
+                    </td>
+                    <td>
+                      <div class="d-flex flex-wrap gap-1">
+                        @for (ong of oferta.ongs; track ong.id) {
+                          <span class="chip-ong" [style.--ong-color]="colorOng(ong.id)">{{
+                            ong.razonSocial
+                          }}</span>
+                        }
+                      </div>
+                    </td>
+                    <td>{{ totalOfrecido(oferta) }} en {{ oferta.aportes.length }} recurso(s)</td>
+                    <td>
+                      <div class="d-flex gap-2 justify-content-end">
+                        <button
+                          type="button"
+                          class="btn btn-outline-primary btn-sm"
+                          (click)="verDetalle(oferta)"
+                        >
+                          Ver detalle
+                        </button>
+                        @if (esModificable(oferta)) {
+                          <button
+                            type="button"
+                            class="btn btn-outline-secondary btn-sm"
+                            (click)="editar(oferta)"
+                          >
+                            Editar
+                          </button>
+                          <button
+                            type="button"
+                            class="btn btn-outline-danger btn-sm"
+                            (click)="ofertaAEliminar.set(oferta)"
+                          >
+                            Eliminar
+                          </button>
+                        }
+                      </div>
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
+      </div>
+    </div>
+  }
+
+  <a class="btn btn-outline-secondary" routerLink="/ong/lotes">Volver al listado</a>
+
+  @if (ofertaSeleccionada(); as oferta) {
+    <app-oferta-detalle-modal [oferta]="oferta" (cerrar)="ofertaSeleccionada.set(null)" />
+  }
+
+  @if (modalAbierto()) {
+    <app-oferta-form-modal
+      [lote]="l"
+      [oferta]="ofertaEnEdicion()"
+      (guardada)="onOfertaGuardada($event)"
+      (cerrar)="cerrarModal()"
+    />
+  }
+
+  @if (ofertaAEliminar(); as oferta) {
+    <app-confirm-modal
+      titulo="Eliminar oferta"
+      [mensaje]="
+        '¿Seguro que querés eliminar la oferta #' +
+        oferta.id +
+        '? Esta acción no se puede deshacer.'
+      "
+      detalle="Si querés cambiar las ONGs participantes, después podés registrar una oferta nueva."
+      textoConfirmar="Eliminar"
+      [procesando]="eliminando()"
+      (confirmar)="confirmarEliminacion()"
+      (cancelar)="ofertaAEliminar.set(null)"
+    />
+  }
+}

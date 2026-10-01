@@ -13,9 +13,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
+import lombok.*;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -26,6 +24,8 @@ import java.util.List;
 @Getter
 @Setter
 @NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class Emergencia {
 
     @Id
@@ -48,13 +48,6 @@ public class Emergencia {
     /** Id del caso en Bonita (el proceso se inicia al registrar la emergencia). */
     @Column(name = "bonita_case_id", unique = true)
     private String bonitaCaseId;
-
-    /** Ventana de recepción de ofertas: la convocatoria es por emergencia, no por lote. */
-    @Column(name = "fecha_apertura_ofertas")
-    private LocalDateTime fechaAperturaOfertas;
-
-    @Column(name = "fecha_cierre_ofertas")
-    private LocalDateTime fechaCierreOfertas;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "municipio_id", nullable = false)
