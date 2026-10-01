@@ -3,13 +3,14 @@ import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 
 import { LoteRequest, LoteResponse } from '../../models/lote.model';
+import { environment } from '../../../../environments/environment';
 
 @Injectable({
   providedIn: 'root',
 })
 export class LoteService {
   private readonly http = inject(HttpClient);
-  private readonly apiUrl = '/api/emergencias';
+  private readonly apiUrl = `${environment.apiUrl}/emergencias`;
 
   publicarLote(emergenciaId: number, lote: LoteRequest): Observable<LoteResponse> {
     return this.http.post<LoteResponse>(`${this.apiUrl}/${emergenciaId}/lotes`, lote);
