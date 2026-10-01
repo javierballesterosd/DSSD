@@ -1,6 +1,7 @@
 -- RescueSync: reset total de la base + datos de ejemplo compartidos por el equipo.
 -- DESTRUCTIVO: borra regiones, municipios, recursos, ONGs, emergencias y todo lo que depende de ellos
--- (lotes, ítems, ofertas, detalles, actividades, inventario).
+-- (lotes, ítems, ofertas, detalles, actividades, inventario). Carga el catálogo, pero deja emergencias y lotes
+-- vacíos: dependen de casos de Bonita y se crean desde la app.
 -- Uso (desde la raíz del repo, con el contenedor postgres_db levantado):
 --   docker exec -i postgres_db psql -U postgres -d rescuesync < db/seed/01-reset-y-seed.sql
 -- Correrlo ANTES de levantar el backend (adapta el esquema a las entidades Region, Municipio, Ong y Lote).
@@ -108,21 +109,8 @@ INSERT INTO inventario_ong (ong_id, recurso_id, cantidad_disponible) VALUES
   (4,5,30000),                 -- Banco de Alimentos: agua potable
   (5,6,80),(5,9,3);            -- Techo: carpas, generadores
 
--- 4) Emergencias, lotes e ítems de ejemplo. Regla: una emergencia tiene un solo lote no cancelado.
-INSERT INTO emergencia (descripcion, nivel_gravedad, zona_afectada, fecha_registro, municipio_id) VALUES
-  ('Desborde del arroyo tras 200mm en 12 horas. Barrios bajos evacuados.', 'ALTA', 'Zona Norte', NOW(), 1),   -- id 1 (La Plata)
-  ('Crecida del río con familias evacuadas en la ribera.',                 'MEDIA', 'Ribera', NOW(), 3);      -- id 2 (Berisso)
-
--- Lote 1: abre hoy a las 18:00 y cierra en una semana. Lote 3: abre mañana a las 08:00 y cierra mañana a las 23:00.
-INSERT INTO lote (titulo, estado, fecha_creacion, fecha_apertura_ofertas, fecha_cierre_ofertas, emergencia_id) VALUES
-  ('Asistencia integral de emergencia', 'ACTIVO', NOW(), CURRENT_DATE + TIME '18:00', CURRENT_DATE + TIME '18:00' + INTERVAL '7 days', 1),                        -- id 1
-  ('Asistencia inicial (reformulado)', 'CANCELADO', NOW() - INTERVAL '3 days', NOW() - INTERVAL '3 days', NOW() - INTERVAL '1 day', 2),  -- id 2
-  ('Asistencia reformulada', 'ACTIVO', NOW(), CURRENT_DATE + INTERVAL '1 day' + TIME '08:00', CURRENT_DATE + INTERVAL '1 day' + TIME '23:00', 2);                                    -- id 3
-
-INSERT INTO item_lote (lote_id, recurso_id, cantidad_requerida) VALUES
-  (1,1,1000),(1,3,300),(1,2,5),(1,4,3),(1,5,5000),(1,8,200),(1,10,2),
-  (2,3,100),
-  (3,3,200),(3,1,400),(3,6,30),(3,7,2),(3,9,2);
+-- 4) Emergencias y lotes: SIN datos de ejemplo. Cada emergencia necesita su caso en Bonita
+-- (bonita_case_id), así que se crean desde la app (municipal -> coordinador), no desde el seed.
 
 -- Un solo lote no cancelado por emergencia, garantizado por la base
 CREATE UNIQUE INDEX IF NOT EXISTS ux_lote_un_no_cancelado_por_emergencia

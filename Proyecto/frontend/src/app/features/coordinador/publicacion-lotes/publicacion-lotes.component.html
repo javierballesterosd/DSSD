@@ -503,6 +503,47 @@
         </div>
 
         <!-- ================================================= -->
+        <!-- APERTURA DE OFERTAS -->
+        <!-- ================================================= -->
+
+        <div class="mb-3">
+
+          <label
+            for="fechaAperturaOfertas"
+            class="form-label fw-bold"
+          >
+            Fecha y hora de inicio de apertura de ofertas
+          </label>
+
+          <input
+            id="fechaAperturaOfertas"
+            type="datetime-local"
+            class="form-control"
+            formControlName="fechaAperturaOfertas"
+            [class.is-invalid]="
+      form.controls.fechaAperturaOfertas.touched &&
+      form.controls.fechaAperturaOfertas.invalid
+    "
+          />
+
+          @if (
+          form.controls.fechaAperturaOfertas.touched &&
+          form.controls.fechaAperturaOfertas.invalid
+          ) {
+
+          <div class="invalid-feedback">
+            La fecha y hora de inicio de apertura de ofertas son obligatorias.
+          </div>
+
+          }
+
+          <div class="form-text">
+            Indique desde qué fecha y hora las ONGs podrán presentar ofertas.
+          </div>
+
+        </div>
+
+        <!-- ================================================= -->
         <!-- CIERRE DE OFERTAS -->
         <!-- ================================================= -->
 
@@ -533,6 +574,17 @@
 
           <div class="invalid-feedback">
             La fecha y hora de cierre de ofertas son obligatorias.
+          </div>
+
+          }
+
+          @if (
+          form.hasError('ventanaInvalida') &&
+          form.controls.fechaCierreOfertas.touched
+          ) {
+
+          <div class="text-danger small mt-1">
+            El cierre debe ser posterior al inicio de apertura.
           </div>
 
           }

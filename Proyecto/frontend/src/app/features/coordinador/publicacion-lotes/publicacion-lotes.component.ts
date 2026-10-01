@@ -1,6 +1,9 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 
 import {
+  AbstractControl,
+  ValidationErrors,
+  ValidatorFn,
   FormArray,
   FormBuilder,
   FormControl,
@@ -27,8 +30,16 @@ interface ItemLoteForm {
 
 type ItemLoteFormGroup = FormGroup<ItemLoteForm>;
 
+// El cierre debe ser posterior a la apertura (los datetime-local comparan bien como texto ISO)
+const ventanaOfertasValida: ValidatorFn = (group: AbstractControl): ValidationErrors | null => {
+  const apertura = group.get('fechaAperturaOfertas')?.value;
+  const cierre = group.get('fechaCierreOfertas')?.value;
+  return apertura && cierre && cierre <= apertura ? { ventanaInvalida: true } : null;
+};
+
 type PublicacionLotesForm = {
   titulo: FormControl<string>;
+  fechaAperturaOfertas: FormControl<string>;
   fechaCierreOfertas: FormControl<string>;
   items: FormArray<ItemLoteFormGroup>;
 };
@@ -91,9 +102,10 @@ export class PublicacionLotesComponent implements OnInit {
 
   form: FormGroup<PublicacionLotesForm> = this.fb.group({
     titulo: this.fb.nonNullable.control('', [Validators.required, Validators.maxLength(150)]),
+    fechaAperturaOfertas: this.fb.nonNullable.control('', [Validators.required]),
     fechaCierreOfertas: this.fb.nonNullable.control('', [Validators.required]),
     items: this.fb.array<ItemLoteFormGroup>([]),
-  });
+  }, { validators: ventanaOfertasValida });
 
   // ==========================================================
   // INIT
@@ -171,6 +183,7 @@ export class PublicacionLotesComponent implements OnInit {
 
     this.form.reset({
       titulo: '',
+      fechaAperturaOfertas: '',
       fechaCierreOfertas: '',
     });
 
@@ -190,6 +203,7 @@ export class PublicacionLotesComponent implements OnInit {
 
     this.form.reset({
       titulo: '',
+      fechaAperturaOfertas: '',
       fechaCierreOfertas: '',
     });
 
@@ -283,6 +297,8 @@ export class PublicacionLotesComponent implements OnInit {
 
     const request: LoteRequest = {
       titulo: valores.titulo,
+
+      fechaAperturaOfertas: valores.fechaAperturaOfertas,
 
       fechaCierreOfertas: valores.fechaCierreOfertas,
 
