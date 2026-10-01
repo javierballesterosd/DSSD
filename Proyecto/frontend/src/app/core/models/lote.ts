@@ -1,4 +1,11 @@
-import { EmergenciaResumen } from './emergencia';
+import type { EmergenciaResumen } from './emergencia';
+
+export type EstadoLote = 'ACTIVO' | 'FINALIZADO' | 'CANCELADO';
+
+export interface ItemLoteRequest {
+  recursoId: number;
+  cantidadRequerida: number;
+}
 
 export interface ItemLote {
   id: number;
@@ -6,6 +13,13 @@ export interface ItemLote {
   recursoNombre: string;
   unidadMedida: string;
   cantidadRequerida: number;
+}
+
+export interface LoteRequest {
+  titulo: string;
+  fechaAperturaOfertas: string;
+  fechaCierreOfertas: string;
+  items: ItemLoteRequest[];
 }
 
 export interface LoteResumen {

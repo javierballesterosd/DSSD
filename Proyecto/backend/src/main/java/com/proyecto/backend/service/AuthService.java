@@ -16,15 +16,15 @@ import com.proyecto.backend.model.Municipio;
 import com.proyecto.backend.model.Ong;
 import com.proyecto.backend.model.Region;
 import jakarta.servlet.http.HttpSession;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-
-import org.springframework.web.client.RestClientException;
 
 import java.util.List;
 
 @Slf4j
 @Service
+@RequiredArgsConstructor
 public class AuthService {
 
     public static final String BONITA_SESSION_ATTRIBUTE = "bonita.session";
@@ -36,13 +36,6 @@ public class AuthService {
     private final MunicipioService municipioService;
     private final RegionService regionService;
 
-    public AuthService(BonitaClient bonitaClient, OngService ongService,
-                       MunicipioService municipioService, RegionService regionService) {
-        this.bonitaClient = bonitaClient;
-        this.ongService = ongService;
-        this.municipioService = municipioService;
-        this.regionService = regionService;
-    }
 
     public LoginResponse login(LoginRequest request, HttpSession httpSession) {
         String username = request.getUsername();
@@ -57,10 +50,6 @@ public class AuthService {
             throw e;
         } catch (BonitaIntegrationException e) {
             log.error("Login fallido: usuario='{}', motivo=error de integración con Bonita ({})",
-                    username, e.getMessage());
-            throw e;
-        } catch (RestClientException e) {
-            log.error("Login fallido: usuario='{}', motivo=no se pudo consultar Bonita ({})",
                     username, e.getMessage());
             throw e;
         } catch (RuntimeException e) {

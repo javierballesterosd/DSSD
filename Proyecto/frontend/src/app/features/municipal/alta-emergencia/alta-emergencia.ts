@@ -13,7 +13,9 @@ import {
   NIVEL_GRAVEDAD_LABEL
 } from '../../../core/models/emergencia';
 
-import { EmergenciaService } from '../services/emergencia';
+import { Emergencias } from '../../../core/services/emergencias';
+import { mensajeDeError } from '../../../core/services/errores';
+import { ToastService } from '../../../core/services/toast';
 
 @Component({
   selector: 'app-alta-emergencia',
@@ -21,16 +23,16 @@ import { EmergenciaService } from '../services/emergencia';
   imports: [ReactiveFormsModule],
   templateUrl: './alta-emergencia.html'
 })
-export class AltaEmergenciaComponent {
+export class AltaEmergencia {
   private readonly fb = inject(FormBuilder);
-  private readonly emergenciaService = inject(EmergenciaService);
+  private readonly emergencias = inject(Emergencias);
+  private readonly toast = inject(ToastService);
 
   readonly nivelesGravedad = NIVELES_GRAVEDAD;
   readonly nivelGravedadLabel = NIVEL_GRAVEDAD_LABEL;
 
   cargando = signal<boolean>(false);
   mensajeExito = signal<string | null>(null);
-  mensajeError = signal<string | null>(null);
 
   form = this.fb.nonNullable.group({
     nivelGravedad: ['MEDIA' as NivelGravedad, [Validators.required]],
@@ -56,10 +58,9 @@ export class AltaEmergenciaComponent {
 
     this.cargando.set(true);
     this.mensajeExito.set(null);
-    this.mensajeError.set(null);
 
-    this.emergenciaService
-      .registrarEmergencia(this.form.getRawValue())
+    this.emergencias
+      .registrar(this.form.getRawValue())
       .subscribe({
         next: (res: EmergenciaResponse) => {
           this.cargando.set(false);
@@ -78,9 +79,9 @@ export class AltaEmergenciaComponent {
         error: (err: HttpErrorResponse) => {
           this.cargando.set(false);
 
-          this.mensajeError.set(
-            err.error?.message ||
-            'Ocurrió un error al registrar la emergencia.'
+          this.toast.error(
+            'No se pudo registrar la emergencia',
+            mensajeDeError(err, 'Ocurrió un error al registrar la emergencia.')
           );
         }
       });

@@ -1,25 +1,23 @@
 package com.proyecto.backend.controller;
 
-import com.proyecto.backend.dto.notificacion.NotificacionResponseDTO;
+import com.proyecto.backend.dto.NotificacionResponse;
 import com.proyecto.backend.service.NotificacionService;
 import jakarta.servlet.http.HttpSession;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/v1/notificaciones")
+@RequestMapping("/api/notificaciones")
+@RequiredArgsConstructor
 public class NotificacionController {
 
     private final NotificacionService notificacionService;
 
-    public NotificacionController(NotificacionService notificacionService) {
-        this.notificacionService = notificacionService;
-    }
-
     @GetMapping
-    public List<NotificacionResponseDTO> getNotificaciones(HttpSession session) {
+    public List<NotificacionResponse> getNotificaciones(HttpSession session) {
         return notificacionService.listarVisibles(session);
     }
 

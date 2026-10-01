@@ -5,6 +5,7 @@ import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angula
 import { Router } from '@angular/router';
 import { ROLES, ROL_LABEL, Rol } from '../../../core/models/rol';
 import { Auth } from '../../../core/services/auth';
+import { mensajeDeError } from '../../../core/services/errores';
 import { ToastService } from '../../../core/services/toast';
 
 @Component({
@@ -72,16 +73,12 @@ export class Login {
 
   private motivoDelError(error: HttpErrorResponse): string {
     switch (error.status) {
-      case 0:
-        return 'No se pudo conectar con el servidor. Verificá tu conexión e intentá de nuevo.';
       case 401:
         return 'Usuario o contraseña incorrectos.';
       case 404:
-        return error.error?.mensaje ?? 'Tu usuario no está asociado a una ONG registrada.';
-      case 502:
-        return 'El servicio de autenticación (Bonita) no está disponible. Intentá más tarde.';
+        return mensajeDeError(error, 'Tu usuario no está asociado a una ONG registrada.');
       default:
-        return error.error?.mensaje ?? 'Ocurrió un error inesperado. Intentá de nuevo.';
+        return mensajeDeError(error, 'Ocurrió un error inesperado. Intentá de nuevo.');
     }
   }
 }

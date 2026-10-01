@@ -1,3 +1,5 @@
+import type { EstadoLote } from './lote';
+
 export const NIVELES_GRAVEDAD = [
   'BAJA',
   'MEDIA',
@@ -54,4 +56,26 @@ export interface EmergenciaResumen {
   descripcion: string;
   fechaRegistro: string;
   municipio: string;
+}
+
+/** Emergencia en la lista del coordinador, con su último lote (null si todavía no tiene). */
+export interface EmergenciaParaLoteResponse {
+  id: number;
+  descripcion: string;
+  nivelGravedad: NivelGravedad;
+  zonaAfectada: string;
+  municipioId: number;
+  fechaRegistro: string;
+  loteId: number | null;
+  estadoLote: EstadoLote | null;
+}
+
+export interface PaginaEmergencias {
+  content: EmergenciaParaLoteResponse[];
+  totalElements: number;
+  totalPages: number;
+  size: number;
+  number: number;
+  first: boolean;
+  last: boolean;
 }

@@ -7,13 +7,14 @@ import { InventarioOng, Ong } from '../../../core/models/ong';
 @Service()
 export class Ongs {
   private readonly http = inject(HttpClient);
+  private readonly apiUrl = environment.apiUrl;
 
   listar(): Observable<Ong[]> {
-    return this.http.get<Ong[]>(`${environment.apiUrl}/ongs`);
+    return this.http.get<Ong[]>(`${this.apiUrl}/ongs`);
   }
 
   inventarioPorOng(ongIds: number[]): Observable<InventarioOng[]> {
-    return this.http.get<InventarioOng[]>(`${environment.apiUrl}/ongs/inventario`, {
+    return this.http.get<InventarioOng[]>(`${this.apiUrl}/ongs/inventario`, {
       params: { ongIds: ongIds.join(',') },
     });
   }

@@ -9,7 +9,7 @@ import {
 import { LoteResumen } from '../../../core/models/lote';
 import { Auth } from '../../../core/services/auth';
 import { FECHA_DIA } from '../../../shared/formatos-fecha';
-import { Lotes } from '../services/lotes';
+import { Lotes } from '../../../core/services/lotes';
 import { Ofertas } from '../services/ofertas';
 
 @Component({

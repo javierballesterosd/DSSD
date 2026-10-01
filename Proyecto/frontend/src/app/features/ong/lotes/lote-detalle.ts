@@ -16,7 +16,7 @@ import { FECHA_DIA, FECHA_LARGA, FECHA_LISTADO } from '../../../shared/formatos-
 import { colorOng } from '../../../shared/ong-colores';
 import { OfertaDetalleModal } from '../ofertas/oferta-detalle-modal';
 import { OfertaFormModal } from '../ofertas/oferta-form-modal';
-import { Lotes } from '../services/lotes';
+import { Lotes } from '../../../core/services/lotes';
 import { Ofertas } from '../services/ofertas';
 
 @Component({

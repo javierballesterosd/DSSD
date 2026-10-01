@@ -2,15 +2,12 @@ package com.proyecto.backend.service;
 
 import com.proyecto.backend.client.BonitaClient;
 import com.proyecto.backend.client.BonitaSession;
-import com.proyecto.backend.dto.lote.LoteRequestDTO;
-import com.proyecto.backend.dto.lote.LoteResponseDTO;
-import com.proyecto.backend.exception.BonitaIntegrationException;
+import com.proyecto.backend.dto.LoteRequest;
 import com.proyecto.backend.exception.ReglaNegocioException;
-import com.proyecto.backend.exception.ResourceNotFoundException;
+import com.proyecto.backend.exception.RecursoNoEncontradoException;
 import com.proyecto.backend.mapper.ItemLoteMapper;
 import com.proyecto.backend.dto.LoteDetalleResponse;
 import com.proyecto.backend.dto.LoteResumenResponse;
-import com.proyecto.backend.exception.RecursoNoEncontradoException;
 import com.proyecto.backend.mapper.LoteMapper;
 import com.proyecto.backend.model.Emergencia;
 import com.proyecto.backend.model.ItemLote;
@@ -24,8 +21,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.client.RestClientException;
-import com.proyecto.backend.model.EstadoLote;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -49,12 +44,12 @@ public class LoteService {
     private final BonitaClient bonitaClient;
 
     @Transactional
-    public LoteResponseDTO publicarLote(
+    public LoteDetalleResponse publicarLote(
             Long emergenciaId,
-            LoteRequestDTO requestDTO,
+            LoteRequest request,
             BonitaSession session) {
 
-        if (!requestDTO.getFechaCierreOfertas().isAfter(requestDTO.getFechaAperturaOfertas())) {
+        if (!request.fechaCierreOfertas().isAfter(request.fechaAperturaOfertas())) {
             throw new ReglaNegocioException(
                     "La fecha de cierre de ofertas debe ser posterior a la de apertura."
             );
@@ -62,7 +57,7 @@ public class LoteService {
 
         Emergencia emergencia = emergenciaRepository.findById(emergenciaId)
                 .orElseThrow(() ->
-                        new ResourceNotFoundException(
+                        new RecursoNoEncontradoException(
                                 "Emergencia no encontrada con ID: " + emergenciaId
                         )
                 );
@@ -73,33 +68,38 @@ public class LoteService {
         if (ultimoLote.isPresent()
                 && ultimoLote.get().getEstado() != EstadoLote.CANCELADO) {
 
-            throw new IllegalStateException(
+            log.warn("Publicación rechazada: la emergencia ya tiene un lote activo. emergenciaId={}, loteId={}",
+                    emergenciaId, ultimoLote.get().getId());
+            throw new ReglaNegocioException(
                     "La emergencia ya tiene un lote que no está cancelado."
             );
         }
 
-        Lote lote = loteMapper.toEntity(requestDTO, emergencia);
+        Lote lote = loteMapper.toEntity(request, emergencia);
 
-        for (var itemDTO : requestDTO.getItems()) {
+        for (var itemRequest : request.items()) {
 
-            Recurso recurso = recursoRepository.findById(itemDTO.getRecursoId())
+            Recurso recurso = recursoRepository.findById(itemRequest.recursoId())
                     .orElseThrow(() ->
-                            new ResourceNotFoundException(
+                            new RecursoNoEncontradoException(
                                     "Recurso no encontrado con ID: "
-                                            + itemDTO.getRecursoId()
+                                            + itemRequest.recursoId()
                             )
                     );
 
-            ItemLote item = itemLoteMapper.toEntity(itemDTO, recurso);
+            ItemLote item = itemLoteMapper.toEntity(itemRequest, recurso);
 
             lote.agregarItem(item);
         }
 
         Lote loteGuardado = loteRepository.save(lote);
+        log.info("Lote guardado. loteId={}, emergenciaId={}, items={}",
+                loteGuardado.getId(), emergenciaId, loteGuardado.getItems().size());
 
+        // Último paso: si Bonita falla, la excepción revierte el alta del lote
         completarDesgloseEnBonita(emergencia, loteGuardado, session);
 
-        return loteMapper.toDto(loteGuardado);
+        return loteMapper.toDetalleResponse(loteGuardado);
     }
 
     /**
@@ -114,39 +114,22 @@ public class LoteService {
         String caseId = emergencia.getBonitaCaseId();
 
         if (caseId == null) {
+            log.warn("La emergencia no tiene caso en Bonita. emergenciaId={}", emergencia.getId());
             throw new ReglaNegocioException(
                     "La emergencia no tiene un caso asociado en Bonita."
             );
         }
 
-        try {
-            Map<String, Object> contrato = new LinkedHashMap<>();
-            contrato.put("loteId", lote.getId());
-            contrato.put("fechaAperturaOfertas", formatoBonita(lote.getFechaAperturaOfertas()));
-            contrato.put("fechaCierreOfertas", formatoBonita(lote.getFechaCierreOfertas()));
+        Map<String, Object> contrato = new LinkedHashMap<>();
+        contrato.put("loteId", lote.getId());
+        contrato.put("fechaAperturaOfertas", formatoBonita(lote.getFechaAperturaOfertas()));
+        contrato.put("fechaCierreOfertas", formatoBonita(lote.getFechaCierreOfertas()));
 
-            String tareaId = bonitaClient.buscarTareaPendiente(
-                    session, caseId, TAREA_DESGLOSAR_LOTES
-            );
+        String tareaId = bonitaClient.buscarTareaPendiente(session, caseId, TAREA_DESGLOSAR_LOTES);
+        bonitaClient.ejecutarTarea(session, tareaId, contrato);
 
-            bonitaClient.ejecutarTarea(session, tareaId, contrato);
-
-            log.info(
-                    "Tarea de desglose completada. loteId={}, caseId={}, tareaId={}",
-                    lote.getId(), caseId, tareaId
-            );
-
-        } catch (RestClientException e) {
-            log.error(
-                    "Error al completar el desglose en Bonita. loteId={}, caseId={}",
-                    lote.getId(), caseId, e
-            );
-
-            throw new BonitaIntegrationException(
-                    "No se pudo completar la tarea de desglose en Bonita (caso " + caseId + ")",
-                    e
-            );
-        }
+        log.info("Tarea de desglose completada. loteId={}, caseId={}, tareaId={}",
+                lote.getId(), caseId, tareaId);
     }
 
     // Bonita parsea LocalDateTime como ISO con segundos (yyyy-MM-ddTHH:mm:ss)

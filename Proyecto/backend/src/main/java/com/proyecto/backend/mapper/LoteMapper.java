@@ -1,14 +1,12 @@
 package com.proyecto.backend.mapper;
 
-import com.proyecto.backend.dto.lote.LoteRequestDTO;
-import com.proyecto.backend.dto.lote.LoteResponseDTO;
+import com.proyecto.backend.dto.LoteRequest;
 import com.proyecto.backend.dto.EmergenciaResumenResponse;
 import com.proyecto.backend.dto.ItemLoteResponse;
 import com.proyecto.backend.dto.LoteDetalleResponse;
 import com.proyecto.backend.dto.LoteResumenResponse;
 import com.proyecto.backend.model.Emergencia;
 import com.proyecto.backend.model.EstadoLote;
-import com.proyecto.backend.model.ItemLote;
 import com.proyecto.backend.model.Lote;
 import org.springframework.stereotype.Component;
 
@@ -70,46 +68,17 @@ public class LoteMapper {
     }
 
     private List<ItemLoteResponse> toItemResponses(Lote lote) {
-        return lote.getItems().stream().map(this::toItemResponse).toList();
+        return lote.getItems().stream().map(itemLoteMapper::toResponse).toList();
     }
 
-    private ItemLoteResponse toItemResponse(ItemLote item) {
-        return new ItemLoteResponse(
-                item.getId(),
-                item.getRecurso().getId(),
-                item.getRecurso().getNombre(),
-                item.getRecurso().getUnidadMedida(),
-                item.getCantidadRequerida()
-        );
-    }
-
-    public Lote toEntity(
-            LoteRequestDTO requestDTO,
-            Emergencia emergencia
-    ) {
+    public Lote toEntity(LoteRequest request, Emergencia emergencia) {
         return Lote.builder()
-                .titulo(requestDTO.getTitulo())
+                .titulo(request.titulo())
                 .estado(EstadoLote.ACTIVO)
                 .fechaCreacion(LocalDateTime.now())
-                .fechaAperturaOfertas(requestDTO.getFechaAperturaOfertas())
-                .fechaCierreOfertas(requestDTO.getFechaCierreOfertas())
+                .fechaAperturaOfertas(request.fechaAperturaOfertas())
+                .fechaCierreOfertas(request.fechaCierreOfertas())
                 .emergencia(emergencia)
                 .build();
-    }
-
-    public LoteResponseDTO toDto(Lote lote) {
-        return new LoteResponseDTO(
-                lote.getId(),
-                lote.getTitulo(),
-                lote.getEstado(),
-                lote.getFechaCreacion(),
-                lote.getFechaAperturaOfertas(),
-                lote.getFechaCierreOfertas(),
-                lote.getEmergencia().getId(),
-                lote.getItems()
-                        .stream()
-                        .map(itemLoteMapper::toDto)
-                        .toList()
-        );
     }
 }

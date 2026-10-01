@@ -93,7 +93,7 @@ com.proyecto.backend
   service/       lógica de negocio y transacciones (@Transactional)
   repository/    interfaces Spring Data JPA
   model/         entidades JPA y enums del dominio (NivelGravedad, EstadoOferta, EstadoLote)
-  dto/           request/response; nunca se exponen entidades en la API
+  dto/           records `<Concepto>Request` / `<Concepto>Response` (paquete plano, salvo `auth/`); nunca se exponen entidades en la API
   mapper/        conversión entidad <-> DTO
   client/        clientes HTTP hacia sistemas externos (Bonita, Sistema Nacional)
   security/      autenticación, roles (RBAC), filtros
@@ -106,7 +106,11 @@ Reglas:
 - Las entidades no salen del service; el controller trabaja con DTOs.
 - Validación de entrada con Bean Validation en los DTOs (`@Valid`).
 - Las llamadas a Bonita y al Sistema Nacional van en `client/`, invocadas desde los services.
-- Endpoints bajo `/api/...`.
+- Endpoints bajo `/api/<recurso>` (sin versión en la ruta). Controllers con `@RequiredArgsConstructor`, que devuelven el DTO directo con `@ResponseStatus` (`ResponseEntity` solo si hace falta, ej. `Location`).
+- Errores: `GlobalExceptionHandler` responde `ErrorResponse {timestamp, status, error, mensaje, detalles}`. El front muestra `mensaje`. Una sola excepción de "no encontrado" (`RecursoNoEncontradoException`) y las reglas de negocio con `ReglaNegocioException` (409).
+- Bonita y la base: **primero se escribe en la base (dentro de la transacción) y la llamada a Bonita es el último paso**; si Bonita falla se hace rollback y no queda nada. `BonitaClient` traduce toda falla de Bonita a `BonitaIntegrationException`; la API responde 502 con un mensaje genérico (sin ids de Bonita: el detalle va solo al log). Si ya se había creado el caso, `EmergenciaService` lo elimina (`BonitaClient.cancelarCaso`).
+- Las notificaciones son una ayuda, no algo esencial: se crean después del commit (`@TransactionalEventListener` en `NotificacionEmergenciaListener`) y si fallan solo se loguea; nunca se muestran como error.
+- Logs: `info` en cada escritura (ids relevantes), `warn` en rechazos de negocio, `error` en fallos inesperados o de integración. Nunca datos sensibles.
 
 ### Frontend: core / shared / layout / features
 
@@ -127,7 +131,10 @@ Reglas:
 - Cada feature vive en `features/<nombre>/` con sus componentes, servicios y rutas propias. Puede haber una por perfil (municipal, coordinador, ong, auditor) o por proceso (emergencias, lotes, ofertas).
 - `core` no depende de `features`. `features` puede usar `core` y `shared`. `shared` no depende del resto.
 - Rutas protegidas con `authGuard` en `app.routes.ts` (sin verificación de rol, ver "Identidad, login y ONGs").
-- Llamadas HTTP solo desde servicios, nunca desde componentes.
+- Llamadas HTTP solo desde servicios, nunca desde componentes. Todos los servicios usan `@Service()`, nombre corto de clase (`Lotes`, `Emergencias`, `Recursos`, `Notificaciones`, `Ofertas`, `Ongs`) y `apiUrl` tomado de `environment` (nunca de `environment.development`: el build de producción usa `/api` y nginx lo proxea al backend). Si lo usa más de un perfil va en `core/services/<recurso>.ts`; si es de un solo feature, en `features/<x>/services/`.
+- Modelos: un archivo por concepto en `core/models/` (`lote.ts`, `emergencia.ts`, `recurso.ts`...), espejo de los records del backend.
+- Errores: se muestran con `ToastService` usando `mensajeDeError(err, fallback)` (`core/services/errores.ts`), que lee el `mensaje` del backend. Los de notificaciones no se muestran (solo `console.error`).
+- Componentes: archivos y clases sin sufijo `Component` (`PublicacionLotes`, `AltaEmergencia`).
 - Estado de UI con signals.
 
 ### Rutas del frontend y cómo agregar una pantalla
@@ -208,8 +215,8 @@ Una emergencia tiene **un solo lote no cancelado**. Si el coordinador cancela el
 
 ### Proceso 1 en Bonita: instanciación y ventana de ofertas
 - El modelo vigente es `Modelado/rescueSync-V1.3.bos` (Proceso 1 con variables, contratos, operaciones y dos timers; detalle en `.claude/docs/bonita-modelo.md`). Después de importarlo hay que **mapear los actores** en Studio (Municipio → Operador Municipal, Centro Coordinador Regional → Coordinador Regional, ONG → Representante de ONG), activar RescueSync y desplegar.
-- Al registrar una emergencia, `EmergenciaService` usa la sesión de Bonita del usuario: busca el proceso por nombre (`bonita.process.name`, por defecto `Proceso 1`), inicia el caso sin contrato, espera la tarea "Registrar emergencia" y la ejecuta con `{emergenciaId, municipioId, nivelGravedad, zonaAfectada, descripcion, regionGroupPath}`. Si Bonita falla, se revierte el alta.
-- La tarea "Desglosar" del coordinador se completa al publicar el lote con `{loteId, fechaAperturaOfertas, fechaCierreOfertas}` (`BonitaClient.ejecutarTarea`, todavía por integrar con `feature/publicacion-lotes`). **La apertura y el cierre los elige el usuario al publicar el lote**: el proceso ya lo soporta sin cambios. El timer "Apertura de convocatoria" espera hasta `fechaAperturaOfertas` (si ya pasó, abre enseguida) y el boundary timer vence en `fechaCierreOfertas`. Las fechas se mandan como `LocalDateTime` sin zona (se interpretan en `America/Argentina/Buenos_Aires`) y el backend debe validar cierre posterior a apertura.
+- Al registrar una emergencia, `EmergenciaService` usa la sesión de Bonita del usuario: busca el proceso por nombre (`bonita.process.name`, por defecto `Sistema P1`), inicia el caso sin contrato, espera la tarea "Registrar emergencia" y la ejecuta con `{emergenciaId, municipioId, nivelGravedad, zonaAfectada, descripcion, regionGroupPath}`. Si Bonita falla, se revierte el alta y se elimina el caso si llegó a crearse.
+- La tarea "Desglosar" del coordinador se completa al publicar el lote con `{loteId, fechaAperturaOfertas, fechaCierreOfertas}` (`LoteService.completarDesgloseEnBonita`, nombre de tarea `Desglosar en "Lotes Necesidades"`; si Bonita falla se revierte el lote). **La apertura y el cierre los elige el usuario al publicar el lote**: el proceso ya lo soporta sin cambios. El timer "Apertura de convocatoria" espera hasta `fechaAperturaOfertas` (si ya pasó, abre enseguida) y el boundary timer vence en `fechaCierreOfertas`. Las fechas se mandan como `LocalDateTime` sin zona (se interpretan en `America/Argentina/Buenos_Aires`) y el backend valida cierre posterior a apertura.
 
 ### ONGs como subgrupos de `ONG`
 Cada ONG es un **subgrupo de `/ONG`** en Bonita, y todos sus representantes tienen el rol `Representante de ONG`. Hay una ONG por subgrupo y puede tener varios usuarios:

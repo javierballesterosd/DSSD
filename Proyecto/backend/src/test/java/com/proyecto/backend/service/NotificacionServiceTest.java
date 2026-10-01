@@ -1,8 +1,8 @@
 package com.proyecto.backend.service;
 
 import com.proyecto.backend.dto.auth.LoginResponse;
-import com.proyecto.backend.dto.notificacion.DescriptorAudiencia;
-import com.proyecto.backend.dto.notificacion.NotificacionResponseDTO;
+import com.proyecto.backend.dto.DescriptorAudiencia;
+import com.proyecto.backend.dto.NotificacionResponse;
 import com.proyecto.backend.exception.AccesoDenegadoException;
 import com.proyecto.backend.exception.RecursoNoEncontradoException;
 import com.proyecto.backend.model.Notificacion;
@@ -66,7 +66,7 @@ class NotificacionServiceTest {
         guardada.setFechaCreacion(LocalDateTime.now());
         when(notificacionRepository.save(any(Notificacion.class))).thenReturn(guardada);
 
-        NotificacionResponseDTO response = notificacionService.crear(
+        NotificacionResponse response = notificacionService.crear(
                 "COORDINADOR",
                 new DescriptorAudiencia("/Municipio/Region1"),
                 "Nueva emergencia",
@@ -74,9 +74,9 @@ class NotificacionServiceTest {
                 coordinador
         );
 
-        assertThat(response.getId()).isEqualTo(10L);
-        assertThat(response.getTitulo()).isEqualTo("Nueva emergencia");
-        assertThat(response.getAudiencia().grupoDestinatario())
+        assertThat(response.id()).isEqualTo(10L);
+        assertThat(response.titulo()).isEqualTo("Nueva emergencia");
+        assertThat(response.audiencia().grupoDestinatario())
                 .isEqualTo("/Municipio/Region1");
 
         ArgumentCaptor<Notificacion> captor = ArgumentCaptor.forClass(Notificacion.class);
@@ -97,11 +97,11 @@ class NotificacionServiceTest {
                 "coord-1"
         )).thenReturn(List.of(notificacion));
 
-        List<NotificacionResponseDTO> resultado =
+        List<NotificacionResponse> resultado =
                 notificacionService.listarVisibles(session);
 
         assertThat(resultado).hasSize(1);
-        assertThat(resultado.get(0).getId()).isEqualTo(10L);
+        assertThat(resultado.get(0).id()).isEqualTo(10L);
         verify(notificacionRepository).findVisiblesParaUsuario(
                 "COORDINADOR",
                 "/Municipio/Region1",
