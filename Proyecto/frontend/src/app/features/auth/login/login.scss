@@ -1,0 +1,24 @@
+/* Panel de marca: azul marino de la app; en pantallas chicas se oculta y queda solo el formulario. */
+.login-marca {
+  flex: 0 0 45%;
+  max-width: 560px;
+  background-color: #0b2a4a;
+}
+
+.login-lema {
+  font-size: 1.75rem;
+  font-weight: 500;
+  line-height: 1.3;
+}
+
+.login-pasos {
+  color: #b9cde6;
+}
+
+.login-pie {
+  color: #8fb0d6;
+}
+
+.login-formulario {
+  max-width: 400px;
+}

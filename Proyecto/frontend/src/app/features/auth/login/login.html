@@ -1,8 +1,37 @@
-<div class="container min-vh-100 d-flex align-items-center justify-content-center">
-  <div class="card shadow-sm w-100" style="max-width: 420px">
-    <div class="card-body p-4">
-      <h1 class="h3 text-center mb-1">RescueSync</h1>
-      <p class="text-center text-body-secondary mb-4">Ingresá para continuar</p>
+<div class="login-pagina d-flex min-vh-100">
+  <aside class="login-marca d-none d-md-flex flex-column justify-content-between text-white p-5">
+    <div class="d-flex align-items-center gap-2 fs-5 fw-medium">
+      <i class="bi bi-life-preserver fs-3" aria-hidden="true"></i>
+      RescueSync
+    </div>
+
+    <div>
+      <h2 class="login-lema mb-4">Cada minuto cuenta en una emergencia</h2>
+      <ul class="list-unstyled d-flex flex-column gap-3 mb-0 login-pasos">
+        <li class="d-flex align-items-center gap-2">
+          <i class="bi bi-geo-alt" aria-hidden="true"></i>Los municipios reportan la emergencia
+        </li>
+        <li class="d-flex align-items-center gap-2">
+          <i class="bi bi-box-seam" aria-hidden="true"></i>El centro coordinador arma los lotes
+        </li>
+        <li class="d-flex align-items-center gap-2">
+          <i class="bi bi-people" aria-hidden="true"></i>Las ONGs ofertan su ayuda
+        </li>
+      </ul>
+    </div>
+
+    <small class="login-pie">Sistema de coordinación de respuesta a desastres</small>
+  </aside>
+
+  <main class="flex-grow-1 d-flex align-items-center justify-content-center p-4">
+    <div class="w-100 login-formulario">
+      <div class="d-md-none d-flex align-items-center justify-content-center gap-2 mb-4 fs-4 fw-medium">
+        <i class="bi bi-life-preserver text-primary fs-2" aria-hidden="true"></i>
+        RescueSync
+      </div>
+
+      <h1 class="h3 mb-1">Ingresá</h1>
+      <p class="text-body-secondary mb-4">Usá tu usuario del sistema para continuar</p>
 
       <form [formGroup]="form" (ngSubmit)="ingresar()" novalidate>
         <div class="mb-3">
@@ -87,5 +116,5 @@
         </button>
       </form>
     </div>
-  </div>
+  </main>
 </div>
