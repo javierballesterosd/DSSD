@@ -1,10 +1,12 @@
 package com.proyecto.backend.service;
 
 import com.proyecto.backend.dto.DetalleOfertaRequest;
+import com.proyecto.backend.dto.ItemValidadoRequest;
 import com.proyecto.backend.dto.OfertaEdicionRequest;
 import com.proyecto.backend.dto.OfertaRequest;
 import com.proyecto.backend.dto.OfertaResponse;
 import com.proyecto.backend.dto.OfertaVersionResponse;
+import com.proyecto.backend.dto.ValidacionSNRequest;
 import com.proyecto.backend.exception.AccesoDenegadoException;
 import com.proyecto.backend.exception.RecursoNoEncontradoException;
 import com.proyecto.backend.exception.ReglaNegocioException;
@@ -325,5 +327,62 @@ public class OfertaService {
                     inventario.getCantidadDisponible());
         }
         return indice;
+    }
+
+    @Transactional
+    public void procesarValidacionSN(Long ofertaId, ValidacionSNRequest validacion) {
+        Oferta oferta = ofertaRepository.findById(ofertaId)
+                .orElseThrow(() -> new RuntimeException("Oferta no encontrada"));
+
+        // Asegurarnos de que solo validamos ofertas que estén esperando respuesta
+        if (!oferta.getEstado().equals(EstadoOferta.PENDIENTE)) {
+            throw new IllegalStateException("La oferta ya fue procesada anteriormente");
+        }
+
+        // Si el SN rechaza de plano (ej. la ONG no tiene las certificaciones vigentes)
+        if (!validacion.aprobada()) {
+            oferta.setEstado(EstadoOferta.RECHAZADA);
+            ofertaRepository.save(oferta);
+            return; // Termina la ejecución, no se bloquea nada
+        }
+
+        boolean aceptacionEsParcial = false;
+
+        // Si el SN aprueba (total o parcialmente)
+        for (ItemValidadoRequest itemValidado : validacion.itemsValidados()) {
+            DetalleOferta detalle = oferta.getDetalles().stream()
+                    .filter(d -> d.getId().equals(itemValidado.detalleOfertaId()))
+                    .findFirst()
+                    .orElseThrow(() -> new RuntimeException("Detalle no encontrado"));
+
+            detalle.setCantidadAceptada(itemValidado.cantidadAceptada());
+
+            // Verificamos si el SN nos habilitó menos de lo que la ONG quería dar
+            if (itemValidado.cantidadAceptada() < detalle.getCantidadOfrecida()) {
+                aceptacionEsParcial = true;
+            }
+
+            // Bloqueo Local: Descontar del inventario de la ONG
+            InventarioOng inventario = inventarioOngRepository.findByOngIdAndRecursoIdForUpdate(
+                    detalle.getOng().getId(), 
+                    detalle.getItemLote().getRecurso().getId()
+            ).orElseThrow(() -> new RuntimeException("Inventario no encontrado"));
+
+            if (inventario.getCantidadDisponible() >= itemValidado.cantidadAceptada()) {
+                inventario.setCantidadDisponible(inventario.getCantidadDisponible() - itemValidado.cantidadAceptada());
+                inventarioOngRepository.save(inventario);
+            } else {
+                throw new RuntimeException("Inconsistencia: La ONG ya no tiene stock suficiente localmente");
+            }
+        }
+
+        // Asignamos el estado correcto según el nivel de habilitación del SN
+        if (aceptacionEsParcial) {
+            oferta.setEstado(EstadoOferta.ACEPTADA_PARCIAL);
+        } else {
+            oferta.setEstado(EstadoOferta.VALIDADA);
+        }
+
+        ofertaRepository.save(oferta);
     }
 }

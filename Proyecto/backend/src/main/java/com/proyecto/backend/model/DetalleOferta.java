@@ -31,6 +31,9 @@ public class DetalleOferta {
     @Column(name = "cantidad_ofrecida", nullable = false)
     private Integer cantidadOfrecida;
 
+    @Column(name = "cantidad_aceptada")
+    private Integer cantidadAceptada;
+
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "oferta_id", nullable = false)
     private Oferta oferta;
