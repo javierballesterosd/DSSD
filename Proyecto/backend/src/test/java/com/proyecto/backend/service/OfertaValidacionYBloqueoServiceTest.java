@@ -21,7 +21,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 @SpringBootTest
 @TestPropertySource(locations = "classpath:application.properties")
-public class OfertaValidacionServiceTest {
+public class OfertaValidacionYBloqueoServiceTest {
 
     @Autowired
     private OfertaService ofertaValidacionService;
@@ -155,7 +155,7 @@ public class OfertaValidacionServiceTest {
         executor.submit(() -> {
             try {
                 latchLargada.await();
-                ofertaValidacionService.procesarValidacionSN(ofertaId1, validacion1);
+                ofertaValidacionService.procesarValidacionSNYBloquearRecursos(ofertaId1, validacion1);
                 exitosas.incrementAndGet();
             } catch (Exception e) {
                 fallidas.incrementAndGet();
@@ -167,7 +167,7 @@ public class OfertaValidacionServiceTest {
         executor.submit(() -> {
             try {
                 latchLargada.await();
-                ofertaValidacionService.procesarValidacionSN(ofertaId2, validacion2);
+                ofertaValidacionService.procesarValidacionSNYBloquearRecursos(ofertaId2, validacion2);
                 exitosas.incrementAndGet();
             } catch (Exception e) {
                 fallidas.incrementAndGet(); 

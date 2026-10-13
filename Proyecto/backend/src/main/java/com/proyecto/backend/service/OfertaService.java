@@ -330,7 +330,7 @@ public class OfertaService {
     }
 
     @Transactional
-    public void procesarValidacionSN(Long ofertaId, ValidacionSNRequest validacion) {
+    public void procesarValidacionSNYBloquearRecursos(Long ofertaId, ValidacionSNRequest validacion) {
         Oferta oferta = ofertaRepository.findById(ofertaId)
                 .orElseThrow(() -> new RuntimeException("Oferta no encontrada"));
 
@@ -383,6 +383,45 @@ public class OfertaService {
             oferta.setEstado(EstadoOferta.VALIDADA);
         }
 
+        ofertaRepository.save(oferta);
+    }
+
+    @Transactional
+    public void liberarRecursosOferta(Long ofertaId, EstadoOferta nuevoEstado) {
+        Oferta oferta = ofertaRepository.findById(ofertaId)
+                .orElseThrow(() -> new RuntimeException("Oferta no encontrada"));
+
+        // 1. Validar que el cambio de estado tenga sentido para una liberación
+        if (nuevoEstado != EstadoOferta.NO_ADJUDICADA && nuevoEstado != EstadoOferta.FINALIZADA) {
+            throw new IllegalArgumentException("Estado inválido. Solo se liberan recursos al pasar a NO_ADJUDICADA o FINALIZADA");
+        }
+
+        // 2. Validar que no estemos liberando una oferta que ya fue liberada o rechazada
+        EstadoOferta estadoActual = oferta.getEstado();
+        if (estadoActual == EstadoOferta.NO_ADJUDICADA || estadoActual == EstadoOferta.FINALIZADA || estadoActual == EstadoOferta.RECHAZADA) {
+            throw new IllegalStateException("La oferta ya se encuentra en un estado donde sus recursos no están comprometidos");
+        }
+
+        // 3. Devolver el stock ítem por ítem
+        for (DetalleOferta detalle : oferta.getDetalles()) {
+            
+            // Solo devolvemos si el SN había aceptado una cantidad mayor a 0
+            if (detalle.getCantidadAceptada() != null && detalle.getCantidadAceptada() > 0) {
+                
+                // Bloqueo Local: Aseguramos la fila para sumar con seguridad
+                InventarioOng inventario = inventarioOngRepository.findByOngIdAndRecursoIdForUpdate(
+                        detalle.getOng().getId(), 
+                        detalle.getItemLote().getRecurso().getId()
+                ).orElseThrow(() -> new RuntimeException("Inventario no encontrado al intentar liberar recursos"));
+
+                // Sumamos la cantidad que teníamos retenida
+                inventario.setCantidadDisponible(inventario.getCantidadDisponible() + detalle.getCantidadAceptada());
+                inventarioOngRepository.save(inventario);
+            }
+        }
+
+        // 4. Actualizamos el estado final
+        oferta.setEstado(nuevoEstado);
         ofertaRepository.save(oferta);
     }
 }

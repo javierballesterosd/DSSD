@@ -17,7 +17,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 @SpringBootTest
 @TestPropertySource(locations = "classpath:application.properties")
-public class OfertaValidacionEstadosTest {
+public class OfertaValidacionYBloqueoEstadosTest {
 
     @Autowired private OfertaService ofertaValidacionService;
     @Autowired private InventarioOngRepository inventarioOngRepository;
@@ -125,7 +125,7 @@ public class OfertaValidacionEstadosTest {
                 new ItemValidadoRequest(detalleMedicosId, 30)
         ));
 
-        ofertaValidacionService.procesarValidacionSN(ofertaId, validacion);
+        ofertaValidacionService.procesarValidacionSNYBloquearRecursos(ofertaId, validacion);
 
         Oferta ofertaActualizada = ofertaRepository.findById(ofertaId).get();
         assertEquals(EstadoOferta.VALIDADA, ofertaActualizada.getEstado());
@@ -143,7 +143,7 @@ public class OfertaValidacionEstadosTest {
                 new ItemValidadoRequest(detalleMedicosId, 30)
         ));
 
-        ofertaValidacionService.procesarValidacionSN(ofertaId, validacion);
+        ofertaValidacionService.procesarValidacionSNYBloquearRecursos(ofertaId, validacion);
 
         Oferta ofertaActualizada = ofertaRepository.findById(ofertaId).get();
         assertEquals(EstadoOferta.ACEPTADA_PARCIAL, ofertaActualizada.getEstado());
@@ -161,7 +161,7 @@ public class OfertaValidacionEstadosTest {
                 new ItemValidadoRequest(detalleMedicosId, 0)
         ));
 
-        ofertaValidacionService.procesarValidacionSN(ofertaId, validacion);
+        ofertaValidacionService.procesarValidacionSNYBloquearRecursos(ofertaId, validacion);
 
         Oferta ofertaActualizada = ofertaRepository.findById(ofertaId).get();
         assertEquals(EstadoOferta.ACEPTADA_PARCIAL, ofertaActualizada.getEstado());
@@ -176,7 +176,7 @@ public class OfertaValidacionEstadosTest {
         // SN rechaza toda la oferta (aprobada = false)
         ValidacionSNRequest validacion = new ValidacionSNRequest(false, "ONG sin certificaciones al día", List.of());
 
-        ofertaValidacionService.procesarValidacionSN(ofertaId, validacion);
+        ofertaValidacionService.procesarValidacionSNYBloquearRecursos(ofertaId, validacion);
 
         Oferta ofertaActualizada = ofertaRepository.findById(ofertaId).get();
         assertEquals(EstadoOferta.RECHAZADA, ofertaActualizada.getEstado());
