@@ -67,4 +67,9 @@ public class EmergenciaController {
         LoginResponse usuario = authService.requerirRol(session, "MUNICIPAL", "COORDINADOR", "AUDITOR");
         return emergenciaService.obtenerDetalle(id, usuario);
     }
+
+    @GetMapping("/{emergenciaId}/ofertas-consolidadas")
+    public OfertasConsolidadasResponse obtenerOfertasConsolidadas(@PathVariable Long emergenciaId){
+        return emergenciaService.obtenerOfertasConsolidadas(emergenciaId);
+    }
 }
