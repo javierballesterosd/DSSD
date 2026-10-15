@@ -69,7 +69,13 @@ public class EmergenciaController {
     }
 
     @GetMapping("/{emergenciaId}/ofertas-consolidadas")
-    public OfertasConsolidadasResponse obtenerOfertasConsolidadas(@PathVariable Long emergenciaId){
+    public OfertasConsolidadasResponse obtenerOfertasConsolidadas(
+            @PathVariable Long emergenciaId,
+            @RequestHeader(value="Authorization", required = false) String authorization){
+
+        if (!bonitaTokenValidator.isValid(authorization)){
+            throw new UnauthenticatedException("Token de Bonita inválido o ausente");
+        }
         return emergenciaService.obtenerOfertasConsolidadas(emergenciaId);
     }
 }
