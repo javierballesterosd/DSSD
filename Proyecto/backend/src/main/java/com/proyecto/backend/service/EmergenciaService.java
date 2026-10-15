@@ -2,18 +2,27 @@ package com.proyecto.backend.service;
 
 import com.proyecto.backend.client.BonitaClient;
 import com.proyecto.backend.client.BonitaSession;
+import com.proyecto.backend.dto.AporteOngResponse;
 import com.proyecto.backend.dto.auth.LoginResponse;
 import com.proyecto.backend.dto.EmergenciaParaLoteResponse;
 import com.proyecto.backend.dto.EmergenciaRequest;
 import com.proyecto.backend.dto.EmergenciaResponse;
+import com.proyecto.backend.dto.OngResponse;
+import com.proyecto.backend.dto.OfertasConsolidadasResponse;
 import com.proyecto.backend.exception.AccesoDenegadoException;
 import com.proyecto.backend.exception.RecursoNoEncontradoException;
 import com.proyecto.backend.mapper.EmergenciaMapper;
+import com.proyecto.backend.model.DetalleOferta;
 import com.proyecto.backend.model.Emergencia;
+import com.proyecto.backend.model.EstadoLote;
+import com.proyecto.backend.model.ItemLote;
+import com.proyecto.backend.model.Lote;
 import com.proyecto.backend.model.Municipio;
+import com.proyecto.backend.model.Oferta;
 import com.proyecto.backend.repository.EmergenciaRepository;
 import com.proyecto.backend.repository.LoteRepository;
 import com.proyecto.backend.repository.MunicipioRepository;
+import com.proyecto.backend.repository.OfertaRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
@@ -24,6 +33,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -41,6 +52,7 @@ public class EmergenciaService {
     private final EmergenciaMapper emergenciaMapper;
     private final LoteRepository loteRepository;
     private final ApplicationEventPublisher eventPublisher;
+    private final OfertaRepository ofertaRepository;
 
     /**
      * Registra una emergencia: primero la guarda en la base (dentro de la transacción) y después, como
@@ -164,4 +176,82 @@ public class EmergenciaService {
                 emergencia,
                 loteRepository.findFirstByEmergenciaIdOrderByIdDesc(emergencia.getId()));
     }
+
+    @Transactional(readOnly = true)
+    public OfertasConsolidadasResponse obtenerOfertasConsolidadas(Long emergenciaId) {
+        emergenciaRepository.findById(emergenciaId)
+            .orElseThrow(() -> new RecursoNoEncontradoException("No existe la emergencia " + emergenciaId));
+
+        Lote lote = loteRepository.findFirstByEmergenciaIdAndEstado(emergenciaId, EstadoLote.ACTIVO)
+                .orElseThrow(() -> new RecursoNoEncontradoException("No existe un lote activo para la emergencia " + emergenciaId));
+
+        List<Oferta> ofertas = ofertaRepository.findOfertasConsolidadas(emergenciaId);
+
+        List<OfertasConsolidadasResponse.OfertaConsolidadaResponse> ofertasConsolidadas =
+                ofertas.stream()
+                        .map(this::mapearOfertaConsolidada)
+                        .toList();
+
+        return new OfertasConsolidadasResponse(
+                emergenciaId,
+                lote.getId(),
+                ofertasConsolidadas
+        );
+    }
+
+    private OfertasConsolidadasResponse.OfertaConsolidadaResponse mapearOfertaConsolidada(
+            Oferta oferta) {
+        List<OngResponse> ongs = oferta.getOngs().stream()
+                .sorted(Comparator.comparing(ong -> ong.getRazonSocial().toLowerCase()))
+                .map(ong -> new OngResponse(ong.getId(), ong.getRazonSocial()))
+                .toList();
+
+        Map<Long, List<DetalleOferta>> detallesPorItem = new LinkedHashMap<>();
+        for (DetalleOferta detalle : oferta.getDetalles()) {
+            detallesPorItem
+                    .computeIfAbsent(detalle.getItemLote().getId(), id -> new ArrayList<>())
+                    .add(detalle);
+        }
+
+        List<OfertasConsolidadasResponse.AporteConsolidadoResponse> aportes =
+                detallesPorItem.values().stream()
+                        .map(this::mapearAporteConsolidado)
+                        .toList();
+
+        return new OfertasConsolidadasResponse.OfertaConsolidadaResponse(
+                oferta.getId(),
+                oferta.getEstado().name(),
+                oferta.getFechaOferta(),
+                oferta.getFechaModificacion(),
+                oferta.getNumeroVersion(),
+                ongs,
+                aportes
+        );
+    }
+
+    private OfertasConsolidadasResponse.AporteConsolidadoResponse mapearAporteConsolidado(
+            List<DetalleOferta> detalles) {
+        ItemLote itemLote = detalles.get(0).getItemLote();
+
+        List<AporteOngResponse> porOng = detalles.stream()
+                .map(detalle -> new AporteOngResponse(
+                        detalle.getOng().getId(),
+                        detalle.getOng().getRazonSocial(),
+                        detalle.getCantidadOfrecida()
+                ))
+                .toList();
+
+        int totalOfrecido = detalles.stream()
+                .mapToInt(DetalleOferta::getCantidadOfrecida)
+                .sum();
+
+        return new OfertasConsolidadasResponse.AporteConsolidadoResponse(
+                itemLote.getId(),
+                itemLote.getRecurso().getNombre(),
+                itemLote.getCantidadRequerida(),
+                totalOfrecido,
+                porOng
+        );
+    }
+
 }

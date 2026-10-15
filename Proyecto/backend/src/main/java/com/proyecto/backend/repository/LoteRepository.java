@@ -11,6 +11,9 @@ import java.util.Optional;
 public interface LoteRepository extends JpaRepository<Lote, Long> {
 
     Optional<Lote> findFirstByEmergenciaIdOrderByIdDesc(Long emergenciaId);
+
+    Optional<Lote> findFirstByEmergenciaIdAndEstado(Long emergenciaId, EstadoLote estado);
+
     @EntityGraph(attributePaths = {"emergencia", "emergencia.municipio", "items", "items.recurso"})
     List<Lote> findByEstado(EstadoLote estado);
 

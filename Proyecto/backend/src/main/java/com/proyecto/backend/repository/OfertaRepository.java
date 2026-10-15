@@ -42,8 +42,7 @@ public interface OfertaRepository extends JpaRepository<Oferta, Long> {
             "detalles.itemLote",
             "detalles.itemLote.recurso",
             "lote",
-            "lote.emergencia",
-            "ongs"
+            "lote.emergencia"
     })
     @Query("""
             select distinct o
