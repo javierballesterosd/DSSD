@@ -15,6 +15,7 @@ import com.proyecto.backend.model.Region;
 import com.proyecto.backend.repository.EmergenciaRepository;
 import com.proyecto.backend.repository.LoteRepository;
 import com.proyecto.backend.repository.MunicipioRepository;
+import com.proyecto.backend.repository.OfertaRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -51,6 +52,8 @@ class EmergenciaServiceTest {
     private LoteRepository loteRepository;
     @Mock
     private ApplicationEventPublisher eventPublisher;
+    @Mock
+    private OfertaRepository ofertaRepository;
 
     private EmergenciaService emergenciaService;
     private LoginResponse remitente;
@@ -65,7 +68,8 @@ class EmergenciaServiceTest {
                 bonitaClient,
                 new EmergenciaMapper(),
                 loteRepository,
-                eventPublisher
+                eventPublisher,
+                ofertaRepository
         );
 
         Region region = new Region();
