@@ -54,4 +54,15 @@ public interface OfertaRepository extends JpaRepository<Oferta, Long> {
             order by o.fechaOferta desc
             """)
     List<Oferta> findOfertasConsolidadas(@Param("emergenciaId") Long emergenciaId);
+
+/** Ofertas de una ONG filtradas por un estado específico. */
+    @EntityGraph(attributePaths = {
+            "detalles", "detalles.ong", "detalles.itemLote", "detalles.itemLote.recurso",
+            "lote", "lote.emergencia"
+    })
+    @Query("select distinct o from Oferta o join o.ongs g "
+            + "where g.id = :ongId and o.estado = :estado "
+            + "order by o.fechaOferta desc")
+    List<Oferta> findByOngIdAndEstado(@Param("ongId") Long ongId, @Param("estado") com.proyecto.backend.model.EstadoOferta estado);
+
 }

@@ -1,5 +1,6 @@
 package com.proyecto.backend.service;
 
+import com.proyecto.backend.dto.DescriptorAudiencia;
 import com.proyecto.backend.dto.DetalleOfertaRequest;
 import com.proyecto.backend.dto.ItemValidadoRequest;
 import com.proyecto.backend.dto.OfertaEdicionRequest;
@@ -7,6 +8,7 @@ import com.proyecto.backend.dto.OfertaRequest;
 import com.proyecto.backend.dto.OfertaResponse;
 import com.proyecto.backend.dto.OfertaVersionResponse;
 import com.proyecto.backend.dto.ValidacionSNRequest;
+import com.proyecto.backend.dto.auth.LoginResponse;
 import com.proyecto.backend.exception.AccesoDenegadoException;
 import com.proyecto.backend.exception.RecursoNoEncontradoException;
 import com.proyecto.backend.exception.ReglaNegocioException;
@@ -21,14 +23,18 @@ import com.proyecto.backend.model.Lote;
 import com.proyecto.backend.model.Oferta;
 import com.proyecto.backend.model.OfertaVersion;
 import com.proyecto.backend.model.Ong;
+import com.proyecto.backend.model.Recurso;
 import com.proyecto.backend.model.TipoCambioOferta;
 import com.proyecto.backend.repository.InventarioOngRepository;
 import com.proyecto.backend.repository.ItemLoteRepository;
 import com.proyecto.backend.repository.LoteRepository;
+import com.proyecto.backend.repository.NotificacionRepository;
 import com.proyecto.backend.repository.OfertaRepository;
 import com.proyecto.backend.repository.OngRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -51,6 +57,7 @@ public class OfertaService {
     private final InventarioOngRepository inventarioOngRepository;
     private final OfertaRepository ofertaRepository;
     private final OfertaMapper ofertaMapper;
+    private final NotificacionService notificacionService;
 
 
     @Transactional
@@ -347,6 +354,7 @@ public class OfertaService {
         }
 
         boolean aceptacionEsParcial = false;
+        
 
         // Si el SN aprueba (total o parcialmente)
         for (ItemValidadoRequest itemValidado : validacion.itemsValidados()) {
@@ -356,6 +364,8 @@ public class OfertaService {
                     .orElseThrow(() -> new RuntimeException("Detalle no encontrado"));
 
             detalle.setCantidadAceptada(itemValidado.cantidadAceptada());
+
+            Ong ongAfectada = detalle.getOng();
 
             // Verificamos si el SN nos habilitó menos de lo que la ONG quería dar
             if (itemValidado.cantidadAceptada() < detalle.getCantidadOfrecida()) {
@@ -373,6 +383,10 @@ public class OfertaService {
                 inventarioOngRepository.save(inventario);
             } else {
                 throw new RuntimeException("Inconsistencia: La ONG ya no tiene stock suficiente localmente");
+            }
+
+            if (ongAfectada != null) {
+            verificarOfertasComprometidas(ongAfectada);
             }
         }
 
@@ -423,5 +437,61 @@ public class OfertaService {
         // 4. Actualizamos el estado final
         oferta.setEstado(nuevoEstado);
         ofertaRepository.save(oferta);
+    }
+
+    /**
+     * Revisa todas las ofertas PENDIENTES de la ONG para ver si se quedaron sin stock.
+     */
+    private void verificarOfertasComprometidas(Ong ong) {
+        // Buscamos todas las ofertas de esta ONG que siguen en estado PENDIENTE
+        List<Oferta> ofertasPendientes = ofertaRepository.findByOngIdAndEstado(ong.getId(), EstadoOferta.PENDIENTE);
+
+        for (Oferta ofertaPendiente : ofertasPendientes) {
+            boolean ofertaComprometida = false;
+            String recursoFaltante = "";
+            int stockActual = 0;
+
+            // Revisamos ítem por ítem de esa oferta
+            for (DetalleOferta detalle : ofertaPendiente.getDetalles()) {
+                Recurso recurso = detalle.getItemLote().getRecurso();
+                InventarioOng inventario = inventarioOngRepository
+                        .findByOngIdAndRecursoId(ong.getId(), recurso.getId())
+                        .orElse(null);
+
+                // Si lo que ofreció ahora es mayor a lo que le queda en stock, la oferta ya no es viable
+                if (inventario != null && detalle.getCantidadOfrecida() > inventario.getCantidadDisponible()) {
+                    ofertaComprometida = true;
+                    recursoFaltante = recurso.getNombre(); 
+                    stockActual = inventario.getCantidadDisponible();
+                    break; // Con que un solo recurso no alcance, ya mandamos la alerta para esa oferta
+                }
+            }
+
+            if (ofertaComprometida) {
+                enviarNotificacionStockInsuficiente(ong, ofertaPendiente, recursoFaltante, stockActual);
+            }
+        }
+    }
+
+    private void enviarNotificacionStockInsuficiente(Ong ong, Oferta oferta, String recursoFaltante, int stockActual) {
+        String rolDestinatario = "ONG";
+        
+        String grupoDestinatario = ong.getBonitaGroupPath(); 
+        DescriptorAudiencia audiencia = new DescriptorAudiencia(grupoDestinatario);
+        
+        String titulo = "Alerta: Stock insuficiente para Oferta #" + oferta.getId();
+        
+        String descripcion = String.format(
+            "Debido a una reciente adjudicación, el inventario de '%s' para %s ha bajado a %d unidades. " +
+            "Esto es menor a lo que ofreciste en la Oferta #" + oferta.getId() + " para el lote '%s'. " +
+            "Por favor, actualiza tu oferta o inventario.", 
+            recursoFaltante, ong.getRazonSocial(), stockActual, oferta.getLote().getTitulo()
+        );
+
+        LoginResponse remitenteSistema = new LoginResponse();
+        remitenteSistema.setUserId("SISTEMA_AUTO");
+        remitenteSistema.setUsername("Sistema RescueSync");
+
+        notificacionService.crear(rolDestinatario, audiencia, titulo, descripcion, remitenteSistema);
     }
 }

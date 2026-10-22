@@ -56,6 +56,8 @@ class OfertaServiceTest {
     private InventarioOngRepository inventarioOngRepository;
     @Mock
     private OfertaRepository ofertaRepository;
+    @Mock
+    private NotificacionService notificacionService;
 
     /** La ONG del usuario logueado en todos los casos: Cruz Solidaria (ongA). */
     private static final Long ONG_USUARIO = 1L;
@@ -75,7 +77,7 @@ class OfertaServiceTest {
     void setUp() {
         ofertaService = new OfertaService(
                 loteRepository, ongRepository, itemLoteRepository, inventarioOngRepository,
-                ofertaRepository, new OfertaMapper(new com.proyecto.backend.mapper.OngMapper()));
+                ofertaRepository, new OfertaMapper(new com.proyecto.backend.mapper.OngMapper()), notificacionService);
 
         Emergencia emergencia = new Emergencia();
         emergencia.setId(1L);

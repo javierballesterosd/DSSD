@@ -10,6 +10,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.TestPropertySource;
 
+
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
@@ -20,7 +21,13 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 @SpringBootTest
-@TestPropertySource(locations = "classpath:application.properties")
+@TestPropertySource(
+    locations = "classpath:application.properties",
+    properties = {
+        "BONITA_OFFERS_API_TOKEN=token-falso",
+        "bonita.offers.api-token=token-falso"
+    }
+)
 public class OfertaValidacionYBloqueoServiceTest {
 
     @Autowired
@@ -49,6 +56,9 @@ public class OfertaValidacionYBloqueoServiceTest {
 
     @Autowired
     private ItemLoteRepository itemLoteRepository;
+    
+    @Autowired
+    private NotificacionRepository notificacionRepository;
 
     private Long ofertaId1;
     private Long ofertaId2;
@@ -102,6 +112,7 @@ public class OfertaValidacionYBloqueoServiceTest {
         oferta1.setEstado(EstadoOferta.PENDIENTE);
         oferta1.setFechaOferta(LocalDateTime.now());
         oferta1.setLote(lote);
+        oferta1.setOngs(java.util.Set.of(ong));
 
         DetalleOferta detalle1 = new DetalleOferta();
         detalle1.setOferta(oferta1);
@@ -120,6 +131,7 @@ public class OfertaValidacionYBloqueoServiceTest {
         oferta2.setEstado(EstadoOferta.PENDIENTE);
         oferta2.setFechaOferta(LocalDateTime.now());
         oferta2.setLote(lote);
+        oferta2.setOngs(java.util.Set.of(ong));
 
         DetalleOferta detalle2 = new DetalleOferta();
         detalle2.setOferta(oferta2);
@@ -186,6 +198,36 @@ public class OfertaValidacionYBloqueoServiceTest {
         // Usamos el método de lectura simple para no requerir una transacción activa en el test
         InventarioOng inventarioFinal = inventarioOngRepository.findByOngIdAndRecursoId(ongId, recursoId).get();
         assertEquals(50, inventarioFinal.getCantidadDisponible());
+    }
+
+    @Test
+    public void testNotificacionStockInsuficienteGenerada() {
+        // Limpiamos notificaciones previas para asegurar que el test sea aislado
+        notificacionRepository.deleteAll();
+
+        // 1. Ejecución: El SN aprueba la Oferta 1.
+        // Esto consume 150 frazadas, dejando el stock local en 50.
+        ValidacionSNRequest validacion1 = new ValidacionSNRequest(true, "OK",
+                List.of(new ItemValidadoRequest(detalleIdOferta1, 150)));
+
+        ofertaValidacionService.procesarValidacionSNYBloquearRecursos(ofertaId1, validacion1);
+
+        // 2. Verificación: El sistema debió detectar que la Oferta 2 (que exige 150) 
+        // ya no es viable con el stock restante (50) y generar una alerta.
+        List<Notificacion> notificaciones = notificacionRepository.findAll();
+
+        String tituloEsperado = "Alerta: Stock insuficiente para Oferta #" + ofertaId2;
+
+        // Filtramos la lista buscando únicamente la notificación de nuestra Oferta 2
+        Notificacion alerta = notificaciones.stream()
+                .filter(n -> n.getTitulo().equals(tituloEsperado))
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("No se generó la alerta para la Oferta 2"));
+
+        // Verificamos que los datos de esa alerta sean correctos
+        assertEquals("ONG", alerta.getRolDestinatario());
+        assertEquals("SISTEMA_AUTO", alerta.getRemitenteUserId());
+        
     }
         
 
