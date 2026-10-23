@@ -70,6 +70,20 @@ class ValidacionNacionalServiceTest {
         verifyNoInteractions(nacional, emergencias, ofertaService);
     }
 
+    @Test void reservaSinReenviarElJsonQueYaEnvioBonita() {
+        when(ofertas.findByLoteIdOrderByIdAsc(10L)).thenReturn(List.of(oferta));
+        when(nacional.autenticar()).thenReturn("jwt");
+        when(nacional.reservarTemporal(eq("jwt"), any())).thenReturn(Optional.of(
+                new SistemaNacionalClient.Reservas(List.of(new SistemaNacionalClient.ItemReserva(2L, 3L, 40, "BLOQUEADA")))));
+
+        service.validar(7L, true);
+
+        verify(nacional, never()).enviarOfertas(any(), any());
+        verifyNoInteractions(emergencias);
+        verify(ofertaService).procesarValidacionSNYBloquearRecursos(20L,
+                new ValidacionSNRequest(true, "Reserva temporal confirmada por SN", List.of(new ItemValidadoRequest(100L, 40))));
+    }
+
     @Test void registraRechazoNacionalSinBloquearInventario() {
         prepararSN();
         when(nacional.reservarTemporal(eq("jwt"), any())).thenReturn(Optional.empty());

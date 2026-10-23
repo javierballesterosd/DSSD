@@ -20,7 +20,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-/** Puente de Bonita a SN. Las credenciales nacionales permanecen en el backend. */
+/** Reserva en SN y aplica el resultado local después del envío de ofertas desde Bonita. */
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -33,6 +33,11 @@ public class ValidacionNacionalService {
 
     @Transactional
     public void validar(Long emergenciaId) {
+        validar(emergenciaId, false);
+    }
+
+    @Transactional
+    public void validar(Long emergenciaId, boolean ofertasEnviadasPorBonita) {
         var lote = lotes.bloquearUltimoDeEmergencia(emergenciaId)
                 .orElseThrow(() -> new RecursoNoEncontradoException("No existe un lote para la emergencia"));
         if (lote.getEstado() != EstadoLote.ACTIVO || lote.getDecisionMunicipal() != null) {
@@ -45,7 +50,11 @@ public class ValidacionNacionalService {
                 .filter(o -> o.getEstado() == EstadoOferta.PENDIENTE).toList();
         if (pendientes.isEmpty()) return;
         String token = nacional.autenticar();
-        nacional.enviarOfertas(token, emergencias.obtenerOfertasConsolidadas(emergenciaId));
+        // Compatibilidad con casos ya iniciados con el proceso 1.9.
+        // Desde 1.9.1 Bonita obtiene el JWT y envía el JSON directamente al SN.
+        if (!ofertasEnviadasPorBonita) {
+            nacional.enviarOfertas(token, emergencias.obtenerOfertasConsolidadas(emergenciaId));
+        }
         for (Oferta oferta : pendientes) {
             var reserva = nacional.reservarTemporal(token,
                     new SistemaNacionalClient.Reserva(emergenciaId, lote.getId(), oferta.getId()));
