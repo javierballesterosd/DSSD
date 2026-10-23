@@ -10,6 +10,15 @@ import java.util.Optional;
 
 public interface LoteRepository extends JpaRepository<Lote, Long> {
 
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @org.springframework.data.jpa.repository.Query("select l from Lote l where l.emergencia.id = :id "
+            + "and l.id = (select max(ultimo.id) from Lote ultimo where ultimo.emergencia.id = :id)")
+    Optional<Lote> bloquearUltimoDeEmergencia(@org.springframework.data.repository.query.Param("id") Long id);
+
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @org.springframework.data.jpa.repository.Query("select l from Lote l where l.id = :id")
+    Optional<Lote> bloquearPorId(@org.springframework.data.repository.query.Param("id") Long id);
+
     Optional<Lote> findFirstByEmergenciaIdOrderByIdDesc(Long emergenciaId);
 
     Optional<Lote> findFirstByEmergenciaIdAndEstado(Long emergenciaId, EstadoLote estado);

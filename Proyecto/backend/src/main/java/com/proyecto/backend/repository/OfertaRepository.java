@@ -10,6 +10,11 @@ import java.util.List;
 
 public interface OfertaRepository extends JpaRepository<Oferta, Long> {
 
+    List<Oferta> findByLoteIdOrderByIdAsc(Long loteId);
+
+    @Query("select o.lote.id from Oferta o where o.id = :id")
+    java.util.Optional<Long> findLoteIdByOfertaId(@Param("id") Long id);
+
     /** Ofertas vigentes (no eliminadas) de un lote en las que participa la ONG, la más nueva primero. */
     // "ongs" queda afuera a propósito: traerla junto con "detalles" (una List, o sea un bag) arma un
     // producto cartesiano y cada detalle aparece repetido una vez por ONG. Se carga lazy en la transacción.

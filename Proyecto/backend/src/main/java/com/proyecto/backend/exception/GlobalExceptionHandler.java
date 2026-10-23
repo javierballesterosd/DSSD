@@ -16,6 +16,13 @@ import java.util.List;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
+    @ExceptionHandler(SistemaNacionalException.class)
+    public ResponseEntity<ErrorResponse> handleSistemaNacional(SistemaNacionalException ex) {
+        log.error("Falló la sincronización con el Sistema Nacional", ex);
+        return construir(HttpStatus.BAD_GATEWAY,
+                "No se pudo completar la operación en el Sistema Nacional. Reintentá la misma decisión.", List.of());
+    }
+
     @ExceptionHandler(RecursoNoEncontradoException.class)
     public ResponseEntity<ErrorResponse> handleRecursoNoEncontrado(RecursoNoEncontradoException ex, HttpServletRequest request) {
         log.warn("{} {} -> {}: {}", request.getMethod(), request.getRequestURI(),

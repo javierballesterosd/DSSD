@@ -331,59 +331,64 @@ public class OfertaService {
 
     @Transactional
     public void procesarValidacionSNYBloquearRecursos(Long ofertaId, ValidacionSNRequest validacion) {
-        Oferta oferta = ofertaRepository.findById(ofertaId)
-                .orElseThrow(() -> new RuntimeException("Oferta no encontrada"));
+        Long loteId = ofertaRepository.findLoteIdByOfertaId(ofertaId)
+                .orElseThrow(() -> new RecursoNoEncontradoException("La oferta no existe"));
+        Lote lote = loteRepository.bloquearPorId(loteId)
+                .orElseThrow(() -> new RecursoNoEncontradoException("El lote no existe"));
+        Oferta oferta = ofertaRepository.findById(ofertaId).orElseThrow();
+        if (validacion.aprobada() == null) throw rechazar("Debe indicarse si el SN aprobó la oferta");
 
-        // Asegurarnos de que solo validamos ofertas que estén esperando respuesta
-        if (!oferta.getEstado().equals(EstadoOferta.PENDIENTE)) {
-            throw new IllegalStateException("La oferta ya fue procesada anteriormente");
-        }
-
-        // Si el SN rechaza de plano (ej. la ONG no tiene las certificaciones vigentes)
-        if (!validacion.aprobada()) {
-            oferta.setEstado(EstadoOferta.RECHAZADA);
-            ofertaRepository.save(oferta);
-            return; // Termina la ejecución, no se bloquea nada
-        }
-
-        boolean aceptacionEsParcial = false;
-
-        // Si el SN aprueba (total o parcialmente)
-        for (ItemValidadoRequest itemValidado : validacion.itemsValidados()) {
-            DetalleOferta detalle = oferta.getDetalles().stream()
-                    .filter(d -> d.getId().equals(itemValidado.detalleOfertaId()))
-                    .findFirst()
-                    .orElseThrow(() -> new RuntimeException("Detalle no encontrado"));
-
-            detalle.setCantidadAceptada(itemValidado.cantidadAceptada());
-
-            // Verificamos si el SN nos habilitó menos de lo que la ONG quería dar
-            if (itemValidado.cantidadAceptada() < detalle.getCantidadOfrecida()) {
-                aceptacionEsParcial = true;
+        Map<Long, Integer> cantidades = new HashMap<>();
+        if (validacion.aprobada()) {
+            if (validacion.itemsValidados() == null || validacion.itemsValidados().isEmpty()) {
+                throw rechazar("La aprobación debe indicar las cantidades aceptadas");
             }
-
-            // Bloqueo Local: Descontar del inventario de la ONG
+            for (ItemValidadoRequest item : validacion.itemsValidados()) {
+                if (item == null) throw rechazar("La validación contiene un detalle vacío");
+                DetalleOferta detalle = buscarDetalleValidado(oferta, item);
+                if (item.cantidadAceptada() == null || item.cantidadAceptada() < 0
+                        || item.cantidadAceptada() > detalle.getCantidadOfrecida()
+                        || cantidades.putIfAbsent(detalle.getId(), item.cantidadAceptada()) != null) {
+                    throw rechazar("La validación contiene cantidades inválidas o detalles repetidos");
+                }
+            }
+        }
+        // Repetir el mismo callback no vuelve a descontar inventario.
+        if (oferta.getEstado() != EstadoOferta.PENDIENTE) {
+            boolean mismoResultado = oferta.getEstado() != EstadoOferta.ELIMINADA
+                    && oferta.getDetalles().stream().allMatch(d ->
+                    (d.getCantidadAceptada() == null ? 0 : d.getCantidadAceptada())
+                            == cantidades.getOrDefault(d.getId(), 0));
+            if (mismoResultado) return;
+            throw rechazar("La oferta ya fue procesada con otra validación");
+        }
+        if (lote.getEstado() != EstadoLote.ACTIVO || lote.getDecisionMunicipal() != null) {
+            throw rechazar("El lote ya tiene una decisión municipal o está cancelado");
+        }
+        boolean parcial = false;
+        boolean tieneRecursos = false;
+        var detalles = oferta.getDetalles().stream().sorted(Comparator
+                .comparing((DetalleOferta d) -> d.getOng().getId())
+                .thenComparing(d -> d.getItemLote().getRecurso().getId())).toList();
+        for (DetalleOferta detalle : detalles) {
+            int aceptada = cantidades.getOrDefault(detalle.getId(), 0);
+            detalle.setCantidadAceptada(aceptada);
+            parcial |= aceptada < detalle.getCantidadOfrecida();
+            if (aceptada == 0) continue;
+            tieneRecursos = true;
             InventarioOng inventario = inventarioOngRepository.findByOngIdAndRecursoIdForUpdate(
-                    detalle.getOng().getId(), 
-                    detalle.getItemLote().getRecurso().getId()
-            ).orElseThrow(() -> new RuntimeException("Inventario no encontrado"));
-
-            if (inventario.getCantidadDisponible() >= itemValidado.cantidadAceptada()) {
-                inventario.setCantidadDisponible(inventario.getCantidadDisponible() - itemValidado.cantidadAceptada());
-                inventarioOngRepository.save(inventario);
-            } else {
-                throw new RuntimeException("Inconsistencia: La ONG ya no tiene stock suficiente localmente");
+                    detalle.getOng().getId(), detalle.getItemLote().getRecurso().getId())
+                    .orElseThrow(() -> rechazar("No existe el inventario para bloquear los recursos"));
+            if (inventario.getCantidadDisponible() < aceptada) {
+                throw rechazar("La ONG ya no tiene stock suficiente localmente");
             }
+            inventario.setCantidadDisponible(inventario.getCantidadDisponible() - aceptada);
+            inventarioOngRepository.save(inventario);
         }
-
-        // Asignamos el estado correcto según el nivel de habilitación del SN
-        if (aceptacionEsParcial) {
-            oferta.setEstado(EstadoOferta.ACEPTADA_PARCIAL);
-        } else {
-            oferta.setEstado(EstadoOferta.VALIDADA);
-        }
-
+        oferta.setEstado(!tieneRecursos ? EstadoOferta.RECHAZADA
+                : parcial ? EstadoOferta.ACEPTADA_PARCIAL : EstadoOferta.VALIDADA);
         ofertaRepository.save(oferta);
+        log.info("Validación SN registrada. ofertaId={}, estado={}", ofertaId, oferta.getEstado());
     }
 
     @Transactional
@@ -423,5 +428,12 @@ public class OfertaService {
         // 4. Actualizamos el estado final
         oferta.setEstado(nuevoEstado);
         ofertaRepository.save(oferta);
+    }
+
+    private DetalleOferta buscarDetalleValidado(Oferta oferta, ItemValidadoRequest item) {
+        return oferta.getDetalles().stream().filter(d -> item.detalleOfertaId() != null
+                ? d.getId().equals(item.detalleOfertaId())
+                : d.getItemLote().getId().equals(item.itemLoteId()) && d.getOng().getId().equals(item.ongId()))
+                .findFirst().orElseThrow(() -> rechazar("El detalle no pertenece a la oferta"));
     }
 }

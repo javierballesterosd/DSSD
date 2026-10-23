@@ -48,6 +48,9 @@ services:
       # Dentro del contenedor "localhost" es el propio backend: Bonita corre en el host
       BONITA_BASE_URL: ${BONITA_DOCKER_URL:-http://host.docker.internal:8080/bonita}
       BONITA_OFFERS_API_TOKEN: ${BONITA_OFFERS_API_TOKEN}
+      NACIONAL_BASE_URL: ${NACIONAL_DOCKER_URL:-https://sistema-nacional-api-wqib.onrender.com}
+      NACIONAL_USERNAME: ${NACIONAL_USERNAME:-bonita}
+      NACIONAL_PASSWORD: ${NACIONAL_PASSWORD:-}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:

@@ -1,11 +1,6 @@
 import type { EstadoLote } from './lote';
 
-export const NIVELES_GRAVEDAD = [
-  'BAJA',
-  'MEDIA',
-  'ALTA',
-  'CRITICA'
-] as const;
+export const NIVELES_GRAVEDAD = ['BAJA', 'MEDIA', 'ALTA', 'CRITICA'] as const;
 
 export type NivelGravedad = (typeof NIVELES_GRAVEDAD)[number];
 
@@ -70,6 +65,16 @@ export interface EmergenciaParaLoteResponse {
   fechaRegistro: string;
   loteId: number | null;
   estadoLote: EstadoLote | null;
+  requiereActualizacion?: boolean;
+}
+
+export interface RecursosMunicipalesResponse {
+  loteId: number | null;
+  decision: boolean | null;
+  confirmada: boolean;
+  puedeDecidir: boolean;
+  mensaje: string | null;
+  recursos: { recursoId: number; nombre: string; unidadMedida: string; cantidad: number }[];
 }
 
 export interface PaginaEmergencias {
