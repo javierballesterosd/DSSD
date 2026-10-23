@@ -17,8 +17,9 @@ public class ValidacionNacionalController {
     @PostMapping
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void validar(@PathVariable Long id,
+            @RequestParam(defaultValue = "false") boolean ofertasEnviadasPorBonita,
             @RequestHeader(value = "Authorization", required = false) String authorization) {
         if (!tokens.isValid(authorization)) throw new UnauthenticatedException("Token de Bonita inválido o ausente");
-        validaciones.validar(id);
+        validaciones.validar(id, ofertasEnviadasPorBonita);
     }
 }
