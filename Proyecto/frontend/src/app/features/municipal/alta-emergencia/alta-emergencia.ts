@@ -1,7 +1,7 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, inject, signal } from '@angular/core';
+import { Component, inject, signal, OnInit } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { Router, RouterLink } from '@angular/router';
+import { Router, RouterLink, ActivatedRoute } from '@angular/router';
 
 import {
   EmergenciaResponse,
@@ -20,11 +20,42 @@ import { ToastService } from '../../../core/services/toast';
   imports: [ReactiveFormsModule, RouterLink],
   templateUrl: './alta-emergencia.html',
 })
-export class AltaEmergencia {
+export class AltaEmergencia implements OnInit {
   private readonly fb = inject(FormBuilder);
   private readonly emergencias = inject(Emergencias);
   private readonly toast = inject(ToastService);
   private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
+  readonly emergenciaId = Number(this.route.snapshot.paramMap.get('id')) || null;
+  readonly cargandoDatos = signal(false);
+  readonly errorCarga = signal(false);
+
+  ngOnInit(): void {
+    if (this.emergenciaId === null) return;
+    this.cargandoDatos.set(true);
+    this.emergencias.obtener(this.emergenciaId).subscribe({
+      next: (e) => {
+        this.cargandoDatos.set(false);
+        if (!e.requiereActualizacion) {
+          this.errorCarga.set(true);
+          this.toast.error(
+            'Actualización no disponible',
+            'La emergencia no está pendiente de actualización por rechazo.',
+          );
+          return;
+        }
+        this.form.patchValue(e);
+      },
+      error: (err) => {
+        this.cargandoDatos.set(false);
+        this.errorCarga.set(true);
+        this.toast.error(
+          'No se pudo cargar la emergencia',
+          mensajeDeError(err, 'Intentá nuevamente.'),
+        );
+      },
+    });
+  }
 
   readonly nivelesGravedad = NIVELES_GRAVEDAD;
   readonly nivelGravedadLabel = NIVEL_GRAVEDAD_LABEL;
@@ -34,13 +65,11 @@ export class AltaEmergencia {
   form = this.fb.nonNullable.group({
     nivelGravedad: ['MEDIA' as NivelGravedad, [Validators.required]],
     zonaAfectada: ['', [Validators.required, Validators.maxLength(200)]],
-    descripcion: [
-      '',
-      [Validators.required, Validators.minLength(10), Validators.maxLength(2000)],
-    ],
+    descripcion: ['', [Validators.required, Validators.minLength(10), Validators.maxLength(2000)]],
   });
 
   onSubmit(): void {
+    if (this.cargando() || this.cargandoDatos() || this.errorCarga()) return;
     if (this.form.invalid) {
       this.form.markAllAsTouched();
       return;
@@ -48,12 +77,16 @@ export class AltaEmergencia {
 
     this.cargando.set(true);
 
-    this.emergencias.registrar(this.form.getRawValue()).subscribe({
+    const operacion =
+      this.emergenciaId === null
+        ? this.emergencias.registrar(this.form.getRawValue())
+        : this.emergencias.actualizar(this.emergenciaId, this.form.getRawValue());
+    operacion.subscribe({
       next: (res: EmergenciaResponse) => {
         this.cargando.set(false);
         this.toast.exito(
-          'Emergencia registrada',
-          `La emergencia #${res.id} se registró y se notificó al Centro Coordinador Regional.`,
+          this.emergenciaId === null ? 'Emergencia registrada' : 'Emergencia actualizada',
+          `La emergencia #${res.id} se ${this.emergenciaId === null ? 'registró' : 'actualizó'} y se notificó al Centro Coordinador Regional.`,
         );
         // Al registrar se muestra el detalle de lo que se acaba de crear
         this.router.navigate(['/municipal/emergencias', res.id]);
@@ -63,8 +96,8 @@ export class AltaEmergencia {
         this.cargando.set(false);
 
         this.toast.error(
-          'No se pudo registrar la emergencia',
-          mensajeDeError(err, 'Ocurrió un error al registrar la emergencia.'),
+          this.emergenciaId === null ? 'No se pudo registrar la emergencia' : 'No se pudo actualizar la emergencia',
+          mensajeDeError(err, 'No se pudo guardar la emergencia. Intentá nuevamente.'),
         );
       },
     });

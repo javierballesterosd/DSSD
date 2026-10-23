@@ -14,6 +14,10 @@ import java.util.List;
 @Repository
 public interface EmergenciaRepository extends JpaRepository<Emergencia, Long> {
 
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("select e from Emergencia e where e.id = :id")
+    java.util.Optional<Emergencia> bloquearPorId(@Param("id") Long id);
+
     @Query("""
         SELECT e
         FROM Emergencia e

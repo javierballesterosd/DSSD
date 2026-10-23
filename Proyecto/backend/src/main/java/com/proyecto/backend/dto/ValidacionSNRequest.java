@@ -3,7 +3,7 @@ package com.proyecto.backend.dto;
 import java.util.*;
 
 public record ValidacionSNRequest(
-    boolean aprobada,
+    @jakarta.validation.constraints.NotNull Boolean aprobada,
     String observaciones,
     List<ItemValidadoRequest> itemsValidados
 ) {

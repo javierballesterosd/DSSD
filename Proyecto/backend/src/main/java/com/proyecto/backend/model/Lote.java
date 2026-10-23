@@ -40,6 +40,13 @@ public class Lote {
     @Column(nullable = false)
     private EstadoLote estado;
 
+    /** Intención persistida antes de sincronizar con SN; permite reintentar la misma decisión. */
+    private Boolean decisionMunicipal;
+
+    private LocalDateTime fechaDecisionMunicipal;
+
+    private String usuarioDecisionMunicipal;
+
     @Column(name = "fecha_creacion", nullable = false)
     private LocalDateTime fechaCreacion;
 

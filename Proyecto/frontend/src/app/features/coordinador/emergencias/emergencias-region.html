@@ -25,7 +25,9 @@
       <div class="col">
         <app-emergencia-tarjeta [emergencia]="emergencia" [enlace]="enlace(emergencia)">
           <span class="small fw-semibold text-primary mt-auto">
-            @if (puedeDesglosar(emergencia)) {
+            @if (emergencia.requiereActualizacion) {
+              Pendiente de actualización municipal
+            } @else if (puedeDesglosar(emergencia)) {
               <i class="bi bi-diagram-3 me-1"></i>Desglosar en lotes
             } @else {
               <i class="bi bi-box-seam me-1"></i>Ver lote

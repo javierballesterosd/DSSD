@@ -7,6 +7,7 @@ import {
   EmergenciaRequest,
   EmergenciaResponse,
   PaginaEmergencias,
+  RecursosMunicipalesResponse,
 } from '../models/emergencia';
 
 @Service()
@@ -31,5 +32,17 @@ export class Emergencias {
 
   obtener(id: number): Observable<EmergenciaParaLoteResponse> {
     return this.http.get<EmergenciaParaLoteResponse>(`${this.apiUrl}/${id}`);
+  }
+
+  recursosAceptados(id: number): Observable<RecursosMunicipalesResponse> {
+    return this.http.get<RecursosMunicipalesResponse>(`${this.apiUrl}/${id}/recursos-aceptados`);
+  }
+
+  decidir(id: number, loteId: number, aceptar: boolean): Observable<void> {
+    return this.http.post<void>(`${this.apiUrl}/${id}/decision-municipal`, { loteId, aceptar });
+  }
+
+  actualizar(id: number, emergencia: EmergenciaRequest): Observable<EmergenciaResponse> {
+    return this.http.put<EmergenciaResponse>(`${this.apiUrl}/${id}`, emergencia);
   }
 }

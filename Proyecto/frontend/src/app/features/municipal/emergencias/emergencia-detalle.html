@@ -44,5 +44,101 @@
     </div>
   </div>
 
+  <div class="card border-0 shadow-sm mb-4">
+    <div class="card-body">
+      <h2 class="h6">Recursos habilitados por el Sistema Nacional</h2>
+      @if (errorRecursos()) {
+        <div class="alert alert-danger">No se pudieron cargar los recursos.</div>
+        <button class="btn btn-outline-primary" (click)="cargarRecursos()">Reintentar</button>
+      } @else if (cargandoRecursos()) {
+        <p class="text-body-secondary">Cargando recursos…</p>
+      } @else if (recursos(); as r) {
+        @if (r.recursos.length > 0) {
+          <div class="table-responsive">
+            <table class="table align-middle">
+              <thead>
+                <tr>
+                  <th>Recurso</th>
+                  <th>Cantidad aceptada</th>
+                  <th>Unidad</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (recurso of r.recursos; track recurso.recursoId) {
+                  <tr>
+                    <td>{{ recurso.nombre }}</td>
+                    <td>{{ recurso.cantidad }}</td>
+                    <td>{{ recurso.unidadMedida }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
+        @if (r.mensaje) {
+          <p class="text-body-secondary">{{ r.mensaje }}</p>
+        }
+        @if (r.puedeDecidir) {
+          @if (r.recursos.length > 0) {
+            <p>
+              La decisión se aplica a todos los recursos habilitados, incluidas las cantidades
+              aceptadas parcialmente.
+            </p>
+          } @else {
+            <p>
+              El SN no habilitó recursos. Podés rechazar el conjunto y actualizar la emergencia para
+              reiniciar el proceso.
+            </p>
+          }
+          @if (r.decision !== null) {
+            <div class="alert alert-warning">
+              La decisión está pendiente de completar. Reintentá para finalizarla.
+            </div>
+          }
+          <div class="d-flex flex-wrap gap-2">
+            @if (r.recursos.length > 0 && (r.decision === null || r.decision === true)) {
+              <button
+                class="btn btn-primary"
+                [disabled]="procesando()"
+                (click)="confirmacion.set(true)"
+              >
+                {{ r.decision === true ? 'Reintentar aceptación' : 'Aceptar todos los recursos' }}
+              </button>
+            }
+            @if (r.decision === null || r.decision === false) {
+              <button
+                class="btn btn-outline-danger"
+                [disabled]="procesando()"
+                (click)="confirmacion.set(false)"
+              >
+                {{ r.decision === false ? 'Reintentar rechazo' : 'Rechazar todas las ofertas' }}
+              </button>
+            }
+          </div>
+        }
+      }
+      @if (e.requiereActualizacion) {
+        <a class="btn btn-primary" [routerLink]="['/municipal/emergencias', e.id, 'actualizar']"
+          >Actualizar emergencia</a
+        >
+      }
+    </div>
+  </div>
+
   <a class="btn btn-outline-secondary" routerLink="/municipal/emergencias">Volver al listado</a>
+}
+
+@if (confirmacion() !== null) {
+  <app-confirm-modal
+    [titulo]="confirmacion() ? 'Aceptar todos los recursos' : 'Rechazar todas las ofertas'"
+    [mensaje]="
+      confirmacion()
+        ? 'Se comprometerán todos los recursos habilitados por el SN.'
+        : 'Se liberarán los recursos, se notificará a las ONGs y deberás actualizar la emergencia para reiniciar el proceso.'
+    "
+    [variante]="confirmacion() ? 'primary' : 'danger'"
+    [procesando]="procesando()"
+    (cancelar)="confirmacion.set(null)"
+    (confirmar)="decidir()"
+  />
 }

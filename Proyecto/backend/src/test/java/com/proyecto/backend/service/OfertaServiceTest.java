@@ -560,6 +560,61 @@ class OfertaServiceTest {
 
     // ---------- Historial ----------
 
+    private Oferta prepararValidacionSN() {
+        Oferta oferta = ofertaPendienteEnConsorcio();
+        oferta.getDetalles().get(0).setId(101L);
+        oferta.getDetalles().get(1).setId(102L);
+        when(ofertaRepository.findLoteIdByOfertaId(50L)).thenReturn(java.util.Optional.of(10L));
+        when(loteRepository.bloquearPorId(10L)).thenReturn(java.util.Optional.of(lote));
+        return oferta;
+    }
+
+    @Test
+    void callbackParcialOmiteCantidadesNoHabilitadasYNoDescuentaDosVeces() {
+        Oferta oferta = prepararValidacionSN();
+        var inventario = inventario(ongA, raciones, 800);
+        when(inventarioOngRepository.findByOngIdAndRecursoIdForUpdate(1L, 100L))
+                .thenReturn(java.util.Optional.of(inventario));
+        var validacion = new com.proyecto.backend.dto.ValidacionSNRequest(true, "Parcial",
+                List.of(new com.proyecto.backend.dto.ItemValidadoRequest(null, 40, 200L, 1L)));
+        ofertaService.procesarValidacionSNYBloquearRecursos(50L, validacion);
+        ofertaService.procesarValidacionSNYBloquearRecursos(50L, validacion);
+        assertThat(inventario.getCantidadDisponible()).isEqualTo(760);
+        assertThat(oferta.getEstado()).isEqualTo(EstadoOferta.ACEPTADA_PARCIAL);
+        assertThat(oferta.getDetalles().get(1).getCantidadAceptada()).isZero();
+        org.mockito.Mockito.verify(inventarioOngRepository, org.mockito.Mockito.times(1)).save(any());
+    }
+
+    @Test
+    void callbackRechazaCantidadesMayoresALoOfrecido() {
+        prepararValidacionSN();
+        var validacion = new com.proyecto.backend.dto.ValidacionSNRequest(true, "",
+                List.of(new com.proyecto.backend.dto.ItemValidadoRequest(101L, 501)));
+        assertThatThrownBy(() -> ofertaService.procesarValidacionSNYBloquearRecursos(50L, validacion))
+                .isInstanceOf(ReglaNegocioException.class);
+        org.mockito.Mockito.verifyNoInteractions(inventarioOngRepository);
+    }
+
+    @Test
+    void callbackRechazaDetallesDuplicados() {
+        prepararValidacionSN();
+        var item = new com.proyecto.backend.dto.ItemValidadoRequest(101L, 40);
+        var validacion = new com.proyecto.backend.dto.ValidacionSNRequest(true, "", List.of(item, item));
+        assertThatThrownBy(() -> ofertaService.procesarValidacionSNYBloquearRecursos(50L, validacion))
+                .isInstanceOf(ReglaNegocioException.class);
+        org.mockito.Mockito.verifyNoInteractions(inventarioOngRepository);
+    }
+
+    @Test
+    void callbackNoPuedeValidarDespuesDeUnaDecisionMunicipal() {
+        prepararValidacionSN();
+        lote.setDecisionMunicipal(false);
+        var validacion = new com.proyecto.backend.dto.ValidacionSNRequest(false, "Rechazada", List.of());
+        assertThatThrownBy(() -> ofertaService.procesarValidacionSNYBloquearRecursos(50L, validacion))
+                .isInstanceOf(ReglaNegocioException.class);
+        org.mockito.Mockito.verifyNoInteractions(inventarioOngRepository);
+    }
+
     private OfertaVersion versionDe(Oferta oferta, int numero, TipoCambioOferta tipo) {
         OfertaVersion version = new OfertaVersion();
         version.setOferta(oferta);

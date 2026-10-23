@@ -7,5 +7,6 @@ export const MUNICIPAL_ROUTES: Routes = [
   { path: '', pathMatch: 'full', redirectTo: 'emergencias' },
   { path: 'emergencias', component: MisEmergencias },
   { path: 'emergencias/nueva', component: AltaEmergencia },
+  { path: 'emergencias/:id/actualizar', component: AltaEmergencia },
   { path: 'emergencias/:id', component: EmergenciaDetalle },
 ];
