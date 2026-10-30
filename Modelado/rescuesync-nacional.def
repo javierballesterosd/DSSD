@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definition:ConnectorDefinition xmlns:definition="http://www.bonitasoft.org/ns/connector/definition/6.1">
+  <id>rescuesync-nacional</id><version>1.0.0</version>
+  <input name="operacion" type="java.lang.String" mandatory="true"/>
+  <input name="emergenciaId" type="java.lang.Long" mandatory="true"/>
+  <input name="loteId" type="java.lang.Long" mandatory="true"/>
+  <input name="aceptar" type="java.lang.Boolean" mandatory="false"/>
+</definition:ConnectorDefinition>

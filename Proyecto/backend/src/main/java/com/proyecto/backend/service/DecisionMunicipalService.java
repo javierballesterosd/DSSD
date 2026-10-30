@@ -2,7 +2,6 @@ package com.proyecto.backend.service;
 
 import com.proyecto.backend.client.BonitaClient;
 import com.proyecto.backend.client.BonitaSession;
-import com.proyecto.backend.client.SistemaNacionalClient;
 import com.proyecto.backend.dto.*;
 import com.proyecto.backend.dto.auth.LoginResponse;
 import com.proyecto.backend.exception.*;
@@ -28,7 +27,6 @@ public class DecisionMunicipalService {
     private final LoteRepository lotes;
     private final OfertaRepository ofertas;
     private final InventarioOngRepository inventarios;
-    private final SistemaNacionalClient nacional;
     private final BonitaClient bonita;
     private final EmergenciaMapper mapper;
     private final ApplicationEventPublisher eventos;
@@ -62,9 +60,10 @@ public class DecisionMunicipalService {
                 ? "Aceptaste todos los recursos habilitados por el SN."
                 : emergencia.isRequiereActualizacion() ? "Debés actualizar la emergencia para reiniciar el proceso."
                 : "La emergencia fue actualizada; el coordinador puede publicar otro lote.")
+                : lote.getDecisionMunicipal() != null ? "Bonita está procesando la decisión en el Sistema Nacional."
                 : impedimento(lote, conjunto);
         return new RecursosMunicipalesResponse(lote.getId(), lote.getDecisionMunicipal(), confirmada,
-                !confirmada && mensaje == null, mensaje, List.copyOf(recursos.values()));
+                !confirmada && (lote.getDecisionMunicipal() != null || mensaje == null), mensaje, List.copyOf(recursos.values()));
     }
 
     /** Se confirma la intención en una transacción independiente de los efectos externos.
@@ -92,68 +91,101 @@ public class DecisionMunicipalService {
             }
             lote.setDecisionMunicipal(request.aceptar());
             lote.setUsuarioDecisionMunicipal(usuario.getUsername());
+            lote.setUsuarioDecisionMunicipalId(usuario.getUserId());
             lotes.save(lote);
         });
-        tx.executeWithoutResult(status -> completar(emergenciaId, request, usuario, session));
+        // La intención ya está confirmada antes de que Bonita pueda llamar al callback.
+        String tarea = tx.execute(status -> {
+            Emergencia emergencia = buscar(emergenciaId, usuario.getMunicipioId(), true);
+            Lote lote = bloquearLote(request.loteId(), emergenciaId);
+            if (lote.getFechaDecisionMunicipal() != null) return null;
+            if (lote.getTareaDecisionBonitaId() == null) {
+                lote.setTareaDecisionBonitaId(bonita.buscarTareaPendiente(session,
+                        emergencia.getBonitaCaseId(), "Ver ofertas validadas"));
+                lotes.save(lote);
+            }
+            return lote.getTareaDecisionBonitaId();
+        });
+        if (tarea != null) bonita.ejecutarTareaIdempotente(session, tarea,
+                Map.of("aceptaOfertas", request.aceptar()));
     }
 
-    private void completar(Long emergenciaId, DecisionMunicipalRequest request,
-            LoginResponse usuario, BonitaSession session) {
-        Emergencia emergencia = buscar(emergenciaId, usuario.getMunicipioId(), true);
-        Lote lote = bloquearLote(request.loteId(), emergenciaId);
+    /** Solo Bonita confirma efectos locales después de completar todas las operaciones nacionales. */
+    @Transactional
+    public void confirmar(Long emergenciaId, IntegracionNacional.Respuesta respuesta) {
+        Emergencia emergencia = emergencias.bloquearPorId(emergenciaId)
+                .orElseThrow(() -> new RecursoNoEncontradoException("No existe la emergencia"));
+        Lote lote = bloquearLote(respuesta.loteId(), emergenciaId);
+        if (!Objects.equals(emergencia.getBonitaCaseId(), respuesta.caseId())) {
+            throw new ReglaNegocioException("El caso de Bonita no corresponde a la emergencia");
+        }
+        if (lote.getDecisionMunicipal() == null) throw new ReglaNegocioException("No hay decisión municipal registrada");
         if (lote.getFechaDecisionMunicipal() != null) return;
+        boolean aceptar = lote.getDecisionMunicipal();
         List<Oferta> conjunto = ofertas.findByLoteIdOrderByIdAsc(lote.getId());
         List<Oferta> habilitadas = conjunto.stream().filter(this::habilitada).toList();
-        String token = habilitadas.isEmpty() ? null : nacional.autenticar();
-        // Primero se comprueban todas las reservas antes de convertir la primera.
-        if (request.aceptar()) {
-            for (Oferta oferta : habilitadas) verificarReservas(token, emergenciaId, lote, oferta);
+        Map<Long, IntegracionNacional.Resultado> resultados = new HashMap<>();
+        for (var resultado : respuesta.resultados()) {
+            if (!Boolean.TRUE.equals(resultado.aprobada())
+                    || resultados.putIfAbsent(resultado.ofertaId(), resultado) != null) {
+                throw new ReglaNegocioException("Resultados nacionales duplicados o sin confirmar");
+            }
         }
         for (Oferta oferta : habilitadas) {
-            nacional.decidir(token, new SistemaNacionalClient.Reserva(emergenciaId, lote.getId(), oferta.getId()), request.aceptar());
+            var resultado = resultados.remove(oferta.getId());
+            if (resultado == null) throw new ReglaNegocioException("Falta confirmar una oferta en SN");
+            verificarReservas(oferta, resultado, aceptar);
         }
+        if (!resultados.isEmpty()) throw new ReglaNegocioException("El resultado contiene ofertas ajenas al conjunto");
+        LoginResponse usuario = new LoginResponse();
+        usuario.setUserId(lote.getUsuarioDecisionMunicipalId());
+        usuario.setUsername(lote.getUsuarioDecisionMunicipal());
         Set<String> destinatarios = new HashSet<>();
         for (Oferta oferta : conjunto) {
             if (oferta.getEstado() == EstadoOferta.ELIMINADA) continue;
-            if (!request.aceptar() || habilitada(oferta)) {
+            if (!aceptar || habilitada(oferta)) {
                 oferta.getOngs().forEach(ong -> destinatarios.add(ong.getBonitaGroupPath()));
             }
             if (habilitada(oferta)) {
-                if (!request.aceptar()) devolverStock(oferta);
-                oferta.setEstado(request.aceptar() ? EstadoOferta.ADJUDICADA : EstadoOferta.NO_ADJUDICADA);
+                if (!aceptar) devolverStock(oferta);
+                oferta.setEstado(aceptar ? EstadoOferta.ADJUDICADA : EstadoOferta.NO_ADJUDICADA);
                 oferta.setFechaModificacion(LocalDateTime.now());
                 ofertas.save(oferta);
             }
         }
         lote.setFechaDecisionMunicipal(LocalDateTime.now());
-        if (!request.aceptar()) {
+        if (!aceptar) {
             lote.setEstado(EstadoLote.CANCELADO);
             emergencia.setRequiereActualizacion(true);
             emergencias.save(emergencia);
         }
         lotes.saveAndFlush(lote);
-        String tarea = bonita.buscarTareaPendiente(session, emergencia.getBonitaCaseId(), "Ver ofertas validadas");
-        bonita.ejecutarTarea(session, tarea, Map.of("aceptaOfertas", request.aceptar()));
-        eventos.publishEvent(new DecisionMunicipalEvent(emergenciaId, request.aceptar(),
+        eventos.publishEvent(new DecisionMunicipalEvent(emergenciaId, aceptar,
                 emergencia.getMunicipio().getBonitaGroupPath(), Set.copyOf(destinatarios), usuario));
         log.info("Decisión municipal confirmada. emergenciaId={}, loteId={}, acepta={}, usuario={}",
-                emergenciaId, lote.getId(), request.aceptar(), usuario.getUsername());
+                emergenciaId, lote.getId(), aceptar, usuario.getUsername());
     }
 
-    private void verificarReservas(String token, Long emergenciaId, Lote lote, Oferta oferta) {
+    private void verificarReservas(Oferta oferta, IntegracionNacional.Resultado resultado, boolean aceptar) {
         Map<String, Long> esperadas = new HashMap<>();
         for (DetalleOferta detalle : oferta.getDetalles()) {
             if (cantidad(detalle) > 0) esperadas.merge(detalle.getOng().getId() + ":" + detalle.getItemLote().getRecurso().getId(),
-                    (long) cantidad(detalle), Long::sum);
+                    (long) cantidad(detalle), Math::addExact);
         }
-        Map<String, Long> reservadas = new HashMap<>();
-        for (var item : nacional.consultar(token,
-                new SistemaNacionalClient.Reserva(emergenciaId, lote.getId(), oferta.getId())).items()) {
-            if (!Set.of("BLOQUEADA", "EXPIRADA", "COMPROMETIDA").contains(item.estado())) continue;
-            reservadas.merge(item.ongId() + ":" + item.recursoId(), (long) item.cantidad(), Long::sum);
+        Map<String, Long> recibidas = new HashMap<>();
+        for (var item : resultado.items()) {
+            if (item.cantidad() <= 0 || !(aceptar ? "COMPROMETIDA".equals(item.estado())
+                    : Set.of("LIBERADA", "EXPIRADA").contains(item.estado()))) {
+                throw new ReglaNegocioException("El SN no confirmó el estado nacional esperado");
+            }
+            String clave = item.ongId() + ":" + item.recursoId();
+            if (!esperadas.containsKey(clave)) throw new ReglaNegocioException("El SN devolvió recursos ajenos a la oferta");
+            recibidas.merge(clave, (long) item.cantidad(), Math::addExact);
         }
-        if (!esperadas.equals(reservadas)) {
-            throw new ReglaNegocioException("Las reservas del SN no coinciden con las cantidades habilitadas. Se requiere revisar la validación.");
+        // La liberación puede incluir historial de reservas reemplazadas; no puede dejar recursos activos.
+        if (aceptar ? !esperadas.equals(recibidas) : esperadas.entrySet().stream()
+                .anyMatch(e -> recibidas.getOrDefault(e.getKey(), 0L) < e.getValue())) {
+            throw new ReglaNegocioException("Las reservas del SN no coinciden con las cantidades habilitadas");
         }
     }
 

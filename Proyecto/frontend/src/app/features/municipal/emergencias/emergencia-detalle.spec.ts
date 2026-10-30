@@ -80,6 +80,29 @@ describe('Decisión municipal del conjunto de ofertas', () => {
     expect(el.textContent).not.toContain('Rechazar todas las ofertas');
   });
 
+  it('mantiene pendiente una decisión aceptada por Bonita hasta recibir su confirmación', async () => {
+    const fixture = await crear();
+    const el: HTMLElement = fixture.nativeElement;
+    Array.from(el.querySelectorAll('button')).find((b) => b.textContent?.includes('Rechazar todas'))!.click();
+    await fixture.whenStable();
+    Array.from(el.querySelectorAll('app-confirm-modal button'))
+      .find((b) => b.textContent?.includes('Confirmar'))!.dispatchEvent(new MouseEvent('click'));
+    http.expectOne((r) => r.url.endsWith('/decision-municipal'))
+      .flush(null, { status: 202, statusText: 'Accepted' });
+    http.expectOne((r) => r.url.endsWith('/emergencias/7')).flush(EMERGENCIA);
+    http.expectOne((r) => r.url.endsWith('/recursos-aceptados'))
+      .flush({ ...RECURSOS, decision: false });
+    await fixture.whenStable();
+    expect(el.querySelector('a[href="/municipal/emergencias/7/actualizar"]')).toBeNull();
+    Array.from(el.querySelectorAll('button')).find((b) => b.textContent?.includes('Consultar estado'))!.click();
+    http.expectOne((r) => r.url.endsWith('/emergencias/7'))
+      .flush({ ...EMERGENCIA, requiereActualizacion: true });
+    http.expectOne((r) => r.url.endsWith('/recursos-aceptados'))
+      .flush({ ...RECURSOS, decision: false, confirmada: true, puedeDecidir: false });
+    await fixture.whenStable();
+    expect(el.querySelector('a[href="/municipal/emergencias/7/actualizar"]')).not.toBeNull();
+  });
+
   it('requiere actualizar la misma emergencia después de rechazar', async () => {
     const fixture = await crear(
       { ...RECURSOS, puedeDecidir: false, confirmada: true },
