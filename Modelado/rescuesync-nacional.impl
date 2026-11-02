@@ -1,7 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<implementation:connectorImplementation xmlns:implementation="http://www.bonitasoft.org/ns/connector/implementation/6.0">
-  <implementationId>rescuesync-nacional-impl</implementationId><implementationVersion>1.0.0</implementationVersion>
-  <definitionId>rescuesync-nacional</definitionId><definitionVersion>1.0.0</definitionVersion>
-  <implementationClassname>com.rescuesync.bonita.IntegracionNacionalConnector</implementationClassname>
-  <hasSources>true</hasSources><description>Reservas nacionales y callbacks locales ejecutados por Bonita.</description>
-</implementation:connectorImplementation>
