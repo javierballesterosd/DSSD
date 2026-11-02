@@ -57,10 +57,10 @@ export class EmergenciaDetalle implements OnInit {
         this.procesando.set(false);
         this.confirmacion.set(null);
         this.toast.exito(
-          aceptar ? 'Recursos aceptados' : 'Ofertas rechazadas',
+          'Decisión enviada a Bonita',
           aceptar
-            ? 'Se confirmó el compromiso de todos los recursos habilitados.'
-            : 'Se liberaron los recursos. Ahora debés actualizar la emergencia.',
+            ? 'Bonita confirmará el compromiso en el Sistema Nacional. Consultá el estado para ver el resultado.'
+            : 'Bonita liberará los recursos en el Sistema Nacional. Podrás actualizar la emergencia cuando termine.',
         );
         this.ngOnInit();
       },

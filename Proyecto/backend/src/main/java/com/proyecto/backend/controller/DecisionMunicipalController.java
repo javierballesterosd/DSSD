@@ -22,7 +22,7 @@ public class DecisionMunicipalController {
     }
 
     @PostMapping("/decision-municipal")
-    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @ResponseStatus(HttpStatus.ACCEPTED)
     public void decidir(@PathVariable Long id, @Valid @RequestBody DecisionMunicipalRequest request, HttpSession session) {
         auth.municipioDelUsuario(session);
         decisiones.decidir(id, request, auth.currentUser(session), auth.bonitaSession(session));

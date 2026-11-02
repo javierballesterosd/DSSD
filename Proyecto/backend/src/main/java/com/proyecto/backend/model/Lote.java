@@ -47,6 +47,11 @@ public class Lote {
 
     private String usuarioDecisionMunicipal;
 
+    private String usuarioDecisionMunicipalId;
+
+    /** Identidad estable de la tarea: un reintento no ejecuta otra tarea del caso. */
+    private String tareaDecisionBonitaId;
+
     @Column(name = "fecha_creacion", nullable = false)
     private LocalDateTime fechaCreacion;
 

@@ -288,6 +288,17 @@ public class BonitaClient {
         log.info("Tarea ejecutada correctamente en Bonita. taskId={}", taskId);
     }
 
+    /** Reintenta la misma tarea sin avanzar otra actividad cuando se perdió la respuesta anterior. */
+    public void ejecutarTareaIdempotente(BonitaSession session, String taskId, Map<String, Object> contrato) {
+        List<Map<String, Object>> archivadas = llamar("comprobar tarea ejecutada", () -> restClient.get()
+                .uri(b -> b.path("/API/bpm/archivedHumanTask").queryParam("p", "0").queryParam("c", "1")
+                        .queryParam("f", "sourceObjectId=" + taskId).build())
+                .headers(h -> aplicarSesion(h, session)).retrieve()
+                .body(new ParameterizedTypeReference<List<Map<String, Object>>>() {}));
+        if (archivadas != null && !archivadas.isEmpty()) return;
+        ejecutarTarea(session, taskId, contrato);
+    }
+
     /** Elimina un caso de Bonita. Se usa para compensar cuando falla algo después de iniciarlo. */
     public void cancelarCaso(BonitaSession session, String caseId) {
         log.warn("Eliminando caso en Bonita (compensación). caseId={}", caseId);

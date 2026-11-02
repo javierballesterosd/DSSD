@@ -29,7 +29,6 @@ class DecisionMunicipalServiceTest {
     @Mock LoteRepository lotes;
     @Mock OfertaRepository ofertas;
     @Mock InventarioOngRepository inventarios;
-    @Mock SistemaNacionalClient nacional;
     @Mock BonitaClient bonita;
     @Mock ApplicationEventPublisher eventos;
     @Mock PlatformTransactionManager transactions;
@@ -42,7 +41,7 @@ class DecisionMunicipalServiceTest {
 
     @BeforeEach
     void preparar() {
-        service = new DecisionMunicipalService(emergencias, lotes, ofertas, inventarios, nacional,
+        service = new DecisionMunicipalService(emergencias, lotes, ofertas, inventarios,
                 bonita, new EmergenciaMapper(), eventos, transactions);
         var municipio = new Municipio();
         municipio.setId(1L);
@@ -84,6 +83,7 @@ class DecisionMunicipalServiceTest {
         usuario = new LoginResponse();
         usuario.setMunicipioId(1L);
         usuario.setUsername("operador.laplata");
+        usuario.setUserId("42");
     }
 
     void prepararDecision() {
@@ -91,8 +91,12 @@ class DecisionMunicipalServiceTest {
         when(emergencias.bloquearPorId(7L)).thenReturn(Optional.of(emergencia));
         when(lotes.bloquearPorId(10L)).thenReturn(Optional.of(lote));
         lenient().when(ofertas.findByLoteIdOrderByIdAsc(10L)).thenReturn(List.of(oferta));
-        lenient().when(nacional.autenticar()).thenReturn("jwt");
         lenient().when(bonita.buscarTareaPendiente(session, "caso-7", "Ver ofertas validadas")).thenReturn("tarea");
+    }
+
+    IntegracionNacional.Respuesta resultado(boolean aceptar, int cantidad) {
+        return new IntegracionNacional.Respuesta(10L, "caso-7", List.of(new IntegracionNacional.Resultado(20L, true,
+                List.of(new IntegracionNacional.ItemSN(2L, 3L, cantidad, aceptar ? "COMPROMETIDA" : "LIBERADA")))));
     }
 
     @Test void sumaSoloCantidadesAceptadasSinDesgloseDeOngs() {
@@ -113,13 +117,15 @@ class DecisionMunicipalServiceTest {
 
     @Test void aceptarComprometeSinDescontarElStockOtraVez() {
         prepararDecision();
-        when(nacional.consultar(anyString(), any())).thenReturn(new SistemaNacionalClient.Reservas(
-                List.of(new SistemaNacionalClient.ItemReserva(2L, 3L, 40, "BLOQUEADA"))));
+
         service.decidir(7L, new DecisionMunicipalRequest(10L, true), usuario, session);
+        assertThat(oferta.getEstado()).isEqualTo(EstadoOferta.ACEPTADA_PARCIAL);
+        assertThat(lote.getFechaDecisionMunicipal()).isNull();
+        service.confirmar(7L, resultado(true, 40));
         assertThat(oferta.getEstado()).isEqualTo(EstadoOferta.ADJUDICADA);
-        verify(nacional).decidir("jwt", new SistemaNacionalClient.Reserva(7L, 10L, 20L), true);
+
         verifyNoInteractions(inventarios);
-        verify(bonita).ejecutarTarea(session, "tarea", Map.of("aceptaOfertas", true));
+        verify(bonita).ejecutarTareaIdempotente(session, "tarea", Map.of("aceptaOfertas", true));
         assertThat(lote.getFechaDecisionMunicipal()).isNotNull();
     }
 
@@ -133,6 +139,8 @@ class DecisionMunicipalServiceTest {
         var inventario = new InventarioOng(); inventario.setCantidadDisponible(160);
         when(inventarios.findByOngIdAndRecursoIdForUpdate(2L, 3L)).thenReturn(Optional.of(inventario));
         service.decidir(7L, new DecisionMunicipalRequest(10L, false), usuario, session);
+        assertThat(inventario.getCantidadDisponible()).isEqualTo(160);
+        service.confirmar(7L, resultado(false, 40));
         assertThat(inventario.getCantidadDisponible()).isEqualTo(200);
         assertThat(oferta.getEstado()).isEqualTo(EstadoOferta.NO_ADJUDICADA);
         assertThat(lote.getEstado()).isEqualTo(EstadoLote.CANCELADO);
@@ -142,19 +150,22 @@ class DecisionMunicipalServiceTest {
         // Un segundo envío no devuelve stock ni notifica de nuevo.
         service.decidir(7L, new DecisionMunicipalRequest(10L, false), usuario, session);
         verify(inventarios, times(1)).save(any());
-        verify(nacional, times(1)).decidir(anyString(), any(), eq(false));
+        service.confirmar(7L, resultado(false, 40));
+        verify(inventarios, times(1)).save(any());
+        verify(eventos, times(1)).publishEvent(any(Object.class));
     }
 
-    @Test void fallaNacionalConservaIntencionYNoModificaStockLocal() {
+    @Test void fallaBonitaConservaIntencionYNoModificaStockLocal() {
         prepararDecision();
-        doThrow(new SistemaNacionalException("Sin conexión", new RuntimeException()))
-                .when(nacional).decidir(anyString(), any(), eq(false));
+        doThrow(new BonitaIntegrationException("Sin conexión"))
+                .when(bonita).ejecutarTareaIdempotente(any(), any(), any());
         assertThatThrownBy(() -> service.decidir(7L, new DecisionMunicipalRequest(10L, false), usuario, session))
-                .isInstanceOf(SistemaNacionalException.class);
+                .isInstanceOf(BonitaIntegrationException.class);
         assertThat(lote.getDecisionMunicipal()).isFalse();
         assertThat(lote.getFechaDecisionMunicipal()).isNull();
+        assertThat(lote.getTareaDecisionBonitaId()).isEqualTo("tarea");
         assertThat(oferta.getEstado()).isEqualTo(EstadoOferta.ACEPTADA_PARCIAL);
-        verifyNoInteractions(inventarios, bonita, eventos);
+        verifyNoInteractions(inventarios, eventos);
         assertThatThrownBy(() -> service.decidir(7L, new DecisionMunicipalRequest(10L, true), usuario, session))
                 .isInstanceOf(ReglaNegocioException.class);
     }
@@ -164,17 +175,38 @@ class DecisionMunicipalServiceTest {
         oferta.setEstado(EstadoOferta.PENDIENTE);
         assertThatThrownBy(() -> service.decidir(7L, new DecisionMunicipalRequest(10L, true), usuario, session))
                 .isInstanceOf(ReglaNegocioException.class).hasMessageContaining("validar");
-        verifyNoInteractions(nacional);
+        verifyNoInteractions(inventarios);
     }
 
-    @Test void noComprometeSiLasReservasNacionalesNoCoincidenConLasCantidadesLocales() {
+    @Test void noConfirmaSiLasReservasNacionalesNoCoincidenConLasCantidadesLocales() {
         prepararDecision();
-        when(nacional.consultar(anyString(), any())).thenReturn(new SistemaNacionalClient.Reservas(
-                List.of(new SistemaNacionalClient.ItemReserva(2L, 3L, 100, "BLOQUEADA"))));
-        assertThatThrownBy(() -> service.decidir(7L, new DecisionMunicipalRequest(10L, true), usuario, session))
+        service.decidir(7L, new DecisionMunicipalRequest(10L, true), usuario, session);
+        assertThatThrownBy(() -> service.confirmar(7L, resultado(true, 100)))
                 .isInstanceOf(ReglaNegocioException.class).hasMessageContaining("no coinciden");
-        verify(nacional, never()).decidir(anyString(), any(), anyBoolean());
-        verifyNoInteractions(inventarios, bonita);
+        verifyNoInteractions(inventarios, eventos);
+        assertThat(lote.getFechaDecisionMunicipal()).isNull();
+    }
+
+    @Test void rechazaCallbackDeOtroCasoYNoAdjudicaSinResultado() {
+        prepararDecision();
+        service.decidir(7L, new DecisionMunicipalRequest(10L, true), usuario, session);
+        assertThatThrownBy(() -> service.confirmar(7L,
+                new IntegracionNacional.Respuesta(10L, "otro", List.of())))
+                .isInstanceOf(ReglaNegocioException.class);
+        assertThatThrownBy(() -> service.confirmar(7L,
+                new IntegracionNacional.Respuesta(10L, "caso-7", List.of())))
+                .isInstanceOf(ReglaNegocioException.class).hasMessageContaining("Falta confirmar");
+        verifyNoInteractions(inventarios, eventos);
+    }
+
+    @Test void noLiberaLocalmenteSiElResultadoTodaviaTieneRecursosBloqueados() {
+        prepararDecision();
+        service.decidir(7L, new DecisionMunicipalRequest(10L, false), usuario, session);
+        assertThatThrownBy(() -> service.confirmar(7L, new IntegracionNacional.Respuesta(10L, "caso-7",
+                List.of(new IntegracionNacional.Resultado(20L, true,
+                        List.of(new IntegracionNacional.ItemSN(2L, 3L, 40, "BLOQUEADA")))))))
+                .isInstanceOf(ReglaNegocioException.class);
+        verifyNoInteractions(inventarios, eventos);
     }
 
     @Test void noPermiteDecidirAntesDelCierre() {
@@ -182,15 +214,16 @@ class DecisionMunicipalServiceTest {
         lote.setFechaCierreOfertas(LocalDateTime.now().plusDays(1));
         assertThatThrownBy(() -> service.decidir(7L, new DecisionMunicipalRequest(10L, true), usuario, session))
                 .isInstanceOf(ReglaNegocioException.class).hasMessageContaining("cerrar");
-        verifyNoInteractions(nacional);
+        verifyNoInteractions(inventarios);
     }
 
     @Test void permiteRechazarAunqueElSnNoHayaHabilitadoRecursos() {
         prepararDecision();
         oferta.setEstado(EstadoOferta.RECHAZADA);
         service.decidir(7L, new DecisionMunicipalRequest(10L, false), usuario, session);
+        service.confirmar(7L, new IntegracionNacional.Respuesta(10L, "caso-7", List.of()));
         assertThat(emergencia.isRequiereActualizacion()).isTrue();
-        verifyNoInteractions(nacional, inventarios);
+        verifyNoInteractions(inventarios);
     }
 
     @Test void noPermiteAceptarSiElSnRechazoTodosLosRecursos() {
@@ -198,13 +231,13 @@ class DecisionMunicipalServiceTest {
         oferta.setEstado(EstadoOferta.RECHAZADA);
         assertThatThrownBy(() -> service.decidir(7L, new DecisionMunicipalRequest(10L, true), usuario, session))
                 .isInstanceOf(ReglaNegocioException.class).hasMessageContaining("no habilitó recursos");
-        verifyNoInteractions(nacional, inventarios);
+        verifyNoInteractions(inventarios);
     }
 
     @Test void impideAccesoDeOtroMunicipio() {
         when(emergencias.findById(7L)).thenReturn(Optional.of(emergencia));
         assertThatThrownBy(() -> service.consultar(7L, 99L)).isInstanceOf(AccesoDenegadoException.class);
-        verifyNoInteractions(lotes, nacional);
+        verifyNoInteractions(lotes);
     }
 
     @Test void actualizaLaMismaEmergenciaSinCrearCasoNiCambiarSuFechaOriginal() {
