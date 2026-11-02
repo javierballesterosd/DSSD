@@ -11,6 +11,7 @@ import com.proyecto.backend.dto.OngResponse;
 import com.proyecto.backend.dto.OfertasConsolidadasResponse;
 import com.proyecto.backend.exception.AccesoDenegadoException;
 import com.proyecto.backend.exception.RecursoNoEncontradoException;
+import com.proyecto.backend.exception.ReglaNegocioException;
 import com.proyecto.backend.mapper.EmergenciaMapper;
 import com.proyecto.backend.model.DetalleOferta;
 import com.proyecto.backend.model.Emergencia;
@@ -84,6 +85,18 @@ public class EmergenciaService {
             String processId = bonitaClient.buscarProcesoId(session);
             caseId = bonitaClient.iniciarCaso(session, processId);
 
+            if (emergenciaRepository.existsByBonitaCaseId(caseId)) {
+                throw new ReglaNegocioException("Bonita generó el caso " + caseId
+                        + ", pero ya está vinculado a otra emergencia local. "
+                        + "Revisá la sincronización de las bases antes de continuar; "
+                        + "el motor puede haberse reiniciado conservando los datos locales.");
+            }
+
+            // Comprobar las restricciones antes de avanzar el caso. Un fallo debe quedar
+            // dentro del catch para compensar el caso nuevo, no recién al hacer commit.
+            guardada.setBonitaCaseId(caseId);
+            guardada = emergenciaRepository.saveAndFlush(guardada);
+
             Map<String, Object> contrato = new LinkedHashMap<>();
             contrato.put("emergenciaId", guardada.getId());
             contrato.put("municipioId", municipio.getId());
@@ -96,8 +109,6 @@ public class EmergenciaService {
                     session, caseId, TAREA_REGISTRAR_EMERGENCIA);
             bonitaClient.ejecutarTarea(session, tareaId, contrato);
 
-            guardada.setBonitaCaseId(caseId);
-            guardada = emergenciaRepository.save(guardada);
         } catch (RuntimeException e) {
             log.error("Falló el registro en Bonita; se revierte la emergencia. emergenciaId={}, caseId={}",
                     guardada.getId(), caseId, e);

@@ -7,6 +7,7 @@ import com.proyecto.backend.dto.EmergenciaRequest;
 import com.proyecto.backend.dto.DescriptorAudiencia;
 import com.proyecto.backend.exception.AccesoDenegadoException;
 import com.proyecto.backend.exception.BonitaIntegrationException;
+import com.proyecto.backend.exception.ReglaNegocioException;
 import com.proyecto.backend.mapper.EmergenciaMapper;
 import com.proyecto.backend.model.Emergencia;
 import com.proyecto.backend.model.Municipio;
@@ -102,6 +103,8 @@ class EmergenciaServiceTest {
             }
             return emergencia;
         });
+        lenient().when(emergenciaRepository.saveAndFlush(any(Emergencia.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
     }
 
     private void bonitaResponde() {
@@ -136,6 +139,34 @@ class EmergenciaServiceTest {
         assertThat(evento.regionGroupPath()).isEqualTo("/Municipio/Region1");
         assertThat(evento.municipioNombre()).isEqualTo("La Plata");
         assertThat(evento.remitente()).isSameAs(remitente);
+    }
+
+    @Test
+    void noAvanzaUnCasoCuyoIdYaEstaVinculadoAUnaEmergenciaAnterior() {
+        when(bonitaClient.iniciarCaso(bonitaSession, "proceso-1")).thenReturn("4");
+        when(emergenciaRepository.existsByBonitaCaseId("4")).thenReturn(true);
+
+        assertThatThrownBy(() -> emergenciaService.registrarEmergencia(request(), 5L, remitente, bonitaSession))
+                .isInstanceOf(ReglaNegocioException.class).hasMessageContaining("ya está vinculado");
+
+        verify(bonitaClient).cancelarCaso(bonitaSession, "4");
+        verify(bonitaClient, never()).buscarTareaPendiente(any(), any(), any());
+        verify(emergenciaRepository, never()).saveAndFlush(any());
+        verify(eventPublisher, never()).publishEvent(any(Object.class));
+    }
+
+    @Test
+    void unFalloAlPersistirElVinculoCancelaElCasoAntesDeEjecutarLaTarea() {
+        when(bonitaClient.iniciarCaso(bonitaSession, "proceso-1")).thenReturn("caso-1");
+        var error = new org.springframework.dao.DataIntegrityViolationException("vínculo duplicado");
+        when(emergenciaRepository.saveAndFlush(any(Emergencia.class))).thenThrow(error);
+
+        assertThatThrownBy(() -> emergenciaService.registrarEmergencia(request(), 5L, remitente, bonitaSession))
+                .isSameAs(error);
+
+        verify(bonitaClient).cancelarCaso(bonitaSession, "caso-1");
+        verify(bonitaClient, never()).ejecutarTarea(any(), any(), any());
+        verify(eventPublisher, never()).publishEvent(any(Object.class));
     }
 
     @Test
