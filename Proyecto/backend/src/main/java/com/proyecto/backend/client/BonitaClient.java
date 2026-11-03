@@ -312,6 +312,26 @@ public class BonitaClient {
         log.info("Caso eliminado en Bonita. caseId={}", caseId);
     }
 
+    /** Lee todas las páginas; nunca devuelve un informe truncado silenciosamente. */
+    public List<Map<String, Object>> datosDashboard(BonitaSession session, String recurso) {
+        if (!List.of("archivedFlowNode", "archivedCase", "activity", "case").contains(recurso)) {
+            throw new IllegalArgumentException("Recurso de dashboard no permitido");
+        }
+        var resultado = new java.util.ArrayList<Map<String, Object>>();
+        for (int pagina = 0; pagina < 10000; pagina++) {
+            int actual = pagina;
+            List<Map<String, Object>> lote = llamar("dashboard " + recurso, () -> restClient.get()
+                    .uri(b -> b.path("/API/bpm/" + recurso).queryParam("p", actual)
+                            .queryParam("c", 100).build())
+                    .headers(h -> aplicarSesion(h, session)).retrieve()
+                    .body(new ParameterizedTypeReference<List<Map<String, Object>>>() {}));
+            if (lote == null) throw new BonitaIntegrationException("Respuesta vacia de Bonita al consultar " + recurso);
+            resultado.addAll(lote);
+            if (lote.size() < 100) return resultado;
+        }
+        throw new BonitaIntegrationException("Se excedio el limite de paginas del informe de Bonita");
+    }
+
     // Bonita exige la cookie de sesión y el token anti-CSRF en cada llamada
     private void aplicarSesion(HttpHeaders headers, BonitaSession session) {
         headers.set("Cookie", cookieHeader(session));
