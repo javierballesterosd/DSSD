@@ -1,0 +1,88 @@
+.tiempos-card {
+  height: 100%;
+  padding: 1.25rem;
+  background-color: var(--bs-body-bg);
+  border: 1px solid var(--bs-border-color);
+  border-radius: 0.75rem;
+}
+
+.tiempos-header {
+  margin-bottom: 1.5rem;
+}
+
+.tiempos-titulo {
+  margin-bottom: 0.35rem;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.tiempos-subtitulo {
+  color: var(--bs-secondary-color);
+  font-size: 0.85rem;
+}
+
+.tiempos-lista {
+  display: flex;
+  flex-direction: column;
+  gap: 1.35rem;
+}
+
+.tiempo-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.5rem 1rem;
+  align-items: center;
+}
+
+.tiempo-info {
+  min-width: 0;
+}
+
+.tiempo-etapa {
+  overflow-wrap: anywhere;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.tiempo-detalle {
+  margin-top: 0.2rem;
+  color: var(--bs-secondary-color);
+  font-size: 0.8rem;
+}
+
+.tiempo-valor {
+  font-size: 0.9rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.tiempo-barra-fondo {
+  grid-column: 1 / -1;
+  height: 0.55rem;
+  overflow: hidden;
+  background-color: var(--bs-tertiary-bg);
+  border-radius: 999px;
+}
+
+.tiempo-barra {
+  height: 100%;
+  background-color: var(--bs-primary);
+  border-radius: inherit;
+  transition: width 0.35s ease;
+}
+
+.tiempos-vacio {
+  min-height: 160px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 0.75rem;
+  color: var(--bs-secondary-color);
+  text-align: center;
+  font-size: 0.875rem;
+
+  i {
+    font-size: 2rem;
+  }
+}

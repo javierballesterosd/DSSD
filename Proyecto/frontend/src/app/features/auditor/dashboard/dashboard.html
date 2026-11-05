@@ -1,0 +1,322 @@
+<div class="dashboard">
+
+  <!-- ====================================================== -->
+  <!-- ENCABEZADO -->
+  <!-- ====================================================== -->
+
+  <header class="dashboard-header">
+    <div>
+      <span class="dashboard-eyebrow">RESCUESYNC · AUDITORÍA</span>
+
+      <h1>Dashboard de gestión</h1>
+
+      <p>
+        Indicadores generales, recursos y seguimiento de emergencias.
+      </p>
+    </div>
+
+    <button
+      type="button"
+      class="btn btn-outline-primary"
+      [disabled]="cargando()"
+      (click)="cargarDatos()"
+    >
+      <i class="bi bi-arrow-clockwise me-2"></i>
+      Actualizar
+    </button>
+  </header>
+
+  <!-- ====================================================== -->
+  <!-- FILTROS -->
+  <!-- ====================================================== -->
+
+  <section class="dashboard-filtros">
+    <div class="seccion-encabezado">
+      <h2>Período de consulta</h2>
+      <span>Seleccioná el intervalo que querés analizar.</span>
+    </div>
+
+    <app-filtros-fecha
+      (aplicar)="aplicarFiltros($event)"
+      (limpiar)="limpiarFiltros()"
+    />
+  </section>
+
+  <!-- ====================================================== -->
+  <!-- ERRORES -->
+  <!-- ====================================================== -->
+
+  @if (hayErrores()) {
+  <div class="alert alert-warning d-flex align-items-start gap-2" role="alert">
+    <i class="bi bi-exclamation-triangle-fill mt-1"></i>
+
+    <div>
+      <strong>Algunos indicadores no pudieron cargarse.</strong>
+      <p class="mb-0">
+        El resto del dashboard continúa disponible. Podés intentar actualizarlo.
+      </p>
+    </div>
+  </div>
+  }
+
+  <!-- ====================================================== -->
+  <!-- INDICADORES -->
+  <!-- ====================================================== -->
+
+  <section class="dashboard-seccion">
+    <div class="seccion-encabezado">
+      <h2>Resumen</h2>
+      <span>Registros devueltos por las consultas del dashboard.</span>
+    </div>
+
+    <div class="row g-3">
+      <div class="col-12 col-sm-6 col-xl-3">
+        <app-tarjeta-indicador
+          titulo="ONGs en ranking"
+          [valor]="cantidadONGsRanking()"
+          descripcion="Organizaciones devueltas por el ranking"
+          icono="bi bi-building"
+          color="success"
+        />
+      </div>
+
+      <div class="col-12 col-sm-6 col-xl-3">
+        <app-tarjeta-indicador
+          titulo="Municipios en ranking"
+          [valor]="cantidadMunicipiosRanking()"
+          descripcion="Municipios devueltos por el ranking"
+          icono="bi bi-geo-alt"
+          color="primary"
+        />
+      </div>
+
+      <div class="col-12 col-sm-6 col-xl-3">
+        <app-tarjeta-indicador
+          titulo="Emergencias en seguimiento"
+          [valor]="cantidadEmergenciasSeguimiento()"
+          descripcion="Casos identificados en monitoreo"
+          icono="bi bi-clipboard-check"
+          color="warning"
+        />
+      </div>
+
+      <div class="col-12 col-sm-6 col-xl-3">
+        <app-tarjeta-indicador
+          titulo="Etapas analizadas"
+          [valor]="cantidadEtapasAnalizadas()"
+          descripcion="Etapas con resultados devueltos"
+          icono="bi bi-clock-history"
+          color="info"
+        />
+      </div>
+    </div>
+  </section>
+
+  <!-- ====================================================== -->
+  <!-- ORGANIZACIONES -->
+  <!-- ====================================================== -->
+
+  <section class="dashboard-seccion">
+    <div class="seccion-encabezado">
+      <h2>Organizaciones</h2>
+      <span>Participación de las ONGs en la gestión de emergencias.</span>
+    </div>
+
+    <div class="row g-4">
+      <div class="col-12 col-xl-6">
+        @if (errorDe('ongsPorOfertas'); as error) {
+        <div class="alert alert-danger">{{ error }}</div>
+        } @else {
+        <app-grafico-barras
+          titulo="ONGs por ofertas"
+          subtitulo="Organizaciones con mayor cantidad de ofertas"
+          [datos]="ongsPorOfertas()"
+          color="#198754"
+        />
+        }
+      </div>
+
+      <div class="col-12 col-xl-6">
+        @if (errorDe('ongsPorRecursos'); as error) {
+        <div class="alert alert-danger">{{ error }}</div>
+        } @else {
+        <app-grafico-barras
+          titulo="ONGs por recursos asignados"
+          subtitulo="Organizaciones según los recursos asignados"
+          [datos]="ongsPorRecursos()"
+          color="#20a67a"
+        />
+        }
+      </div>
+    </div>
+  </section>
+
+  <!-- ====================================================== -->
+  <!-- EMERGENCIAS -->
+  <!-- ====================================================== -->
+
+  <section class="dashboard-seccion">
+    <div class="seccion-encabezado">
+      <h2>Emergencias</h2>
+      <span>Distribución territorial de las emergencias registradas.</span>
+    </div>
+
+    <div class="row g-4">
+      <div class="col-12 col-xl-8">
+        @if (errorDe('municipiosPorEmergencias'); as error) {
+        <div class="alert alert-danger">{{ error }}</div>
+        } @else {
+        <app-grafico-barras
+          titulo="Municipios por emergencias"
+          subtitulo="Municipios con mayor cantidad de emergencias"
+          [datos]="municipiosPorEmergencias()"
+          color="#0d6efd"
+        />
+        }
+      </div>
+    </div>
+  </section>
+
+  <!-- ====================================================== -->
+  <!-- RECURSOS -->
+  <!-- ====================================================== -->
+
+  <section class="dashboard-seccion">
+    <div class="seccion-encabezado">
+      <h2>Recursos</h2>
+      <span>Necesidades y distribución de los recursos registrados.</span>
+    </div>
+
+    <div class="row g-4">
+      <div class="col-12 col-xl-6">
+        @if (errorDe('recursosPorNecesidad'); as error) {
+        <div class="alert alert-danger">{{ error }}</div>
+        } @else {
+        <app-grafico-barras
+          titulo="Recursos por necesidad"
+          subtitulo="Ranking según necesidad de recursos"
+          [datos]="recursosPorNecesidad()"
+          color="#fd7e14"
+        />
+        }
+      </div>
+
+      <div class="col-12 col-xl-6">
+        @if (errorDe('recursosPorCantidad'); as error) {
+        <div class="alert alert-danger">{{ error }}</div>
+        } @else {
+        <app-grafico-donut
+          titulo="Recursos por cantidad"
+          subtitulo="Distribución de las cantidades registradas"
+          [datos]="recursosPorCantidad()"
+        />
+        }
+      </div>
+    </div>
+  </section>
+
+  <!-- ====================================================== -->
+  <!-- TIEMPOS DE GESTIÓN -->
+  <!-- ====================================================== -->
+
+  <section class="dashboard-seccion">
+    <div class="seccion-encabezado">
+      <h2>Tiempos de gestión</h2>
+      <span>Duración promedio de las distintas etapas del proceso.</span>
+    </div>
+
+    <div class="row g-4">
+      <div class="col-12 col-xl-6">
+        @if (errorDe('tiemposEtapas'); as error) {
+        <div class="alert alert-danger">{{ error }}</div>
+        } @else {
+        <app-tiempos-gestion
+          [tiempos]="tiemposEtapas()"
+          [cargando]="cargando()"
+        />
+        }
+      </div>
+
+      <div class="col-12 col-xl-6">
+        <div class="row g-3 h-100">
+
+          <div class="col-12 col-md-6">
+            <app-tarjeta-indicador
+              titulo="Validación nacional"
+              [valor]="formatearDuracion(tiempoValidacion()?.promedioSegundos)"
+              [descripcion]="(tiempoValidacion()?.cantidad ?? 0) + ' casos considerados'"
+              icono="bi bi-shield-check"
+              color="success"
+            />
+          </div>
+
+          <div class="col-12 col-md-6">
+            <app-tarjeta-indicador
+              titulo="Decisión municipal"
+              [valor]="formatearDuracion(tiempoDecision()?.promedioSegundos)"
+              [descripcion]="(tiempoDecision()?.cantidad ?? 0) + ' casos considerados'"
+              icono="bi bi-building-check"
+              color="primary"
+            />
+          </div>
+
+          <div class="col-12 col-md-6">
+            <app-tarjeta-indicador
+              titulo="Registro de compromiso"
+              [valor]="formatearDuracion(tiempoCompromiso()?.promedioSegundos)"
+              [descripcion]="(tiempoCompromiso()?.cantidad ?? 0) + ' casos considerados'"
+              icono="bi bi-file-earmark-check"
+              color="warning"
+            />
+          </div>
+
+          <div class="col-12 col-md-6">
+            <app-tarjeta-indicador
+              titulo="Finalización de emergencias"
+              [valor]="formatearDuracion(tiempoFinalizacion()?.promedioSegundos)"
+              [descripcion]="(tiempoFinalizacion()?.cantidad ?? 0) + ' casos considerados'"
+              icono="bi bi-check-circle"
+              color="info"
+            />
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ====================================================== -->
+  <!-- SEGUIMIENTO -->
+  <!-- ====================================================== -->
+
+  <section class="dashboard-seccion">
+    <div class="seccion-encabezado">
+      <h2>Seguimiento de emergencias</h2>
+      <span>Casos identificados actualmente en la etapa de monitoreo.</span>
+    </div>
+
+    @if (errorDe('emergenciasSeguimiento'); as error) {
+    <div class="alert alert-danger">{{ error }}</div>
+    } @else {
+    <app-tabla-seguimiento
+      [emergencias]="emergenciasSeguimiento()"
+      [cargando]="cargando()"
+    />
+    }
+  </section>
+
+  <!-- ====================================================== -->
+  <!-- CARGA GENERAL -->
+  <!-- ====================================================== -->
+
+  @if (cargando()) {
+  <div class="dashboard-cargando">
+    <div class="spinner-border text-primary" role="status">
+      <span class="visually-hidden">Actualizando dashboard...</span>
+    </div>
+
+    <span>Actualizando indicadores...</span>
+  </div>
+  }
+
+</div>
