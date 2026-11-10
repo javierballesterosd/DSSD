@@ -1,6 +1,6 @@
 import { Component, computed, input } from '@angular/core';
 
-import { DashboardTiempo } from '@core/models/dashboard';
+import { DashboardRankingEtapa } from '@core/models/dashboard';
 
 @Component({
   selector: 'app-tiempos-gestion',
@@ -8,8 +8,8 @@ import { DashboardTiempo } from '@core/models/dashboard';
   styleUrl: './tiempos-gestion.scss',
 })
 export class TiemposGestion {
-  readonly titulo = input<string>('Tiempos de gestión');
-  readonly tiempos = input<DashboardTiempo[]>([]);
+  readonly titulo = input<string>('Ranking de duración de etapas');
+  readonly tiempos = input<DashboardRankingEtapa[]>([]);
   readonly cargando = input<boolean>(false);
 
   protected readonly maximo = computed(() => {

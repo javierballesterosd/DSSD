@@ -7,7 +7,10 @@ import {
   DashboardRankingResponse,
   DashboardSeguimiento,
   DashboardTiempo,
+  DashboardRankingEtapa,
 } from '@core/models/dashboard';
+
+import { NIVELES_GRAVEDAD, NIVEL_GRAVEDAD_LABEL, NivelGravedad } from '@core/models/emergencia';
 
 import { DashboardService } from '@core/services/dashboard';
 
@@ -53,6 +56,14 @@ export class Dashboard {
 
   protected readonly errores = signal<Record<string, string>>({});
 
+  protected readonly municipios = signal<DashboardRankingResponse[]>([]);
+  protected readonly ongs = signal<DashboardRankingResponse[]>([]);
+  protected readonly recursos = signal<DashboardRankingResponse[]>([]);
+  protected readonly errorCatalogos = signal(false);
+  protected readonly nivelesGravedad = NIVELES_GRAVEDAD;
+  protected readonly gravedadLabel = NIVEL_GRAVEDAD_LABEL;
+  protected readonly filtrosProceso = signal<Pick<DashboardFiltros, 'municipioId' | 'gravedad' | 'recursoId' | 'ongId'>>({});
+
   private solicitudActual = 0;
 
   // ============================================================
@@ -81,7 +92,7 @@ export class Dashboard {
   // TIEMPOS DE GESTIÓN
   // ============================================================
 
-  protected readonly tiemposEtapas = signal<DashboardTiempo[]>([]);
+  protected readonly tiemposEtapas = signal<DashboardRankingEtapa[]>([]);
 
   protected readonly tiempoValidacion = signal<DashboardTiempo | null>(null);
 
@@ -122,6 +133,19 @@ export class Dashboard {
   // ============================================================
 
   constructor() {
+    // Sin límites ni fechas para incluir todos los elementos en los selectores.
+    this.dashboardService.municipiosPorEmergencias().subscribe({
+      next: (municipios) => this.municipios.set(municipios),
+      error: () => this.errorCatalogos.set(true),
+    });
+    this.dashboardService.ongsPorOfertas().subscribe({
+      next: (ongs) => this.ongs.set(ongs),
+      error: () => this.errorCatalogos.set(true),
+    });
+    this.dashboardService.recursosPorCantidad().subscribe({
+      next: (recursos) => this.recursos.set(recursos),
+      error: () => this.errorCatalogos.set(true),
+    });
     this.cargarDatos();
   }
 
@@ -139,7 +163,37 @@ export class Dashboard {
     this.cargarDatos();
   }
 
+  protected cambiarMunicipio(event: Event): void {
+    const valor = (event.target as HTMLSelectElement).value;
+    this.filtrosProceso.update((actuales) => ({ ...actuales, municipioId: valor ? Number(valor) : undefined }));
+    this.cargarDatos();
+  }
+
+  protected cambiarGravedad(event: Event): void {
+    const valor = (event.target as HTMLSelectElement).value;
+    this.filtrosProceso.update((actuales) => ({ ...actuales, gravedad: valor ? valor as NivelGravedad : undefined }));
+    this.cargarDatos();
+  }
+
+  protected cambiarRecurso(event: Event): void {
+    const valor = (event.target as HTMLSelectElement).value;
+    this.filtrosProceso.update((actuales) => ({ ...actuales, recursoId: valor ? Number(valor) : undefined }));
+    this.cargarDatos();
+  }
+
+  protected cambiarOng(event: Event): void {
+    const valor = (event.target as HTMLSelectElement).value;
+    this.filtrosProceso.update((actuales) => ({ ...actuales, ongId: valor ? Number(valor) : undefined }));
+    this.cargarDatos();
+  }
+
+  protected limpiarFiltrosProceso(): void {
+    this.filtrosProceso.set({});
+    this.cargarDatos();
+  }
+
   protected limpiarFiltros(): void {
+    this.filtrosProceso.set({});
     this.filtros.set({
       limite: 8,
     });
@@ -155,6 +209,7 @@ export class Dashboard {
     const numeroSolicitud = ++this.solicitudActual;
 
     const filtrosActuales = this.filtros();
+    const filtrosBonita = { ...filtrosActuales, ...this.filtrosProceso() };
 
     this.cargando.set(true);
     this.errores.set({});
@@ -214,38 +269,38 @@ export class Dashboard {
 
       // Tiempos
       tiemposEtapas: registrarError(
-        this.dashboardService.etapas(filtrosActuales),
+        this.dashboardService.etapas(filtrosBonita),
         'tiemposEtapas',
-        [] as DashboardTiempo[],
+        [] as DashboardRankingEtapa[],
       ),
 
       tiempoValidacion: registrarError(
-        this.dashboardService.tiempoValidacionNacional(filtrosActuales),
+        this.dashboardService.tiempoValidacionNacional(filtrosBonita),
         'tiempoValidacion',
         this.tiempoVacio('Validación nacional'),
       ),
 
       tiempoDecision: registrarError(
-        this.dashboardService.tiempoDecisionMunicipal(filtrosActuales),
+        this.dashboardService.tiempoDecisionMunicipal(filtrosBonita),
         'tiempoDecision',
         this.tiempoVacio('Decisión municipal'),
       ),
 
       tiempoCompromiso: registrarError(
-        this.dashboardService.tiempoCompromiso(filtrosActuales),
+        this.dashboardService.tiempoCompromiso(filtrosBonita),
         'tiempoCompromiso',
         this.tiempoVacio('Registro de compromiso'),
       ),
 
       tiempoFinalizacion: registrarError(
-        this.dashboardService.tiempoEmergenciasFinalizadas(filtrosActuales),
+        this.dashboardService.tiempoEmergenciasFinalizadas(filtrosBonita),
         'tiempoFinalizacion',
         this.tiempoVacio('Finalización de emergencias'),
       ),
 
       // Seguimiento
       emergenciasSeguimiento: registrarError(
-        this.dashboardService.seguimiento(filtrosActuales),
+        this.dashboardService.seguimiento(filtrosBonita),
         'emergenciasSeguimiento',
         [] as DashboardSeguimiento[],
       ),

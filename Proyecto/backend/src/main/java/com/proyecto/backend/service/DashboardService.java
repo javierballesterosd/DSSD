@@ -7,6 +7,7 @@ import com.proyecto.backend.dto.DashboardRankingResponse;
 import com.proyecto.backend.exception.BonitaIntegrationException;
 import com.proyecto.backend.exception.ReglaNegocioException;
 import com.proyecto.backend.repository.DashboardRepository;
+import com.proyecto.backend.model.NivelGravedad;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -88,9 +89,10 @@ public class DashboardService {
     private record Ejecucion(String caso, String nombre, LocalDateTime inicio, LocalDateTime fin) {}
     /** Rango aplicado a la finalización de cada ejecución; incluye ambos días. */
 
-    public List<Tiempo> etapas(BonitaSession session, LocalDate desde, LocalDate hasta, Integer limite) {
-        validar(desde, hasta, limite);
-        var grupos = ejecuciones(session).stream().filter(e -> enRango(e.fin(), desde, hasta))
+    public List<Tiempo> etapas(BonitaSession session, LocalDate desde, LocalDate hasta, Integer limite,
+                               Long municipioId, NivelGravedad gravedad, Long recursoId, Long ongId) {
+        validar(desde, hasta, limite, municipioId, recursoId, ongId);
+        var grupos = ejecuciones(session, municipioId, gravedad, recursoId, ongId).stream().filter(e -> enRango(e.fin(), desde, hasta))
                 .collect(Collectors.groupingBy(Ejecucion::nombre));
         var resultado = grupos.entrySet().stream().map(e -> promedio(e.getKey(), e.getValue().stream()
                         .map(x -> segundos(x.inicio(), x.fin())).toList()))
@@ -98,17 +100,28 @@ public class DashboardService {
         return (limite == null ? resultado : resultado.limit(limite)).toList();
     }
 
-    public Tiempo tarea(BonitaSession session, String nombre, LocalDate desde, LocalDate hasta) {
-        validar(desde, hasta, null);
-        return promedio(nombre, ejecuciones(session).stream().filter(e -> e.nombre().equals(nombre))
+    public List<RankingEtapa> rankingEtapas(BonitaSession session, LocalDate desde, LocalDate hasta,
+                                            Integer limite, Long municipioId, NivelGravedad gravedad, Long recursoId, Long ongId) {
+        var etapas = etapas(session, desde, hasta, limite, municipioId, gravedad, recursoId, ongId);
+        return java.util.stream.IntStream.range(0, etapas.size()).mapToObj(indice -> {
+            var etapa = etapas.get(indice);
+            return new RankingEtapa(indice + 1, etapa.etapa(), etapa.cantidad(), etapa.promedioSegundos());
+        }).toList();
+    }
+
+    public Tiempo tarea(BonitaSession session, String nombre, LocalDate desde, LocalDate hasta,
+                          Long municipioId, NivelGravedad gravedad, Long recursoId, Long ongId) {
+        validar(desde, hasta, null, municipioId, recursoId, ongId);
+        return promedio(nombre, ejecuciones(session, municipioId, gravedad, recursoId, ongId).stream().filter(e -> e.nombre().equals(nombre))
                 .filter(e -> enRango(e.fin(), desde, hasta)).map(e -> segundos(e.inicio(), e.fin())).toList());
     }
     /** Una muestra por emergencia: inicio del caso hasta su primera validación completada. */
 
-    public Tiempo validacion(BonitaSession session, LocalDate desde, LocalDate hasta) {
-        validar(desde, hasta, null);
+    public Tiempo validacion(BonitaSession session, LocalDate desde, LocalDate hasta,
+                          Long municipioId, NivelGravedad gravedad, Long recursoId, Long ongId) {
+        validar(desde, hasta, null, municipioId, recursoId, ongId);
         Map<String, LocalDateTime> primeras = new HashMap<>();
-        for (var e : ejecuciones(session)) {
+        for (var e : ejecuciones(session, municipioId, gravedad, recursoId, ongId)) {
             if (e.nombre().equals(VALIDACION)) primeras.merge(e.caso(), e.fin(),
                     (a, b) -> a.isBefore(b) ? a : b);
         }
@@ -126,9 +139,10 @@ public class DashboardService {
      * Requiere implementar el cierre del proceso para generar muestras reales del flujo actual.
      */
 
-    public Tiempo finalizadas(BonitaSession session, LocalDate desde, LocalDate hasta) {
-        validar(desde, hasta, null);
-        var ids = locales();
+    public Tiempo finalizadas(BonitaSession session, LocalDate desde, LocalDate hasta,
+                          Long municipioId, NivelGravedad gravedad, Long recursoId, Long ongId) {
+        validar(desde, hasta, null, municipioId, recursoId, ongId);
+        var ids = locales(municipioId, gravedad, recursoId, ongId);
         var tiempos = new ArrayList<Double>();
         var vistos = new HashSet<String>();
         for (var c : bonita.datosDashboard(session, "archivedCase")) {
@@ -146,9 +160,10 @@ public class DashboardService {
      * El rango corresponde al inicio del caso, no a una fotografía histórica.
      */
 
-    public List<Seguimiento> seguimiento(BonitaSession session, LocalDate desde, LocalDate hasta) {
-        validar(desde, hasta, null);
-        var locales = locales();
+    public List<Seguimiento> seguimiento(BonitaSession session, LocalDate desde, LocalDate hasta,
+                          Long municipioId, NivelGravedad gravedad, Long recursoId, Long ongId) {
+        validar(desde, hasta, null, municipioId, recursoId, ongId);
+        var locales = locales(municipioId, gravedad, recursoId, ongId);
         var casos = bonita.datosDashboard(session, "case").stream().collect(Collectors.toMap(
                 c -> texto(c, "id"), c -> c, (a, b) -> b));
         return bonita.datosDashboard(session, "activity").stream()
@@ -163,8 +178,8 @@ public class DashboardService {
                 }).distinct().sorted(Comparator.comparing(Seguimiento::emergenciaId)).toList();
     }
 
-    private Map<String, EmergenciaLocal> locales() {
-        return dashboardRepository.emergenciasConCaso().stream().collect(Collectors.toMap(EmergenciaLocal::caseId, e -> e));
+    private Map<String, EmergenciaLocal> locales(Long municipioId, NivelGravedad gravedad, Long recursoId, Long ongId) {
+        return dashboardRepository.emergenciasConCaso(municipioId, gravedad, recursoId, ongId).stream().collect(Collectors.toMap(EmergenciaLocal::caseId, e -> e));
     }
 
     private Map<String, Map<String, Object>> casos(BonitaSession session) {
@@ -174,8 +189,8 @@ public class DashboardService {
         return casos;
     }
 
-    private List<Ejecucion> ejecuciones(BonitaSession session) {
-        var locales = locales();
+    private List<Ejecucion> ejecuciones(BonitaSession session, Long municipioId, NivelGravedad gravedad, Long recursoId, Long ongId) {
+        var locales = locales(municipioId, gravedad, recursoId, ongId);
         // sourceObjectId identifica la ejecución, incluso cuando se repite una tarea en un bucle.
         var grupos = bonita.datosDashboard(session, "archivedFlowNode").stream()
                 .filter(n -> locales.containsKey(texto(n, "caseId")))
@@ -238,8 +253,17 @@ public class DashboardService {
                 tiempos.stream().mapToDouble(Double::doubleValue).average().orElseThrow());
     }
 
-    private void validar(LocalDate desde, LocalDate hasta, Integer limite) {
+    private void validar(LocalDate desde, LocalDate hasta, Integer limite, Long municipioId, Long recursoId, Long ongId) {
         validarFechas(desde, hasta);
         validarLimite(limite);
+        validarIdentificador(municipioId, "municipioId");
+        validarIdentificador(recursoId, "recursoId");
+        validarIdentificador(ongId, "ongId");
+    }
+
+    private void validarIdentificador(Long id, String nombre) {
+        if (id != null && id < 1) {
+            throw new ReglaNegocioException("El " + nombre + " debe ser mayor que cero");
+        }
     }
 }

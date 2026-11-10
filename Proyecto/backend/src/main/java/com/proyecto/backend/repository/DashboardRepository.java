@@ -1,6 +1,7 @@
 package com.proyecto.backend.repository;
 
 import com.proyecto.backend.dto.DashboardRankingResponse;
+import com.proyecto.backend.model.NivelGravedad;
 import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
@@ -102,13 +103,55 @@ public class DashboardRepository {
         return filtro;
     }
 
-    public List<com.proyecto.backend.dto.DashboardBonitaResponse.EmergenciaLocal> emergenciasConCaso() {
-        return jdbc.query("""
+    public List<com.proyecto.backend.dto.DashboardBonitaResponse.EmergenciaLocal> emergenciasConCaso(
+            Long municipioId, NivelGravedad gravedad, Long recursoId, Long ongId) {
+        String sql = """
                 SELECT e.id, e.bonita_case_id, m.nombre, e.descripcion
                 FROM emergencia e JOIN municipio m ON m.id = e.municipio_id
                 WHERE e.bonita_case_id IS NOT NULL
-                """, (rs, row) -> new com.proyecto.backend.dto.DashboardBonitaResponse.EmergenciaLocal(
-                rs.getLong(1), rs.getString(2), rs.getString(3), rs.getString(4)));
+                """;
+        var parametros = new ArrayList<Object>();
+        if (municipioId != null) {
+            sql += " AND e.municipio_id = ?";
+            parametros.add(municipioId);
+        }
+        if (gravedad != null) {
+            sql += " AND e.nivel_gravedad = ?";
+            parametros.add(gravedad.name());
+        }
+        // EXISTS evita contar una emergencia varias veces por sus lotes, ofertas o consorcios.
+        if (ongId != null) {
+            sql += """
+                     AND EXISTS (
+                        SELECT 1 FROM lote l
+                        JOIN oferta o ON o.lote_id = l.id
+                        JOIN oferta_ong og ON og.oferta_id = o.id
+                        WHERE l.emergencia_id = e.id AND og.ong_id = ?
+                          AND o.estado <> 'ELIMINADA'
+                    """;
+            parametros.add(ongId);
+            if (recursoId != null) {
+                // Los dos filtros deben coincidir en un aporte de la misma ONG.
+                sql += """
+                         AND EXISTS (
+                            SELECT 1 FROM detalle_oferta d
+                            JOIN item_lote il ON il.id = d.item_lote_id
+                            WHERE d.oferta_id = o.id AND d.ong_id = og.ong_id
+                              AND d.cantidad_ofrecida > 0 AND il.recurso_id = ?)
+                        """;
+                parametros.add(recursoId);
+            }
+            sql += ")";
+        } else if (recursoId != null) {
+            sql += """
+                     AND EXISTS (
+                        SELECT 1 FROM lote l JOIN item_lote il ON il.lote_id = l.id
+                        WHERE l.emergencia_id = e.id AND il.recurso_id = ?)
+                    """;
+            parametros.add(recursoId);
+        }
+        return jdbc.query(sql, (rs, row) -> new com.proyecto.backend.dto.DashboardBonitaResponse.EmergenciaLocal(
+                rs.getLong(1), rs.getString(2), rs.getString(3), rs.getString(4)), parametros.toArray());
     }
 
     private List<DashboardRankingResponse> consultar(String sql, Object... parametros) {

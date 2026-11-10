@@ -9,6 +9,7 @@ import {
   DashboardRankingResponse,
   DashboardSeguimiento,
   DashboardTiempo,
+  DashboardRankingEtapa,
 } from '../models/dashboard';
 
 @Injectable({
@@ -37,6 +38,18 @@ export class DashboardService {
       params = params.set('limite', filtros.limite);
     }
 
+    if (filtros.municipioId !== undefined) {
+      params = params.set('municipioId', filtros.municipioId);
+    }
+    if (filtros.recursoId !== undefined) {
+      params = params.set('recursoId', filtros.recursoId);
+    }
+    if (filtros.ongId !== undefined) {
+      params = params.set('ongId', filtros.ongId);
+    }
+    if (filtros.gravedad) {
+      params = params.set('gravedad', filtros.gravedad);
+    }
     return params;
   }
 
@@ -123,13 +136,13 @@ export class DashboardService {
   // ============================================================
 
   /**
-   * Duración promedio de las distintas etapas del proceso.
+   * Ranking de etapas, ordenado por duración promedio descendente.
    */
   etapas(
     filtros: DashboardFiltros = {},
-  ): Observable<DashboardTiempo[]> {
-    return this.http.get<DashboardTiempo[]>(
-      `${this.apiUrl}/etapas/tiempos`,
+  ): Observable<DashboardRankingEtapa[]> {
+    return this.http.get<DashboardRankingEtapa[]>(
+      `${this.apiUrl}/etapas/ranking`,
       { params: this.construirParams(filtros) },
     );
   }

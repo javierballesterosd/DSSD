@@ -3,7 +3,7 @@
     <div>
       <h5 class="tiempos-titulo">{{ titulo() }}</h5>
       <p class="tiempos-subtitulo mb-0">
-        Duración promedio de las etapas del proceso.
+        Etapas ordenadas de mayor a menor duración promedio.
       </p>
     </div>
   </header>
@@ -21,11 +21,11 @@
     <article class="tiempo-item">
       <div class="tiempo-info">
         <div class="tiempo-etapa">
-          {{ tiempo.etapa }}
+          {{ tiempo.posicion }}. {{ tiempo.etapa }}
         </div>
 
         <div class="tiempo-detalle">
-          {{ tiempo.cantidad }} casos considerados
+          {{ tiempo.cantidad }} ejecuciones completadas
         </div>
       </div>
 

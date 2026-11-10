@@ -39,4 +39,31 @@ class DashboardPeriodoTest {
         assertThat((Object[]) calls.get(1).getRawArguments()[2]).containsExactly(Timestamp.valueOf("2026-10-02 00:00:00"));
         assertThat((Object[]) calls.get(2).getRawArguments()[2]).isEmpty();
     }
+    @Test void municipioYGravedadSeFiltranConParametrosSobreLasEmergenciasLocales() {
+        var jdbc = mock(JdbcTemplate.class);
+        var repository = new DashboardRepository(jdbc);
+        repository.emergenciasConCaso(2L, com.proyecto.backend.model.NivelGravedad.ALTA, null, null);
+        var call = mockingDetails(jdbc).getInvocations().iterator().next();
+        assertThat((String) call.getRawArguments()[0]).contains("e.municipio_id = ?", "e.nivel_gravedad = ?");
+        assertThat((Object[]) call.getRawArguments()[2]).containsExactly(2L, "ALTA");
+    }
+    @Test void ongYRecursoDebenCoincidirEnElAporteYNoDuplicanEmergenciasPorConsorcio() {
+        var jdbc = mock(JdbcTemplate.class);
+        var repository = new DashboardRepository(jdbc);
+        repository.emergenciasConCaso(null, null, 3L, 4L);
+        var call = mockingDetails(jdbc).getInvocations().iterator().next();
+        assertThat((String) call.getRawArguments()[0]).contains("AND EXISTS", "og.ong_id = ?",
+                "d.oferta_id = o.id", "d.ong_id = og.ong_id", "il.recurso_id = ?", "o.estado <> 'ELIMINADA'");
+        assertThat((Object[]) call.getRawArguments()[2]).containsExactly(4L, 3L);
+    }
+
+    @Test void recursoSoloFiltraLasNecesidadesDelLoteSinExigirOfertas() {
+        var jdbc = mock(JdbcTemplate.class);
+        var repository = new DashboardRepository(jdbc);
+        repository.emergenciasConCaso(null, null, 3L, null);
+        var call = mockingDetails(jdbc).getInvocations().iterator().next();
+        assertThat((String) call.getRawArguments()[0]).contains("il.lote_id = l.id", "il.recurso_id = ?")
+                .doesNotContain("JOIN oferta o");
+        assertThat((Object[]) call.getRawArguments()[2]).containsExactly(3L);
+    }
 }

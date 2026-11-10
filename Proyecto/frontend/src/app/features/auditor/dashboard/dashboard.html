@@ -222,7 +222,61 @@
   <section class="dashboard-seccion">
     <div class="seccion-encabezado">
       <h2>Tiempos de gestión</h2>
-      <span>Duración promedio de las distintas etapas del proceso.</span>
+      <span>Ranking de etapas e indicadores de duración de las emergencias seleccionadas.</span>
+    </div>
+
+    <div class="row g-3 align-items-end mb-4">
+      <div class="col-12 col-md-6 col-xl-3">
+        <label for="dashboard-municipio" class="form-label">Municipio</label>
+        <select id="dashboard-municipio" class="form-select"
+          [value]="filtrosProceso().municipioId ?? ''" (change)="cambiarMunicipio($event)">
+          <option value="">Todos los municipios</option>
+          @for (municipio of municipios(); track municipio.id) {
+            <option [value]="municipio.id">{{ municipio.nombre }}</option>
+          }
+        </select>
+        @if (errorCatalogos()) {
+          <p class="text-danger mt-1" role="alert">No se pudieron cargar todas las opciones de filtro. Recargá la página para reintentar.</p>
+        }
+      </div>
+      <div class="col-12 col-md-6 col-xl-3">
+        <label for="dashboard-gravedad" class="form-label">Gravedad de la emergencia</label>
+        <select id="dashboard-gravedad" class="form-select"
+          [value]="filtrosProceso().gravedad ?? ''" (change)="cambiarGravedad($event)">
+          <option value="">Todas las gravedades</option>
+          @for (nivel of nivelesGravedad; track nivel) {
+            <option [value]="nivel">{{ gravedadLabel[nivel] }}</option>
+          }
+        </select>
+      </div>
+      <div class="col-12 col-md-6 col-xl-3">
+        <label for="dashboard-recurso" class="form-label">Recurso solicitado</label>
+        <select id="dashboard-recurso" class="form-select"
+          [value]="filtrosProceso().recursoId ?? ''" (change)="cambiarRecurso($event)">
+          <option value="">Todos los recursos</option>
+          @for (recurso of recursos(); track recurso.id) {
+            <option [value]="recurso.id">{{ recurso.nombre }}</option>
+          }
+        </select>
+      </div>
+      <div class="col-12 col-md-6 col-xl-3">
+        <label for="dashboard-ong" class="form-label">ONG participante</label>
+        <select id="dashboard-ong" class="form-select"
+          [value]="filtrosProceso().ongId ?? ''" (change)="cambiarOng($event)">
+          <option value="">Todas las ONG</option>
+          @for (ong of ongs(); track ong.id) {
+            <option [value]="ong.id">{{ ong.nombre }}</option>
+          }
+        </select>
+      </div>
+      <div class="col-12">
+        <button class="btn btn-outline-secondary" type="button" (click)="limpiarFiltrosProceso()">
+          Limpiar selección
+        </button>
+      </div>
+      <p class="text-muted mb-0">Los filtros seleccionan las emergencias consideradas en los tiempos y el seguimiento.
+        Al combinar ONG y recurso, se consideran casos donde esa ONG ofreció ese recurso.
+        Los tiempos corresponden a la emergencia y sus etapas.</p>
     </div>
 
     <div class="row g-4">
@@ -231,6 +285,7 @@
         <div class="alert alert-danger">{{ error }}</div>
         } @else {
         <app-tiempos-gestion
+          titulo="Ranking de duración de etapas"
           [tiempos]="tiemposEtapas()"
           [cargando]="cargando()"
         />

@@ -1,3 +1,5 @@
+import type { NivelGravedad } from './emergencia';
+
 /**
  * Resultado de los rankings del dashboard.
  *
@@ -27,6 +29,10 @@ export interface DashboardTiempo {
 /**
  * Emergencia que se encuentra en seguimiento.
  */
+export interface DashboardRankingEtapa extends DashboardTiempo {
+  posicion: number;
+}
+
 export interface DashboardSeguimiento {
   emergenciaId: number;
   caseId: string;
@@ -45,4 +51,8 @@ export interface DashboardFiltros {
   desde?: string;
   hasta?: string;
   limite?: number;
+  municipioId?: number;
+  recursoId?: number;
+  ongId?: number;
+  gravedad?: NivelGravedad;
 }
