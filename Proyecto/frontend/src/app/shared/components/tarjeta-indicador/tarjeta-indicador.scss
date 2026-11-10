@@ -1,0 +1,87 @@
+.indicador-card {
+  height: 100%;
+  padding: 1.25rem;
+  background-color: var(--bs-body-bg);
+  border: 1px solid var(--bs-border-color);
+  border-radius: 0.75rem;
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease;
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--bs-box-shadow);
+  }
+}
+
+.indicador-contenido {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.indicador-texto {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.indicador-titulo {
+  color: var(--bs-secondary-color);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.indicador-valor {
+  font-size: clamp(1.5rem, 3vw, 2rem);
+  line-height: 1.2;
+  font-weight: 700;
+}
+
+.indicador-descripcion {
+  color: var(--bs-secondary-color);
+  font-size: 0.8rem;
+}
+
+.indicador-icono {
+  width: 3rem;
+  height: 3rem;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.75rem;
+  font-size: 1.4rem;
+}
+
+.indicador-icono-primary {
+  color: var(--bs-primary);
+  background-color: var(--bs-primary-bg-subtle);
+}
+
+.indicador-icono-success {
+  color: var(--bs-success);
+  background-color: var(--bs-success-bg-subtle);
+}
+
+.indicador-icono-warning {
+  color: var(--bs-warning-text-emphasis);
+  background-color: var(--bs-warning-bg-subtle);
+}
+
+.indicador-icono-danger {
+  color: var(--bs-danger);
+  background-color: var(--bs-danger-bg-subtle);
+}
+
+.indicador-icono-info {
+  color: var(--bs-info-text-emphasis);
+  background-color: var(--bs-info-bg-subtle);
+}
+
+.indicador-icono-secondary {
+  color: var(--bs-secondary);
+  background-color: var(--bs-secondary-bg);
+}

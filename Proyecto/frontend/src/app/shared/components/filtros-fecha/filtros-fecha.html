@@ -1,0 +1,62 @@
+<div class="filtros-fecha">
+  <div class="row g-3 align-items-end">
+    <div class="col-12 col-md-4">
+      <label for="dashboard-desde" class="form-label">
+        Desde
+      </label>
+
+      <input
+        id="dashboard-desde"
+        type="date"
+        class="form-control"
+        [value]="desde()"
+        (change)="cambiarDesde($event)"
+      />
+    </div>
+
+    <div class="col-12 col-md-4">
+      <label for="dashboard-hasta" class="form-label">
+        Hasta
+      </label>
+
+      <input
+        id="dashboard-hasta"
+        type="date"
+        class="form-control"
+        [value]="hasta()"
+        [min]="desde() || null"
+        (change)="cambiarHasta($event)"
+      />
+    </div>
+
+    <div class="col-12 col-md-4">
+      <div class="d-flex flex-wrap gap-2">
+        <button
+          type="button"
+          class="btn btn-primary"
+          [disabled]="!!error()"
+          (click)="aplicarFiltros()"
+        >
+          <i class="bi bi-funnel me-1"></i>
+          Aplicar filtros
+        </button>
+
+        <button
+          type="button"
+          class="btn btn-outline-secondary"
+          (click)="limpiarFiltros()"
+        >
+          <i class="bi bi-x-circle me-1"></i>
+          Limpiar
+        </button>
+      </div>
+    </div>
+  </div>
+
+  @if (error()) {
+  <div class="alert alert-danger mt-3 mb-0 py-2" role="alert">
+    <i class="bi bi-exclamation-triangle me-1"></i>
+    {{ error() }}
+  </div>
+  }
+</div>

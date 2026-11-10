@@ -1,0 +1,58 @@
+<section class="tiempos-card">
+  <header class="tiempos-header">
+    <div>
+      <h5 class="tiempos-titulo">{{ titulo() }}</h5>
+      <p class="tiempos-subtitulo mb-0">
+        Etapas ordenadas de mayor a menor duración promedio.
+      </p>
+    </div>
+  </header>
+
+  @if (cargando()) {
+  <div class="tiempos-vacio">
+    <div class="spinner-border spinner-border-sm text-primary" role="status">
+      <span class="visually-hidden">Cargando...</span>
+    </div>
+    <span>Consultando tiempos de gestión...</span>
+  </div>
+  } @else if (tiempos().length > 0) {
+  <div class="tiempos-lista">
+    @for (tiempo of tiempos(); track tiempo.etapa) {
+    <article class="tiempo-item">
+      <div class="tiempo-info">
+        <div class="tiempo-etapa">
+          {{ tiempo.posicion }}. {{ tiempo.etapa }}
+        </div>
+
+        <div class="tiempo-detalle">
+          {{ tiempo.cantidad }} ejecuciones completadas
+        </div>
+      </div>
+
+      <div class="tiempo-valor">
+        {{ formatearDuracion(tiempo.promedioSegundos) }}
+      </div>
+
+      <div
+        class="tiempo-barra-fondo"
+        role="progressbar"
+        [attr.aria-label]="'Duración promedio de ' + tiempo.etapa"
+        [attr.aria-valuenow]="porcentaje(tiempo.promedioSegundos)"
+        aria-valuemin="0"
+        aria-valuemax="100"
+      >
+        <div
+          class="tiempo-barra"
+          [style.width.%]="porcentaje(tiempo.promedioSegundos)"
+        ></div>
+      </div>
+    </article>
+    }
+  </div>
+  } @else {
+  <div class="tiempos-vacio">
+    <i class="bi bi-clock-history"></i>
+    <p class="mb-0">No hay tiempos de gestión disponibles.</p>
+  </div>
+  }
+</section>

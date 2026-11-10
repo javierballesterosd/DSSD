@@ -22,7 +22,10 @@ const NAV_LINKS: Record<Rol, NavLink[]> = {
     { label: 'Mis lotes', path: '/coordinador/lotes' },
   ],
   ONG: [{ label: 'Lotes disponibles', path: '/ong/lotes' }],
-  AUDITOR: [{ label: 'Ofertas', path: '/auditor/ofertas' }],
+  AUDITOR: [
+    { label: 'Dashboard', path: '/auditor/dashboard', exacto: true },
+    { label: 'Ofertas', path: '/auditor/ofertas' },
+  ],
 };
 
 @Component({

@@ -1,0 +1,87 @@
+<section class="seguimiento-card">
+  <header class="seguimiento-header">
+    <div>
+      <h5 class="seguimiento-titulo">Emergencias en seguimiento</h5>
+
+      <p class="seguimiento-subtitulo mb-0">
+        Casos identificados en la etapa de monitoreo.
+      </p>
+    </div>
+
+    @if (!cargando()) {
+    <span class="badge text-bg-primary">
+        {{ emergencias().length }} casos
+      </span>
+    }
+  </header>
+
+  @if (cargando()) {
+  <div class="seguimiento-vacio">
+    <div class="spinner-border spinner-border-sm text-primary" role="status">
+      <span class="visually-hidden">Cargando...</span>
+    </div>
+
+    <span>Consultando emergencias...</span>
+  </div>
+  } @else if (emergencias().length > 0) {
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead>
+      <tr>
+        <th scope="col">Emergencia</th>
+        <th scope="col">Municipio</th>
+        <th scope="col">Descripción</th>
+        <th scope="col">Etapa</th>
+        <th scope="col">Estado</th>
+      </tr>
+      </thead>
+
+      <tbody>
+      @for (emergencia of emergencias(); track emergencia.emergenciaId) {
+      <tr>
+        <td>
+                <span class="emergencia-id">
+                  #{{ emergencia.emergenciaId }}
+                </span>
+
+          @if (emergencia.caseId) {
+          <small class="d-block text-secondary">
+            {{ emergencia.caseId }}
+          </small>
+          }
+        </td>
+
+        <td>
+          {{ emergencia.municipio || 'Sin municipio' }}
+        </td>
+
+        <td>
+                <span class="descripcion">
+                  {{ emergencia.descripcion || 'Sin descripción' }}
+                </span>
+        </td>
+
+        <td>
+          {{ emergencia.etapa || 'Sin etapa' }}
+        </td>
+
+        <td>
+                <span class="badge" [class]="estadoClase(emergencia.estado)">
+                  {{ emergencia.estado || 'Sin estado' }}
+                </span>
+        </td>
+      </tr>
+      }
+      </tbody>
+    </table>
+  </div>
+  } @else {
+  <div class="seguimiento-vacio">
+    <i class="bi bi-clipboard-check"></i>
+
+    <p class="mb-0">
+      No hay emergencias en seguimiento para el período seleccionado.
+    </p>
+  </div>
+  }
+</section>

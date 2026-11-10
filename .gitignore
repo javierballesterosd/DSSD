@@ -10,6 +10,9 @@ target/
 node_modules/
 dist/
 .angular/
+.dashboard-demo-state.json
+.dashboard-demo-state.tmp
+.dashboard-demo-state.lock
 
 ### Sistema operativo ###
 .DS_Store
