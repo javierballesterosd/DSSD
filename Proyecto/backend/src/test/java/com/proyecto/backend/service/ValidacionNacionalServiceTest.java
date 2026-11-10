@@ -43,11 +43,11 @@ class ValidacionNacionalServiceTest {
  }
  @Test void registraCantidadesRecibidasDesdeBonita() {
   callback(); service.registrar(7L,respuesta(true,List.of(new IntegracionNacional.ItemSN(2L,3L,40,"BLOQUEADA"))));
-  verify(ofertaService).procesarValidacionSNYBloquearRecursos(20L,new ValidacionSNRequest(true,"Resultado nacional recibido desde Bonita",List.of(new ItemValidadoRequest(100L,40))));
+  verify(ofertaService).procesarValidacionSN(20L,new ValidacionSNRequest(true,"Resultado nacional recibido desde Bonita",List.of(new ItemValidadoRequest(100L,40))));
  }
  @Test void registraRechazoSinInventario() {
   callback(); service.registrar(7L,respuesta(false,List.of()));
-  verify(ofertaService).procesarValidacionSNYBloquearRecursos(20L,new ValidacionSNRequest(false,"Resultado nacional recibido desde Bonita",List.of()));
+  verify(ofertaService).procesarValidacionSN(20L,new ValidacionSNRequest(false,"Resultado nacional recibido desde Bonita",List.of()));
  }
  @Test void impideValidarDespuesDeDecision() {
   callback(); lote.setDecisionMunicipal(true);

@@ -67,7 +67,7 @@ public class ValidacionNacionalService {
                 return new ItemValidadoRequest(d.getId(), cantidad == null ? 0 : cantidad);
             }).toList();
             if (!cantidades.isEmpty()) throw new ReglaNegocioException("Recursos ajenos a la oferta");
-            ofertaService.procesarValidacionSNYBloquearRecursos(oferta.getId(), new ValidacionSNRequest(
+            ofertaService.procesarValidacionSN(oferta.getId(), new ValidacionSNRequest(
                     resultado.aprobada(), "Resultado nacional recibido desde Bonita", resultado.aprobada() ? items : List.of()));
         }
     }

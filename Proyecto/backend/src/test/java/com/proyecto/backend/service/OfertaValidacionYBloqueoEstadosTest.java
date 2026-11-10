@@ -125,7 +125,7 @@ public class OfertaValidacionYBloqueoEstadosTest {
                 new ItemValidadoRequest(detalleMedicosId, 30)
         ));
 
-        ofertaValidacionService.procesarValidacionSNYBloquearRecursos(ofertaId, validacion);
+        ofertaValidacionService.procesarValidacionSN(ofertaId, validacion);
 
         Oferta ofertaActualizada = ofertaRepository.findById(ofertaId).get();
         assertEquals(EstadoOferta.VALIDADA, ofertaActualizada.getEstado());
@@ -143,7 +143,7 @@ public class OfertaValidacionYBloqueoEstadosTest {
                 new ItemValidadoRequest(detalleMedicosId, 30)
         ));
 
-        ofertaValidacionService.procesarValidacionSNYBloquearRecursos(ofertaId, validacion);
+        ofertaValidacionService.procesarValidacionSN(ofertaId, validacion);
 
         Oferta ofertaActualizada = ofertaRepository.findById(ofertaId).get();
         assertEquals(EstadoOferta.ACEPTADA_PARCIAL, ofertaActualizada.getEstado());
@@ -161,7 +161,7 @@ public class OfertaValidacionYBloqueoEstadosTest {
                 new ItemValidadoRequest(detalleMedicosId, 0)
         ));
 
-        ofertaValidacionService.procesarValidacionSNYBloquearRecursos(ofertaId, validacion);
+        ofertaValidacionService.procesarValidacionSN(ofertaId, validacion);
 
         Oferta ofertaActualizada = ofertaRepository.findById(ofertaId).get();
         assertEquals(EstadoOferta.ACEPTADA_PARCIAL, ofertaActualizada.getEstado());
@@ -176,7 +176,7 @@ public class OfertaValidacionYBloqueoEstadosTest {
         // SN rechaza toda la oferta (aprobada = false)
         ValidacionSNRequest validacion = new ValidacionSNRequest(false, "ONG sin certificaciones al día", List.of());
 
-        ofertaValidacionService.procesarValidacionSNYBloquearRecursos(ofertaId, validacion);
+        ofertaValidacionService.procesarValidacionSN(ofertaId, validacion);
 
         Oferta ofertaActualizada = ofertaRepository.findById(ofertaId).get();
         assertEquals(EstadoOferta.RECHAZADA, ofertaActualizada.getEstado());
