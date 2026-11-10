@@ -1,0 +1,23 @@
+<article class="indicador-card">
+  <div class="indicador-contenido">
+    <div class="indicador-texto">
+      <span class="indicador-titulo">
+        {{ titulo() }}
+      </span>
+
+      <strong class="indicador-valor">
+        {{ valor() }}
+      </strong>
+
+      @if (descripcion()) {
+      <span class="indicador-descripcion">
+          {{ descripcion() }}
+        </span>
+      }
+    </div>
+
+    <div class="indicador-icono" [class]="'indicador-icono indicador-icono-' + color()">
+      <i [class]="icono()" aria-hidden="true"></i>
+    </div>
+  </div>
+</article>

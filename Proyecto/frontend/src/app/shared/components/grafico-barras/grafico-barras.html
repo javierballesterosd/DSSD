@@ -1,0 +1,51 @@
+<section class="grafico-card">
+  <header class="grafico-header">
+    <div>
+      <h5 class="grafico-titulo">{{ titulo() }}</h5>
+
+      @if (subtitulo()) {
+      <p class="grafico-subtitulo mb-0">
+        {{ subtitulo() }}
+      </p>
+      }
+    </div>
+  </header>
+
+  @if (datos().length > 0) {
+  <div class="grafico-contenido">
+    @for (dato of datos(); track dato.id) {
+    <div class="barra-item">
+      <div class="barra-info">
+            <span class="barra-nombre" [title]="dato.nombre">
+              {{ dato.nombre }}
+            </span>
+
+        <span class="barra-valor">
+              {{ valorFormateado(dato) }}
+            </span>
+      </div>
+
+      <div
+        class="barra-fondo"
+        role="progressbar"
+        [attr.aria-label]="dato.nombre"
+        [attr.aria-valuenow]="dato.total"
+        [attr.aria-valuemin]="0"
+        [attr.aria-valuemax]="maximo()"
+      >
+        <div
+          class="barra-progreso"
+          [style.width.%]="porcentaje(dato.total)"
+          [style.background-color]="color()"
+        ></div>
+      </div>
+    </div>
+    }
+  </div>
+  } @else {
+  <div class="grafico-vacio">
+    <i class="bi bi-bar-chart-line"></i>
+    <p class="mb-0">No hay datos disponibles para el período seleccionado.</p>
+  </div>
+  }
+</section>

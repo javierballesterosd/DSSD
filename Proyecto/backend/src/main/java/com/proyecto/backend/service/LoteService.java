@@ -84,7 +84,7 @@ public class LoteService {
             }
         }
 
-        Emergencia emergencia = emergenciaRepository.findById(emergenciaId)
+        Emergencia emergencia = emergenciaRepository.bloquearPorId(emergenciaId)
                 .orElseThrow(() ->
                         new RecursoNoEncontradoException(
                                 "Emergencia no encontrada con ID: " + emergenciaId
@@ -95,6 +95,10 @@ public class LoteService {
             log.warn("Publicación rechazada: la emergencia es de otra región. emergenciaId={}, regionId={}",
                     emergenciaId, coordinador.getRegionId());
             throw new AccesoDenegadoException("La emergencia no pertenece a tu región");
+        }
+
+        if (emergencia.isRequiereActualizacion()) {
+            throw new ReglaNegocioException("El municipio debe actualizar la emergencia antes de publicar otro lote.");
         }
 
         Optional<Lote> ultimoLote =

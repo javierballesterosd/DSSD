@@ -1,0 +1,81 @@
+.seguimiento-card {
+  padding: 1.25rem;
+  background-color: var(--bs-body-bg);
+  border: 1px solid var(--bs-border-color);
+  border-radius: 0.75rem;
+}
+
+.seguimiento-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.seguimiento-titulo {
+  margin-bottom: 0.35rem;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.seguimiento-subtitulo {
+  color: var(--bs-secondary-color);
+  font-size: 0.85rem;
+}
+
+.seguimiento-header .badge {
+  flex-shrink: 0;
+}
+
+.table {
+  font-size: 0.875rem;
+
+  thead th {
+    color: var(--bs-secondary-color);
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+
+  tbody td {
+    padding-top: 0.9rem;
+    padding-bottom: 0.9rem;
+  }
+}
+
+.emergencia-id {
+  font-weight: 700;
+}
+
+.descripcion {
+  display: -webkit-box;
+  max-width: 320px;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow-wrap: anywhere;
+}
+
+.seguimiento-vacio {
+  min-height: 160px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 0.75rem;
+  color: var(--bs-secondary-color);
+  text-align: center;
+  font-size: 0.875rem;
+
+  i {
+    font-size: 2rem;
+  }
+}
+
+@media (max-width: 767.98px) {
+  .seguimiento-header {
+    flex-direction: column;
+  }
+}

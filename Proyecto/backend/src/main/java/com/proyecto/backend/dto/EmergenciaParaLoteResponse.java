@@ -16,6 +16,7 @@ public record EmergenciaParaLoteResponse(
         String municipio,
         LocalDateTime fechaRegistro,
         Long loteId,
-        EstadoLote estadoLote
+        EstadoLote estadoLote,
+        boolean requiereActualizacion
 ) {
 }

@@ -7,7 +7,10 @@ import { EmergenciaTarjeta } from '../../../shared/components/emergencia-tarjeta
 
 /** Una emergencia se puede desglosar si no tiene lote o si el último fue cancelado. */
 export function puedeDesglosar(emergencia: EmergenciaParaLoteResponse): boolean {
-  return emergencia.estadoLote === null || emergencia.estadoLote === 'CANCELADO';
+  return (
+    !emergencia.requiereActualizacion &&
+    (emergencia.estadoLote === null || emergencia.estadoLote === 'CANCELADO')
+  );
 }
 
 /** Inicio del coordinador: las emergencias de los municipios de su región. */

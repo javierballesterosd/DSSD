@@ -87,7 +87,7 @@ class LoteServiceTest {
     }
 
     private void emergenciaYRecursoExisten() {
-        when(emergenciaRepository.findById(7L)).thenReturn(Optional.of(emergencia));
+        when(emergenciaRepository.bloquearPorId(7L)).thenReturn(Optional.of(emergencia));
         when(loteRepository.findFirstByEmergenciaIdOrderByIdDesc(7L)).thenReturn(Optional.empty());
         Recurso recurso = new Recurso();
         recurso.setId(1L);
@@ -97,6 +97,18 @@ class LoteServiceTest {
             lote.setId(30L);
             return lote;
         });
+    }
+
+    @Test
+    void noPublicaHastaQueElMunicipioActualiceLaEmergenciaRechazada() {
+        emergencia.setRequiereActualizacion(true);
+        when(emergenciaRepository.bloquearPorId(7L)).thenReturn(Optional.of(emergencia));
+        LocalDateTime apertura = LocalDateTime.now().plusHours(1);
+        assertThatThrownBy(() -> loteService.publicarLote(7L,
+                request(apertura, apertura.plusDays(1)), coordinadorDeRegion(REGION_ID), session))
+                .isInstanceOf(ReglaNegocioException.class).hasMessageContaining("actualizar");
+        verify(loteRepository, never()).save(any());
+        verify(bonitaClient, never()).ejecutarTarea(any(), any(), any());
     }
 
     @Test
@@ -112,7 +124,7 @@ class LoteServiceTest {
 
     @Test
     void rechazaPublicarSiYaHayUnLoteNoCancelado() {
-        when(emergenciaRepository.findById(7L)).thenReturn(Optional.of(emergencia));
+        when(emergenciaRepository.bloquearPorId(7L)).thenReturn(Optional.of(emergencia));
         Lote activo = new Lote();
         activo.setId(5L);
         activo.setEstado(EstadoLote.ACTIVO);
@@ -201,7 +213,7 @@ class LoteServiceTest {
 
     @Test
     void rechazaPublicarParaUnaEmergenciaDeOtraRegion() {
-        when(emergenciaRepository.findById(7L)).thenReturn(Optional.of(emergencia));
+        when(emergenciaRepository.bloquearPorId(7L)).thenReturn(Optional.of(emergencia));
         LocalDateTime ahora = LocalDateTime.now();
 
         assertThatThrownBy(() ->

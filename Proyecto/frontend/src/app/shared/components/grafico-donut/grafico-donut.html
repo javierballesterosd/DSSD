@@ -1,0 +1,73 @@
+<section class="donut-card">
+  <header class="donut-header">
+    <div>
+      <h5 class="donut-titulo">{{ titulo() }}</h5>
+
+      @if (subtitulo()) {
+      <p class="donut-subtitulo mb-0">
+        {{ subtitulo() }}
+      </p>
+      }
+    </div>
+  </header>
+
+  @if (total() > 0) {
+  <div class="donut-contenido">
+    <div class="donut-grafico">
+      <svg viewBox="0 0 100 100" role="img" [attr.aria-label]="titulo()">
+        <circle
+          class="donut-fondo"
+          cx="50"
+          cy="50"
+          r="42"
+        />
+
+        @for (segmento of segmentos(); track segmento.id) {
+        <circle
+          class="donut-segmento"
+          cx="50"
+          cy="50"
+          r="42"
+          [attr.stroke]="segmento.color"
+          [attr.stroke-dasharray]="segmento.dasharray"
+          [attr.stroke-dashoffset]="segmento.dashoffset"
+        />
+        }
+      </svg>
+
+      <div class="donut-centro">
+        <strong>{{ total() | number: '1.0-0' }}</strong>
+        <span>Total</span>
+      </div>
+    </div>
+
+    <div class="donut-leyenda">
+      @for (segmento of segmentos(); track segmento.id) {
+      <div class="leyenda-item">
+            <span
+              class="leyenda-color"
+              [style.background-color]="segmento.color"
+            ></span>
+
+        <div class="leyenda-texto">
+              <span class="leyenda-nombre" [title]="segmento.nombre">
+                {{ segmento.nombre }}
+              </span>
+
+          <span class="leyenda-valor">
+                {{ segmento.total | number: '1.0-0' }}
+                ·
+                {{ formatearPorcentaje(segmento.porcentaje) }}
+              </span>
+        </div>
+      </div>
+      }
+    </div>
+  </div>
+  } @else {
+  <div class="donut-vacio">
+    <i class="bi bi-pie-chart"></i>
+    <p class="mb-0">No hay datos disponibles.</p>
+  </div>
+  }
+</section>

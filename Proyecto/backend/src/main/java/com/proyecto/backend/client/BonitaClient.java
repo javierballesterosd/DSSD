@@ -288,6 +288,17 @@ public class BonitaClient {
         log.info("Tarea ejecutada correctamente en Bonita. taskId={}", taskId);
     }
 
+    /** Reintenta la misma tarea sin avanzar otra actividad cuando se perdió la respuesta anterior. */
+    public void ejecutarTareaIdempotente(BonitaSession session, String taskId, Map<String, Object> contrato) {
+        List<Map<String, Object>> archivadas = llamar("comprobar tarea ejecutada", () -> restClient.get()
+                .uri(b -> b.path("/API/bpm/archivedHumanTask").queryParam("p", "0").queryParam("c", "1")
+                        .queryParam("f", "sourceObjectId=" + taskId).build())
+                .headers(h -> aplicarSesion(h, session)).retrieve()
+                .body(new ParameterizedTypeReference<List<Map<String, Object>>>() {}));
+        if (archivadas != null && !archivadas.isEmpty()) return;
+        ejecutarTarea(session, taskId, contrato);
+    }
+
     /** Elimina un caso de Bonita. Se usa para compensar cuando falla algo después de iniciarlo. */
     public void cancelarCaso(BonitaSession session, String caseId) {
         log.warn("Eliminando caso en Bonita (compensación). caseId={}", caseId);
@@ -299,6 +310,26 @@ public class BonitaClient {
                 .toBodilessEntity());
 
         log.info("Caso eliminado en Bonita. caseId={}", caseId);
+    }
+
+    /** Lee todas las páginas; nunca devuelve un informe truncado silenciosamente. */
+    public List<Map<String, Object>> datosDashboard(BonitaSession session, String recurso) {
+        if (!List.of("archivedFlowNode", "archivedCase", "activity", "case").contains(recurso)) {
+            throw new IllegalArgumentException("Recurso de dashboard no permitido");
+        }
+        var resultado = new java.util.ArrayList<Map<String, Object>>();
+        for (int pagina = 0; pagina < 10000; pagina++) {
+            int actual = pagina;
+            List<Map<String, Object>> lote = llamar("dashboard " + recurso, () -> restClient.get()
+                    .uri(b -> b.path("/API/bpm/" + recurso).queryParam("p", actual)
+                            .queryParam("c", 100).build())
+                    .headers(h -> aplicarSesion(h, session)).retrieve()
+                    .body(new ParameterizedTypeReference<List<Map<String, Object>>>() {}));
+            if (lote == null) throw new BonitaIntegrationException("Respuesta vacia de Bonita al consultar " + recurso);
+            resultado.addAll(lote);
+            if (lote.size() < 100) return resultado;
+        }
+        throw new BonitaIntegrationException("Se excedio el limite de paginas del informe de Bonita");
     }
 
     // Bonita exige la cookie de sesión y el token anti-CSRF en cada llamada

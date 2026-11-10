@@ -49,6 +49,11 @@ public class Emergencia {
     @Column(name = "bonita_case_id", unique = true)
     private String bonitaCaseId;
 
+    @Column(columnDefinition = "boolean default false", nullable = false)
+    private boolean requiereActualizacion;
+
+    private LocalDateTime fechaActualizacion;
+
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "municipio_id", nullable = false)
     private Municipio municipio;

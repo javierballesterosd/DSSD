@@ -45,7 +45,8 @@ public class EmergenciaMapper {
                 emergencia.getMunicipio().getNombre(),
                 emergencia.getFechaRegistro(),
                 ultimoLote.map(Lote::getId).orElse(null),
-                ultimoLote.map(Lote::getEstado).orElse(null)
+                ultimoLote.map(Lote::getEstado).orElse(null),
+                emergencia.isRequiereActualizacion()
         );
     }
 }

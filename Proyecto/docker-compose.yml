@@ -10,6 +10,12 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
     networks:
       - app-network
 
@@ -41,10 +47,12 @@ services:
       DB_PASSWORD: ${DB_PASSWORD}
       # Dentro del contenedor "localhost" es el propio backend: Bonita corre en el host
       BONITA_BASE_URL: ${BONITA_DOCKER_URL:-http://host.docker.internal:8080/bonita}
+      BONITA_OFFERS_API_TOKEN: ${BONITA_OFFERS_API_TOKEN}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
     healthcheck:
       # Healthy cuando Spring terminó de arrancar (Hibernate ya creó/actualizó las tablas)
       test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/localhost/8080 && printf \"GET /actuator/health HTTP/1.0\r\n\r\n\" >&3 && grep -q UP <&3'"]

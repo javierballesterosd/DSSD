@@ -32,6 +32,19 @@ public class OfertaController {
 
     private final OfertaService ofertaService;
     private final AuthService authService;
+    private final com.proyecto.backend.security.BonitaTokenValidator bonitaTokenValidator;
+
+    /** Callback de la validación orquestada por Bonita, protegido por su token de integración. */
+    @PostMapping("/{id}/validacion-sn")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void validarSN(@PathVariable Long id,
+            @Valid @RequestBody com.proyecto.backend.dto.ValidacionSNRequest request,
+            @org.springframework.web.bind.annotation.RequestHeader(value = "Authorization", required = false) String token) {
+        if (!bonitaTokenValidator.isValid(token)) {
+            throw new com.proyecto.backend.exception.UnauthenticatedException("Token de Bonita inválido o ausente");
+        }
+        ofertaService.procesarValidacionSNYBloquearRecursos(id, request);
+    }
 
     /** Ofertas de un lote en las que participa la ONG del usuario logueado. */
     @GetMapping("/mias")

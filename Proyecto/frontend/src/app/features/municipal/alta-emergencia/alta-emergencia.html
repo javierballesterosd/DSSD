@@ -1,4 +1,19 @@
-<h1 class="h3 mb-4">Registrar emergencia</h1>
+<h1 class="h3 mb-4">
+  {{ emergenciaId === null ? 'Registrar emergencia' : 'Actualizar emergencia #' + emergenciaId }}
+</h1>
+@if (emergenciaId !== null) {
+  <p class="text-body-secondary">
+    Confirmá los datos para reiniciar el proceso. Podés mantenerlos sin cambios.
+  </p>
+}
+@if (cargandoDatos()) {
+  <p class="text-body-secondary">Cargando datos…</p>
+}
+@if (errorCarga()) {
+  <div class="alert alert-danger">
+    No se puede actualizar esta emergencia. Volvé al detalle e intentá nuevamente.
+  </div>
+}
 
 <div class="card border-0 shadow-sm">
   <div class="card-body p-4">
@@ -44,7 +59,9 @@
           class="form-control"
           placeholder="Ej: Barrio Norte, La Plata"
           formControlName="zonaAfectada"
-          [class.is-invalid]="form.controls.zonaAfectada.touched && form.controls.zonaAfectada.invalid"
+          [class.is-invalid]="
+            form.controls.zonaAfectada.touched && form.controls.zonaAfectada.invalid
+          "
         />
 
         @if (form.controls.zonaAfectada.touched && form.controls.zonaAfectada.invalid) {
@@ -64,7 +81,9 @@
           class="form-control"
           placeholder="Detalle la situación, extensión de los daños y riesgos presentes..."
           formControlName="descripcion"
-          [class.is-invalid]="form.controls.descripcion.touched && form.controls.descripcion.invalid"
+          [class.is-invalid]="
+            form.controls.descripcion.touched && form.controls.descripcion.invalid
+          "
         ></textarea>
 
         @if (form.controls.descripcion.touched && form.controls.descripcion.invalid) {
@@ -75,7 +94,11 @@
       </div>
 
       <div class="d-flex flex-wrap gap-2">
-        <button type="submit" class="btn btn-primary" [disabled]="cargando()">
+        <button
+          type="submit"
+          class="btn btn-primary"
+          [disabled]="cargando() || cargandoDatos() || errorCarga()"
+        >
           @if (cargando()) {
             <span
               class="spinner-border spinner-border-sm me-2"
@@ -84,7 +107,7 @@
             ></span>
             Registrando...
           } @else {
-            Registrar emergencia
+            {{ emergenciaId === null ? 'Registrar emergencia' : 'Confirmar y reiniciar proceso' }}
           }
         </button>
         <a class="btn btn-outline-secondary" routerLink="/municipal/emergencias">
