@@ -3,7 +3,8 @@
 Con Docker y el proceso de Bonita levantados, desde Proyecto:
     python db/seed/cargar-demo.py
 
-Solo requiere Python 3. Lee las cuentas de ejemplo del BOS y conserva el avance
+Solo requiere Python 3. Busca la version mas alta del BOS en Modelado, lee sus
+cuentas de ejemplo y conserva el avance
 en .dashboard-demo-state.json para retomar la carga. No almacena contrasenas.
 """
 
@@ -11,6 +12,7 @@ import argparse
 import http.cookiejar
 import json
 import os
+import re
 from pathlib import Path
 import sys
 import time
@@ -109,6 +111,21 @@ def config_env():
     return valores
 
 
+def buscar_bos():
+    modelado = PROYECTO.parent / "Modelado"
+
+    def version(archivo):
+        numero = re.search(r"-V(\d+(?:\.\d+)*)\.bos$", archivo.name, re.IGNORECASE)
+        numeros = tuple(map(int, numero.group(1).split("."))) if numero else ()
+        return numeros, archivo.stat().st_mtime, archivo.name
+
+    for archivo in sorted(modelado.glob("*.bos"), key=version, reverse=True):
+        with zipfile.ZipFile(archivo) as bos:
+            if any(n.endswith("/organizations/RescueSync.xml") for n in bos.namelist()):
+                return archivo
+    raise ErrorCarga("No se encontro un BOS con la organizacion RescueSync en Modelado")
+
+
 def cuentas_bos(archivo):
     with zipfile.ZipFile(archivo) as bos:
         ruta = next((n for n in bos.namelist() if n.endswith("/organizations/RescueSync.xml")), None)
@@ -144,11 +161,13 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--backend", help="URL del backend accesible desde esta computadora")
     parser.add_argument("--bonita", default="http://localhost:8080/bonita")
-    parser.add_argument("--bos", type=Path, default=PROYECTO.parent / "Modelado/rescueSync-V1.13.bos")
+    parser.add_argument("--bos", type=Path, help="BOS especifico; por defecto se detecta en Modelado")
     args = parser.parse_args()
     config = config_env()
     backend = args.backend or "http://localhost:" + config.get("BACKEND_PORT", "8081")
-    cuentas = cuentas_bos(args.bos)
+    archivo_bos = args.bos or buscar_bos()
+    print(f"Leyendo cuentas de {archivo_bos.name}", flush=True)
+    cuentas = cuentas_bos(archivo_bos)
     sesiones = {}
     usuarios = {}
     bonitos = {}
@@ -177,6 +196,20 @@ def main():
     procesos = motor.listar_bonita("process", ["name=Sistema P1", "activationState=ENABLED"])
     if not procesos:
         raise ErrorCarga("Desplega y habilita Sistema P1 en Bonita Studio, con RUTA_ENV configurado")
+    # La API Community permite consultar parametros, pero no modificarlos.
+    # Detectar una ruta ajena antes de crear casos evita dejarlos con conectores fallidos.
+    if urllib.parse.urlparse(args.bonita).hostname in ("localhost", "127.0.0.1", "::1"):
+        archivo_env = PROYECTO / ".env"
+        if not archivo_env.is_file():
+            raise ErrorCarga("Falta el archivo Proyecto/.env que necesitan los conectores de Bonita")
+        for proceso in procesos:
+            ruta = f"/API/bpm/processParameter/{proceso['id']}/RUTA_ENV"
+            parametro = motor.pedir("GET", ruta)
+            configurado = str(parametro.get("value", "")).strip()
+            if not configurado or not Path(configurado).is_file():
+                raise ErrorCarga("RUTA_ENV de Bonita no apunta a un archivo existente. "
+                                 "Configura en Studio: " + archivo_env.as_posix()
+                                 + " y vuelve a ejecutar el proceso antes de retomar la carga")
     for operador, coordinador, _, _, aportes in ESCENARIOS:
         sesion(operador)
         sesion(coordinador)
@@ -201,10 +234,35 @@ def main():
         raise ErrorCarga("El avance guardado pertenece a otro backend. Usa la misma URL de la carga anterior.")
     estado["backend"] = backend
     escenarios = estado.setdefault("escenarios", {})
+    if escenarios:
+        casos = {str(c["id"]): c for c in motor.listar_bonita("case")}
+        archivados = {str(c["sourceObjectId"]) for c in motor.listar_bonita("archivedCase")}
+        perdidos = []
+        for clave, registro in escenarios.items():
+            caso_id = str(registro.get("caseId", ""))
+            if not caso_id:
+                continue
+            if caso_id in archivados:
+                continue
+            if caso_id not in casos:
+                perdidos.append(clave)
+                continue
+            variable = motor.pedir("GET", f"/API/bpm/caseVariable/{caso_id}/emergenciaId")
+            if str(variable.get("value")) != str(registro.get("emergenciaId")):
+                perdidos.append(clave)
+        if perdidos:
+            print("Bonita perdio o reemplazo casos de la carga anterior. Creando una nueva tanda...", flush=True)
+            estado.setdefault("cargasAnteriores", []).append({
+                "prefijo": estado.get("prefijo", PREFIJO), "escenarios": escenarios})
+            estado["prefijo"] = PREFIJO + " Carga " + datetime.now(ZONA).strftime("%Y%m%d-%H%M%S")
+            estado["escenarios"] = {}
+            escenarios = estado["escenarios"]
+            guardar(estado)
+    prefijo = estado.get("prefijo", PREFIJO)
 
     for indice, (operador, coordinador, gravedad, decision, aportes) in enumerate(ESCENARIOS, 1):
         clave = f"{indice:02d}"
-        descripcion = f"{PREFIJO} Escenario {clave} - {gravedad}"
+        descripcion = f"{prefijo} Escenario {clave} - {gravedad}"
         registro = escenarios.setdefault(clave, {})
         api = sesion(operador)
         existentes = api.pedir("GET", "/api/emergencias/mias")
@@ -212,8 +270,19 @@ def main():
         if emergencia is None:
             if registro.get("emergenciaId"):
                 raise ErrorCarga(f"La emergencia del escenario {clave} fue eliminada. Revisa el avance guardado.")
-            emergencia = api.pedir("POST", "/api/emergencias", {
-                "nivelGravedad": gravedad, "zonaAfectada": f"Zona demo {clave}", "descripcion": descripcion})
+            for intento in range(100):
+                try:
+                    emergencia = api.pedir("POST", "/api/emergencias", {
+                        "nivelGravedad": gravedad, "zonaAfectada": f"Zona demo {clave}", "descripcion": descripcion})
+                    break
+                except ErrorCarga as error:
+                    # El backend cancela el caso recien creado si su ID ya pertenece a otra emergencia.
+                    # Tras reiniciar el motor puede reutilizar IDs anteriores hasta avanzar la secuencia.
+                    if "ya est\u00e1 vinculado a otra emergencia local" not in str(error):
+                        raise
+                    print("Bonita reutilizo un ID anterior; intentando el siguiente caso...", flush=True)
+            else:
+                raise ErrorCarga("Bonita sigue reutilizando IDs locales tras 100 intentos; revisa las bases")
             registro.update(emergenciaId=emergencia["id"], caseId=emergencia["bonitaCaseId"])
             guardar(estado)
         emergencia_id = emergencia["id"]
@@ -264,6 +333,10 @@ def main():
         registro = escenarios[f"{indice:02d}"]
         if registro.get("completo"):
             continue
+        for tarea in motor.listar_bonita("activity", ["caseId=" + str(registro["caseId"])]):
+            if tarea.get("state") == "failed":
+                motor.pedir("PUT", f"/API/bpm/activity/{tarea['id']}", {"state": "replay"})
+                print(f"Reintentando {tarea['name']} del caso {registro['caseId']}.", flush=True)
         ruta = f"/api/emergencias/{registro['emergenciaId']}/recursos-aceptados"
         api = sesion(operador)
         recursos = esperar(f"validacion de emergencia {registro['emergenciaId']}",
