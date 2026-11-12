@@ -40,6 +40,7 @@ TRUNCATE TABLE notificacion_inactiva, notificacion,
 ALTER TABLE notificacion ALTER COLUMN grupo_destinatario SET NOT NULL;
 
 ALTER TABLE ong ADD COLUMN IF NOT EXISTS bonita_group_path varchar(200);
+ALTER TABLE ong ADD COLUMN IF NOT EXISTS codigo varchar(36);
 ALTER TABLE municipio ADD COLUMN IF NOT EXISTS bonita_group_path varchar(200);
 ALTER TABLE municipio ADD COLUMN IF NOT EXISTS region_id bigint REFERENCES region (id);
 -- La ventana de ofertas pasa de la emergencia al lote (cada publicación conserva la suya)
@@ -85,15 +86,18 @@ INSERT INTO recurso (nombre, unidad_medida) VALUES
   ('Generadores eléctricos', 'unidades'), -- id 9
   ('Médicos', 'personas');                -- id 10
 
--- 2) ONGs. Clave de negocio = path del subgrupo en la organización RescueSync de Bonita.
-INSERT INTO ong (razon_social, bonita_group_path) VALUES
-  ('Cruz Roja Argentina – Filial La Plata',     '/ONG/CruzRojaLaPlata'),     -- id 1
-  ('Cáritas Arquidiócesis de Buenos Aires',     '/ONG/CaritasBuenosAires'),  -- id 2
-  ('Bomberos Voluntarios de La Plata',          '/ONG/BomberosLaPlata'),     -- id 3
-  ('Fundación Banco de Alimentos Buenos Aires', '/ONG/BancoAlimentosBA'),    -- id 4
-  ('Techo Argentina – Regional Buenos Aires',   '/ONG/TechoBuenosAires');    -- id 5
+-- 2) ONGs. 'codigo' = identificador común con el Sistema Nacional (mismos UUID en su seed).
+--    Clave de negocio = path del subgrupo en la organización RescueSync de Bonita.
+INSERT INTO ong (razon_social, bonita_group_path, codigo) VALUES
+  ('Cruz Roja Argentina – Filial La Plata',     '/ONG/CruzRojaLaPlata', '57f6bace-9f0e-4c1b-9ac8-0e3b09069e29'),     -- id 1
+  ('Cáritas Arquidiócesis de Buenos Aires',     '/ONG/CaritasBuenosAires', '6a85312b-c5b0-415b-be1a-2244b612c77b'),  -- id 2
+  ('Bomberos Voluntarios de La Plata',          '/ONG/BomberosLaPlata', 'cd35316c-5093-4826-89dd-4a525bb2c127'),     -- id 3
+  ('Fundación Banco de Alimentos Buenos Aires', '/ONG/BancoAlimentosBA', '6017970a-9d32-4129-8a99-644127a74868'),    -- id 4
+  ('Techo Argentina – Regional Buenos Aires',   '/ONG/TechoBuenosAires', '16c85edc-ccb4-40f1-b648-bb28a9111fdc');    -- id 5
 
 ALTER TABLE ong ALTER COLUMN bonita_group_path SET NOT NULL;
+ALTER TABLE ong ALTER COLUMN codigo SET NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS ux_ong_codigo ON ong (codigo);
 CREATE UNIQUE INDEX IF NOT EXISTS ux_ong_bonita_group_path ON ong (bonita_group_path);
 
 -- 3) Inventario (ong_id, recurso_id, cantidad_disponible)

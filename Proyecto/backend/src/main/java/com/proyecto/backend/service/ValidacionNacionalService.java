@@ -33,7 +33,7 @@ public class ValidacionNacionalService {
                         : o.getEstado() == EstadoOferta.PENDIENTE)
                 .map(o -> new IntegracionNacional.Oferta(o.getId(), o.getDetalles().stream()
                         .filter(d -> !decision || d.getCantidadAceptada() != null && d.getCantidadAceptada() > 0)
-                        .map(d -> new IntegracionNacional.Item(d.getId(), d.getOng().getId(),
+                        .map(d -> new IntegracionNacional.Item(d.getId(), d.getOng().getCodigo(),
                                 d.getItemLote().getRecurso().getId(), decision ? d.getCantidadAceptada() : d.getCantidadOfrecida()))
                         .toList())).toList();
         return new IntegracionNacional.Plan(emergenciaId, loteId, caseId, lote.getDecisionMunicipal(),
@@ -60,10 +60,10 @@ public class ValidacionNacionalService {
                 if (!resultado.aprobada() || !"BLOQUEADA".equals(item.estado()) || item.cantidad() <= 0) {
                     throw new ReglaNegocioException("Reserva temporal nacional inválida");
                 }
-                cantidades.merge(item.ongId() + ":" + item.recursoId(), item.cantidad(), Math::addExact);
+                cantidades.merge(item.ongCodigo() + ":" + item.recursoId(), item.cantidad(), Math::addExact);
             }
             var items = oferta.getDetalles().stream().map(d -> {
-                Integer cantidad = cantidades.remove(d.getOng().getId() + ":" + d.getItemLote().getRecurso().getId());
+                Integer cantidad = cantidades.remove(d.getOng().getCodigo() + ":" + d.getItemLote().getRecurso().getId());
                 return new ItemValidadoRequest(d.getId(), cantidad == null ? 0 : cantidad);
             }).toList();
             if (!cantidades.isEmpty()) throw new ReglaNegocioException("Recursos ajenos a la oferta");

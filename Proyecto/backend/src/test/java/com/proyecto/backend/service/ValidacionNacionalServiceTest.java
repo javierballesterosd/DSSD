@@ -23,7 +23,7 @@ class ValidacionNacionalServiceTest {
   lote=new Lote(); lote.setId(10L); lote.setEmergencia(emergencia); lote.setEstado(EstadoLote.ACTIVO);
   lote.setFechaCierreOfertas(LocalDateTime.now().minusHours(1));
   when(lotes.findById(10L)).thenReturn(Optional.of(lote));
-  var ong=new Ong(); ong.setId(2L); var recurso=new Recurso(); recurso.setId(3L);
+  var ong=new Ong(); ong.setId(2L); ong.setCodigo("cod-2"); var recurso=new Recurso(); recurso.setId(3L);
   var item=new ItemLote(); item.setRecurso(recurso);
   var detalle=new DetalleOferta(); detalle.setId(100L); detalle.setOng(ong); detalle.setItemLote(item); detalle.setCantidadOfrecida(100);
   oferta=new Oferta(); oferta.setId(20L); oferta.setLote(lote); oferta.setEstado(EstadoOferta.PENDIENTE); oferta.getDetalles().add(detalle);
@@ -34,7 +34,7 @@ class ValidacionNacionalServiceTest {
  }
  @Test void entregaPendientesConIdsYCantidadesSinLlamadasExternas() {
   when(ofertas.findByLoteIdOrderByIdAsc(10L)).thenReturn(List.of(oferta));
-  assertThat(service.plan(7L,10L,"caso").ofertas().getFirst().items().getFirst()).isEqualTo(new IntegracionNacional.Item(100L,2L,3L,100));
+  assertThat(service.plan(7L,10L,"caso").ofertas().getFirst().items().getFirst()).isEqualTo(new IntegracionNacional.Item(100L,"cod-2",3L,100));
   verifyNoInteractions(ofertaService);
  }
  @Test void omiteOfertasYaProcesadas() {
@@ -42,7 +42,7 @@ class ValidacionNacionalServiceTest {
   assertThat(service.plan(7L,10L,"caso").ofertas()).isEmpty();
  }
  @Test void registraCantidadesRecibidasDesdeBonita() {
-  callback(); service.registrar(7L,respuesta(true,List.of(new IntegracionNacional.ItemSN(2L,3L,40,"BLOQUEADA"))));
+  callback(); service.registrar(7L,respuesta(true,List.of(new IntegracionNacional.ItemSN("cod-2",3L,40,"BLOQUEADA"))));
   verify(ofertaService).procesarValidacionSNYBloquearRecursos(20L,new ValidacionSNRequest(true,"Resultado nacional recibido desde Bonita",List.of(new ItemValidadoRequest(100L,40))));
  }
  @Test void registraRechazoSinInventario() {
@@ -54,7 +54,7 @@ class ValidacionNacionalServiceTest {
   assertThatThrownBy(()->service.registrar(7L,respuesta(false,List.of()))).isInstanceOf(ReglaNegocioException.class); verifyNoInteractions(ofertaService);
  }
  @Test void rechazaRecursosAjenos() {
-  callback(); assertThatThrownBy(()->service.registrar(7L,respuesta(true,List.of(new IntegracionNacional.ItemSN(99L,3L,40,"BLOQUEADA")))))
+  callback(); assertThatThrownBy(()->service.registrar(7L,respuesta(true,List.of(new IntegracionNacional.ItemSN("cod-99",3L,40,"BLOQUEADA")))))
    .isInstanceOf(ReglaNegocioException.class); verifyNoInteractions(ofertaService);
  }
  @Test void rechazaCasoEquivocado() {

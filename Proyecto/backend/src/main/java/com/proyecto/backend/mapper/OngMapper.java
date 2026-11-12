@@ -13,7 +13,7 @@ import java.util.List;
 public class OngMapper {
 
     public OngResponse toResponse(Ong ong) {
-        return new OngResponse(ong.getId(), ong.getRazonSocial());
+        return new OngResponse(ong.getId(), ong.getCodigo(), ong.getRazonSocial());
     }
 
     public InventarioOngResponse toInventarioResponse(Ong ong, List<InventarioOng> inventario) {

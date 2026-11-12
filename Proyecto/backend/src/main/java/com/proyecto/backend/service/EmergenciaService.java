@@ -214,7 +214,7 @@ public class EmergenciaService {
             Oferta oferta) {
         List<OngResponse> ongs = oferta.getOngs().stream()
                 .sorted(Comparator.comparing(ong -> ong.getRazonSocial().toLowerCase()))
-                .map(ong -> new OngResponse(ong.getId(), ong.getRazonSocial()))
+                .map(ong -> new OngResponse(ong.getId(), ong.getCodigo(), ong.getRazonSocial()))
                 .toList();
 
         Map<Long, List<DetalleOferta>> detallesPorItem = new LinkedHashMap<>();
@@ -247,6 +247,7 @@ public class EmergenciaService {
         List<AporteOngResponse> porOng = detalles.stream()
                 .map(detalle -> new AporteOngResponse(
                         detalle.getOng().getId(),
+                        detalle.getOng().getCodigo(),
                         detalle.getOng().getRazonSocial(),
                         detalle.getCantidadOfrecida()
                 ))
