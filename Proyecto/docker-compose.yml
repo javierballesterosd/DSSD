@@ -63,7 +63,7 @@ services:
     networks:
       - app-network
 
-  # Carga el seed una sola vez: solo si la base está vacía (no hay regiones).
+  # Carga el seed si la base está vacía y aplica las migraciones también en bases existentes.
   # Para forzarlo (borra todo): docker compose run --rm -e FORCE_SEED=1 seed
   seed:
     image: postgres:15-alpine
@@ -78,11 +78,13 @@ services:
     entrypoint: ["/bin/sh", "-c"]
     command:
       - |
+        set -e
         if [ -n "$$FORCE_SEED" ] || [ "$$(psql -tAc 'SELECT count(*) FROM region')" = "0" ]; then
           echo "Cargando seed..." && psql -v ON_ERROR_STOP=1 -f /seed/01-reset-y-seed.sql
         else
           echo "La base ya tiene datos: seed omitido."
         fi
+        psql -v ON_ERROR_STOP=1 -f /seed/02-codigos-ong.sql
     depends_on:
       backend:
         condition: service_healthy
