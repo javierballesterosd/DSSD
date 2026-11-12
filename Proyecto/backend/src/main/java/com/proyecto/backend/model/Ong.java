@@ -5,10 +5,13 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+
+import java.util.UUID;
 
 @Entity
 @Table(name = "ong")
@@ -20,6 +23,18 @@ public class Ong {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    // Identificador común a todos los sistemas (app local, Sistema Nacional, Bonita). Es estable y no
+    // depende de ids autogenerados ni del path de Bonita. Lo asigna el alta si no viene (@PrePersist).
+    @Column(name = "codigo", unique = true, length = 36)
+    private String codigo;
+
+    @PrePersist
+    void asignarCodigo() {
+        if (codigo == null) {
+            codigo = UUID.randomUUID().toString();
+        }
+    }
 
     @Column(name = "razon_social", nullable = false, unique = true, length = 200)
     private String razonSocial;

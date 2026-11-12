@@ -11,4 +11,6 @@ public interface OngRepository extends JpaRepository<Ong, Long> {
     List<Ong> findAllByOrderByRazonSocialAsc();
 
     Optional<Ong> findByBonitaGroupPath(String bonitaGroupPath);
+
+    Optional<Ong> findByCodigo(String codigo);
 }

@@ -81,6 +81,7 @@ public class OfertaMapper {
         List<AporteOngResponse> porOng = celdas.stream()
                 .map(celda -> new AporteOngResponse(
                         celda.ong().getId(),
+                        celda.ong().getCodigo(),
                         celda.ong().getRazonSocial(),
                         celda.cantidad()
                 ))

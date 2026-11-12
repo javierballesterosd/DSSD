@@ -169,7 +169,7 @@ public class DecisionMunicipalService {
     private void verificarReservas(Oferta oferta, IntegracionNacional.Resultado resultado, boolean aceptar) {
         Map<String, Long> esperadas = new HashMap<>();
         for (DetalleOferta detalle : oferta.getDetalles()) {
-            if (cantidad(detalle) > 0) esperadas.merge(detalle.getOng().getId() + ":" + detalle.getItemLote().getRecurso().getId(),
+            if (cantidad(detalle) > 0) esperadas.merge(detalle.getOng().getCodigo() + ":" + detalle.getItemLote().getRecurso().getId(),
                     (long) cantidad(detalle), Math::addExact);
         }
         Map<String, Long> recibidas = new HashMap<>();
@@ -178,7 +178,7 @@ public class DecisionMunicipalService {
                     : Set.of("LIBERADA", "EXPIRADA").contains(item.estado()))) {
                 throw new ReglaNegocioException("El SN no confirmó el estado nacional esperado");
             }
-            String clave = item.ongId() + ":" + item.recursoId();
+            String clave = item.ongCodigo() + ":" + item.recursoId();
             if (!esperadas.containsKey(clave)) throw new ReglaNegocioException("El SN devolvió recursos ajenos a la oferta");
             recibidas.merge(clave, (long) item.cantidad(), Math::addExact);
         }
