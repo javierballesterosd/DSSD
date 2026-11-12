@@ -1,0 +1,197 @@
+<title>Gantt RescueSync</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Concepto: plano de obra. Tabla de actividades a la izquierda, escala semanal a la derecha, una franja de color por entrega. */
+:root{
+  --bg:#f6f7f8; --panel:#ffffff; --fg:#1c2530; --muted:#667385; --line:#dfe3e8; --line2:#eef0f3;
+  --e1:#2a7f7f; --e2:#b07a1f; --e3:#4a5fa8; --e4:#6b7685;
+  --over:#b3392f; --under:#2c7a4b; --hito:#1c2530;
+  --sans:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif; --mono:"IBM Plex Mono",ui-monospace,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#14181d; --panel:#1b2128; --fg:#e6eaef; --muted:#97a3b3; --line:#2c353f; --line2:#232b33;
+  --e1:#46b0ab; --e2:#d9a243; --e3:#8197dc; --e4:#8a95a5; --over:#ef7b70; --under:#62c08a; --hito:#e6eaef; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#14181d; --panel:#1b2128; --fg:#e6eaef; --muted:#97a3b3; --line:#2c353f; --line2:#232b33;
+  --e1:#46b0ab; --e2:#d9a243; --e3:#8197dc; --e4:#8a95a5; --over:#ef7b70; --under:#62c08a; --hito:#e6eaef; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--sans);font-size:14px;line-height:1.45;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:24px 40px}
+.wrap{max-width:1400px;margin:0 auto;display:flex;flex-direction:column;gap:22px}
+h1{font-size:26px;line-height:1.15;margin:0;font-weight:600;text-wrap:balance}
+.sub{color:var(--muted);margin:6px 0 0;max-width:70ch}
+.head{display:flex;flex-wrap:wrap;gap:12px 32px;justify-content:space-between;align-items:flex-end}
+.leyenda{display:flex;flex-wrap:wrap;gap:8px 18px;font-size:12px;color:var(--muted);align-items:center}
+.leyenda span{display:inline-flex;align-items:center;gap:6px}
+.sw{width:22px;height:9px;border-radius:2px;display:inline-block}
+.sw.pend{background:repeating-linear-gradient(135deg,var(--e4) 0 3px,transparent 3px 6px);border:1px solid var(--e4)}
+.sw.todo{border:1px dashed var(--e4)}
+.rombo{width:9px;height:9px;background:var(--hito);transform:rotate(45deg);display:inline-block}
+table.res{border-collapse:collapse;width:100%;max-width:760px;font-variant-numeric:tabular-nums}
+.tw{overflow-x:auto}
+table.res th,table.res td{padding:7px 12px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}
+table.res th:first-child,table.res td:first-child{text-align:left}
+table.res th{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:500}
+table.res tr.tot td{font-weight:600;border-bottom:0}
+.dot{width:10px;height:10px;border-radius:2px;display:inline-block;margin-right:8px}
+.pos{color:var(--over)} .neg{color:var(--under)} .nd{color:var(--muted)}
+.chartbox{background:var(--panel);border:1px solid var(--line);border-radius:6px;overflow-x:auto}
+.chart{position:relative;min-width:max-content}
+.row{display:flex;height:28px;border-bottom:1px solid var(--line2)}
+.row:last-child{border-bottom:0}
+.l{flex:0 0 520px;width:520px;min-width:0;max-width:520px;overflow:hidden;display:flex;align-items:center;background:var(--panel);z-index:2;border-right:1px solid var(--line)}
+@media (min-width:760px){.l{position:sticky;left:0}}
+.l .k{font-family:var(--mono);font-size:11px;color:var(--muted);width:72px;padding-left:12px;flex:none}
+.l .n{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-right:8px}
+.l .c{flex:none;width:52px;text-align:right;font-family:var(--mono);font-size:12px;font-variant-numeric:tabular-nums;padding-right:10px}
+.c.real{color:var(--fg)}
+.ch{position:relative;flex:none;
+  background-image:linear-gradient(to right,var(--line2) 1px,transparent 1px);background-size:70px 100%}
+.row.hdr{height:30px;background:var(--bg)}
+.row.hdr .l{background:var(--bg);font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.row.hdr .l .k,.row.hdr .l .c{font-family:var(--sans);font-size:11px}
+.row.hdr .ch{background-image:none}
+.mes{position:absolute;top:0;height:15px;font-size:11px;font-weight:500;padding-left:6px;border-left:1px solid var(--line);color:var(--muted)}
+.sem{position:absolute;top:15px;font-size:10px;font-family:var(--mono);color:var(--muted);padding-left:3px;border-left:1px solid var(--line2);height:15px}
+.row.ep{height:34px;background:color-mix(in srgb,var(--panel) 92%,var(--fg) 8%)}
+.row.ep .l{background:color-mix(in srgb,var(--panel) 92%,var(--fg) 8%);font-weight:600}
+.row.ep .n small{font-weight:400;color:var(--muted);margin-left:8px}
+.row.ep .ch{background-image:none}
+.bar{position:absolute;top:7px;height:14px;border-radius:2px;background:var(--col)}
+.bar.pend{background:repeating-linear-gradient(135deg,var(--col) 0 3px,transparent 3px 6px);outline:1px solid var(--col);outline-offset:-1px}
+.ep .bar{top:9px;height:16px;opacity:.95}
+.ep .bar.todo{background:transparent;outline:1.5px dashed var(--col);outline-offset:-1.5px}
+.ep .bar b{position:absolute;left:8px;top:0;line-height:16px;font-size:11px;font-weight:500;color:#fff;white-space:nowrap}
+.ep .bar.todo b{color:var(--fg)}
+.hitos{height:76px;border-bottom:1px solid var(--line)}
+.hitos .l{align-items:flex-end;padding:0 12px 6px;color:var(--muted);font-size:11px;letter-spacing:.06em;text-transform:uppercase}
+.hitos .ch{background-image:none}
+.hito{position:absolute;top:0;bottom:0;border-left:1px dashed var(--hito);opacity:.55}
+.hito i{position:absolute;bottom:-4px;left:-5px;width:9px;height:9px;background:var(--hito);transform:rotate(45deg)}
+.hito em{position:absolute;top:4px;left:5px;font-style:normal;font-size:10.5px;white-space:nowrap;color:var(--fg);opacity:1;background:var(--panel);padding:0 3px;line-height:15px}
+.hito.alt em{top:22px}
+.hito.alt2 em{top:40px}
+.vline{position:absolute;top:0;bottom:0;border-left:1px dashed var(--hito);opacity:.18;pointer-events:none}
+.notas{color:var(--muted);font-size:13px;max-width:92ch;display:flex;flex-direction:column;gap:6px}
+.notas p{margin:0}
+.notas b{color:var(--fg);font-weight:600}
+</style>
+
+<div class="wrap">
+  <div class="head">
+    <div>
+      <h1>Diagrama de Gantt · RescueSync</h1>
+      <p class="sub">Entregas 1 a 3 con las tareas del grooming, horas estimadas contra reales y desvío, y la etapa restante hasta el coloquio. Dato fuente: proyecto DSSD en Jira (SCRUM-5 a SCRUM-86).</p>
+    </div>
+    <div class="leyenda">
+      <span><i class="sw" style="background:var(--e1)"></i>Tarea finalizada</span>
+      <span><i class="sw pend" style="--col:var(--e2)"></i>No realizada</span>
+      <span><i class="sw todo"></i>Por planificar</span>
+      <span><i class="rombo"></i>Entrega o hito</span>
+    </div>
+  </div>
+
+  <div class="tw"><table class="res" id="res"></table></div>
+
+  <div class="chartbox"><div class="chart" id="chart"></div></div>
+
+  <div class="notas">
+    <p><b>Horas.</b> Estimadas: las del grooming, redondeadas a media hora, igual que los Story points en Jira. Reales: las del grooming; "4/5 h" cuenta como 4,5 h para calcular el desvío. Una tarea sin estimación (—) surgió después de planificar, por eso no tiene desvío.</p>
+    <p><b>Entrega 1.</b> El grooming de esa etapa no registra horas reales, así que se muestran solo las estimadas.</p>
+    <p><b>Fechas.</b> Las tareas se reparten dentro de la ventana de cada entrega (24/8 al 10/9, 11/9 al 1/10 y 2/10 al 22/10). Son las mismas fechas cargadas en Jira. La barra rayada y el "N/R" de "Registro usuarios (frontend)" indican que no se realizó.</p>
+    <p><b>Entrega 4 y Final.</b> Sus tareas todavía no están definidas. El tramo va del 23/10 al 3/12 y los hitos salen del cronograma del enunciado.</p>
+  </div>
+</div>
+
+<script>
+const DATA = {"epics": [{"code": "E1", "title": "Entrega 1", "sub": "Modelo de proceso en Bonita", "epic": "SCRUM-5", "start": "2026-08-24", "end": "2026-09-10", "rows": [{"key": "SCRUM-9", "name": "Lectura conjunta del enunciado", "start": "2026-08-24", "end": "2026-08-24", "est": 1.5, "real": null, "realn": null, "done": true}, {"key": "SCRUM-10", "name": "Investigación del uso de Bonita", "start": "2026-08-25", "end": "2026-08-25", "est": 1, "real": null, "realn": null, "done": true}, {"key": "SCRUM-11", "name": "División de módulos entre integrantes", "start": "2026-08-26", "end": "2026-08-26", "est": 0.5, "real": null, "realn": null, "done": true}, {"key": "SCRUM-12", "name": "Modelado: Registro de Emergencia", "start": "2026-08-26", "end": "2026-08-26", "est": 1.5, "real": null, "realn": null, "done": true}, {"key": "SCRUM-13", "name": "Modelado: Generación de Lotes", "start": "2026-08-27", "end": "2026-08-27", "est": 1.5, "real": null, "realn": null, "done": true}, {"key": "SCRUM-14", "name": "Modelado: Convocatoria y Ofertas Colaborativas", "start": "2026-08-28", "end": "2026-08-28", "est": 2, "real": null, "realn": null, "done": true}, {"key": "SCRUM-15", "name": "Modelado: Validación Externa y Asignación Flexible", "start": "2026-08-31", "end": "2026-08-31", "est": 2, "real": null, "realn": null, "done": true}, {"key": "SCRUM-16", "name": "Modelado: Adjudicación y Notificación", "start": "2026-08-31", "end": "2026-08-31", "est": 1, "real": null, "realn": null, "done": true}, {"key": "SCRUM-17", "name": "Modelado: Compromiso Nacional", "start": "2026-09-01", "end": "2026-09-01", "est": 1, "real": null, "realn": null, "done": true}, {"key": "SCRUM-18", "name": "Modelado: Ejecución, Finalización y Cierre Bilateral", "start": "2026-09-02", "end": "2026-09-02", "est": 1.5, "real": null, "realn": null, "done": true}, {"key": "SCRUM-19", "name": "Puesta en común de los diagramas individuales", "start": "2026-09-03", "end": "2026-09-03", "est": 1.5, "real": null, "realn": null, "done": true}, {"key": "SCRUM-20", "name": "Integración en un único flujo end-to-end", "start": "2026-09-03", "end": "2026-09-03", "est": 1, "real": null, "realn": null, "done": true}, {"key": "SCRUM-21", "name": "Revisión de conexiones y puntos de quiebre", "start": "2026-09-04", "end": "2026-09-04", "est": 1, "real": null, "realn": null, "done": true}, {"key": "SCRUM-22", "name": "Incorporación de temporizadores", "start": "2026-09-07", "end": "2026-09-07", "est": 0.5, "real": null, "realn": null, "done": true}, {"key": "SCRUM-23", "name": "Incorporación de eventos alternativos", "start": "2026-09-08", "end": "2026-09-08", "est": 0.5, "real": null, "realn": null, "done": true}, {"key": "SCRUM-24", "name": "Revisión y ajuste fino del modelo completo", "start": "2026-09-08", "end": "2026-09-08", "est": 1, "real": null, "realn": null, "done": true}, {"key": "SCRUM-25", "name": "Identificación de tareas pendientes para Entrega 2", "start": "2026-09-09", "end": "2026-09-09", "est": 1, "real": null, "realn": null, "done": true}, {"key": "SCRUM-26", "name": "Estimación de esfuerzo por tarea", "start": "2026-09-10", "end": "2026-09-10", "est": 0.5, "real": null, "realn": null, "done": true}]}, {"code": "E2", "title": "Entrega 2", "sub": "Aplicación web e integración inicial con Bonita", "epic": "SCRUM-6", "start": "2026-09-11", "end": "2026-10-01", "rows": [{"key": "SCRUM-27", "name": "Elección de arquitectura", "start": "2026-09-11", "end": "2026-09-11", "est": 1.5, "real": "1.3 h", "realn": 1.3, "done": true}, {"key": "SCRUM-28", "name": "Diseño de Base de Datos", "start": "2026-09-11", "end": "2026-09-11", "est": 2, "real": "4/5 h", "realn": 4.5, "done": true}, {"key": "SCRUM-29", "name": "Setup Docker BD", "start": "2026-09-14", "end": "2026-09-14", "est": 4, "real": "3 h", "realn": 3, "done": true}, {"key": "SCRUM-30", "name": "Crear archivo de inicialización de la base de datos", "start": "2026-09-14", "end": "2026-09-14", "est": null, "real": "1.3 h", "realn": 1.3, "done": true}, {"key": "SCRUM-31", "name": "Inicialización del Backend", "start": "2026-09-15", "end": "2026-09-15", "est": 4, "real": "3 h", "realn": 3, "done": true}, {"key": "SCRUM-32", "name": "Inicialización del Frontend", "start": "2026-09-15", "end": "2026-09-15", "est": 4, "real": "3 h", "realn": 3, "done": true}, {"key": "SCRUM-33", "name": "Crear usuarios (Bonita)", "start": "2026-09-16", "end": "2026-09-16", "est": null, "real": "1.30 h", "realn": 1.3, "done": true}, {"key": "SCRUM-34", "name": "Login usuarios (Backend)", "start": "2026-09-16", "end": "2026-09-17", "est": 6, "real": "2 h", "realn": 2, "done": true}, {"key": "SCRUM-35", "name": "Login usuarios (Frontend)", "start": "2026-09-16", "end": "2026-09-16", "est": 4, "real": "2 h", "realn": 2, "done": true}, {"key": "SCRUM-36", "name": "Registro usuarios (frontend)", "start": "2026-09-17", "end": "2026-09-17", "est": 2, "real": "No realizada", "realn": null, "done": false}, {"key": "SCRUM-37", "name": "Formulario de Alta de Emergencia", "start": "2026-09-17", "end": "2026-09-17", "est": 3, "real": "3 h", "realn": 3, "done": true}, {"key": "SCRUM-38", "name": "Alta de Emergencia: endpoint (backend)", "start": "2026-09-17", "end": "2026-09-18", "est": null, "real": "5 h", "realn": 5, "done": true}, {"key": "SCRUM-39", "name": "UI: Publicación de Lotes", "start": "2026-09-18", "end": "2026-09-21", "est": 4, "real": "6 h", "realn": 6, "done": true}, {"key": "SCRUM-40", "name": "Publicación de Lotes: endpoint (backend)", "start": "2026-09-18", "end": "2026-09-22", "est": null, "real": "10 h", "realn": 10, "done": true}, {"key": "SCRUM-41", "name": "Formulario de Carga de Ofertas", "start": "2026-09-21", "end": "2026-09-21", "est": 4, "real": "4 h", "realn": 4, "done": true}, {"key": "SCRUM-42", "name": "Carga de Ofertas: endpoint (backend)", "start": "2026-09-21", "end": "2026-09-21", "est": null, "real": "3 h", "realn": 3, "done": true}, {"key": "SCRUM-43", "name": "Trazabilidad de Ofertas", "start": "2026-09-22", "end": "2026-09-22", "est": null, "real": "2 h", "realn": 2, "done": true}, {"key": "SCRUM-44", "name": "Contratos en Bonita Studio", "start": "2026-09-22", "end": "2026-09-22", "est": 1.5, "real": "1 h", "realn": 1, "done": true}, {"key": "SCRUM-45", "name": "Integración del registro de emergencia con API REST de Bonita", "start": "2026-09-22", "end": "2026-09-23", "est": 4, "real": "7 h", "realn": 7, "done": true}, {"key": "SCRUM-46", "name": "Integración del registro de lote con API REST de Bonita", "start": "2026-09-22", "end": "2026-09-23", "est": null, "real": "5 h", "realn": 5, "done": true}, {"key": "SCRUM-47", "name": "Implementación de notificaciones", "start": "2026-09-23", "end": "2026-09-23", "est": null, "real": "3 h", "realn": 3, "done": true}, {"key": "SCRUM-48", "name": "Edición y retiro de ofertas", "start": "2026-09-24", "end": "2026-09-24", "est": null, "real": "3 h", "realn": 3, "done": true}, {"key": "SCRUM-49", "name": "Ofertas parciales y en consorcio", "start": "2026-09-24", "end": "2026-09-24", "est": null, "real": "2 h", "realn": 2, "done": true}, {"key": "SCRUM-50", "name": "Listados y detalle por perfil", "start": "2026-09-25", "end": "2026-09-25", "est": null, "real": "2 h", "realn": 2, "done": true}, {"key": "SCRUM-51", "name": "Navegación y manejo de sesión", "start": "2026-09-25", "end": "2026-09-25", "est": null, "real": "1h", "realn": 1, "done": true}, {"key": "SCRUM-52", "name": "Control de acceso por rol", "start": "2026-09-28", "end": "2026-09-28", "est": null, "real": "1.3 h", "realn": 1.3, "done": true}, {"key": "SCRUM-53", "name": "Mejoras de UI y manejo de errores", "start": "2026-09-28", "end": "2026-09-28", "est": null, "real": "2h", "realn": 2, "done": true}, {"key": "SCRUM-54", "name": "Pruebas unitarias del backend", "start": "2026-09-28", "end": "2026-09-28", "est": null, "real": "1h", "realn": 1, "done": true}, {"key": "SCRUM-55", "name": "Actualización del modelo en Bonita", "start": "2026-09-29", "end": "2026-09-29", "est": null, "real": "2 h", "realn": 2, "done": true}, {"key": "SCRUM-56", "name": "Refactor del proyecto", "start": "2026-09-29", "end": "2026-09-29", "est": null, "real": "2 h", "realn": 2, "done": true}, {"key": "SCRUM-57", "name": "Correcciones de Docker y entorno", "start": "2026-09-30", "end": "2026-09-30", "est": null, "real": "2.5 h", "realn": 2.5, "done": true}, {"key": "SCRUM-58", "name": "Integración de ramas y corrección de errores", "start": "2026-09-30", "end": "2026-09-30", "est": null, "real": "2h", "realn": 2, "done": true}, {"key": "SCRUM-59", "name": "Documentación del proyecto", "start": "2026-10-01", "end": "2026-10-01", "est": null, "real": "2 h", "realn": 2, "done": true}, {"key": "SCRUM-60", "name": "Gestión de Proyecto: Análisis de Desvíos", "start": "2026-10-01", "end": "2026-10-01", "est": 2, "real": "2 h", "realn": 2, "done": true}]}, {"code": "E3", "title": "Entrega 3", "sub": "Sistema Nacional en la nube e integración", "epic": "SCRUM-7", "start": "2026-10-02", "end": "2026-10-22", "rows": [{"key": "SCRUM-61", "name": "Definición del alcance y contratos de la API", "start": "2026-10-02", "end": "2026-10-02", "est": 2, "real": "4h", "realn": 4, "done": true}, {"key": "SCRUM-62", "name": "Inicialización del proyecto y repositorio", "start": "2026-10-05", "end": "2026-10-05", "est": 4, "real": "1h", "realn": 1, "done": true}, {"key": "SCRUM-63", "name": "Diseño de base de datos", "start": "2026-10-05", "end": "2026-10-05", "est": 4, "real": "3h", "realn": 3, "done": true}, {"key": "SCRUM-64", "name": "Carga de datos de ejemplo", "start": "2026-10-06", "end": "2026-10-06", "est": 2, "real": "2h", "realn": 2, "done": true}, {"key": "SCRUM-65", "name": "Login con JWT", "start": "2026-10-06", "end": "2026-10-07", "est": 6, "real": "6h", "realn": 6, "done": true}, {"key": "SCRUM-66", "name": "Gestión de cuentas de ONGs", "start": "2026-10-07", "end": "2026-10-08", "est": 6, "real": "6h", "realn": 6, "done": true}, {"key": "SCRUM-67", "name": "Catálogos de consulta", "start": "2026-10-07", "end": "2026-10-07", "est": 3, "real": "3h", "realn": 3, "done": true}, {"key": "SCRUM-68", "name": "Investigar locking en PostgreSQL", "start": "2026-10-08", "end": "2026-10-08", "est": 1, "real": "1h", "realn": 1, "done": true}, {"key": "SCRUM-69", "name": "Control de concurrencia y bloqueo", "start": "2026-10-08", "end": "2026-10-09", "est": 5, "real": "5h", "realn": 5, "done": true}, {"key": "SCRUM-70", "name": "Liberación y cierre", "start": "2026-10-09", "end": "2026-10-09", "est": 4, "real": "4h", "realn": 4, "done": true}, {"key": "SCRUM-71", "name": "Manejo de errores y validaciones", "start": "2026-10-12", "end": "2026-10-12", "est": 2, "real": "2h", "realn": 2, "done": true}, {"key": "SCRUM-72", "name": "Pruebas de los endpoints", "start": "2026-10-12", "end": "2026-10-12", "est": 4, "real": "4h", "realn": 4, "done": true}, {"key": "SCRUM-73", "name": "Documentación con Swagger", "start": "2026-10-13", "end": "2026-10-13", "est": 4, "real": "3h", "realn": 3, "done": true}, {"key": "SCRUM-74", "name": "Investigar despliegue con Docker en Render o Heroku", "start": "2026-10-13", "end": "2026-10-13", "est": 2.5, "real": "2h", "realn": 2, "done": true}, {"key": "SCRUM-75", "name": "Crear Dockerfile", "start": "2026-10-14", "end": "2026-10-14", "est": 2, "real": "2h", "realn": 2, "done": true}, {"key": "SCRUM-76", "name": "Despliegue en la nube", "start": "2026-10-14", "end": "2026-10-15", "est": 5, "real": "5h", "realn": 5, "done": true}, {"key": "SCRUM-77", "name": "Endpoint de ofertas consolidadas (aplicación local)", "start": "2026-10-15", "end": "2026-10-15", "est": 3, "real": "3h", "realn": 3, "done": true}, {"key": "SCRUM-78", "name": "Integración con Bonita", "start": "2026-10-15", "end": "2026-10-16", "est": 6, "real": "6h", "realn": 6, "done": true}, {"key": "SCRUM-79", "name": "Recepción de ofertas en el Sistema Nacional", "start": "2026-10-16", "end": "2026-10-16", "est": null, "real": "4h", "realn": 4, "done": true}, {"key": "SCRUM-80", "name": "Registro de la validación nacional en la aplicación local", "start": "2026-10-19", "end": "2026-10-19", "est": null, "real": "3h", "realn": 3, "done": true}, {"key": "SCRUM-81", "name": "Decisión municipal sobre las ofertas validadas", "start": "2026-10-19", "end": "2026-10-19", "est": null, "real": "4h", "realn": 4, "done": true}, {"key": "SCRUM-82", "name": "Liberación de recursos en la aplicación local", "start": "2026-10-20", "end": "2026-10-20", "est": null, "real": "3h", "realn": 3, "done": true}, {"key": "SCRUM-83", "name": "Documentación de la entrega", "start": "2026-10-20", "end": "2026-10-20", "est": 2, "real": "3h", "realn": 3, "done": true}, {"key": "SCRUM-84", "name": "Reuniones de seguimiento", "start": "2026-10-20", "end": "2026-10-21", "est": 4.5, "real": "4.5h", "realn": 4.5, "done": true}, {"key": "SCRUM-85", "name": "Unificar procesos en Bonita", "start": "2026-10-21", "end": "2026-10-21", "est": null, "real": "1hs", "realn": 1, "done": true}, {"key": "SCRUM-86", "name": "Gestión de Proyecto: Análisis de Desvíos", "start": "2026-10-22", "end": "2026-10-22", "est": 2, "real": "2h", "realn": 2, "done": true}]}], "final": {"code": "E4", "title": "Entrega 4 y Final", "sub": "Actividades restantes por definir", "epic": "SCRUM-8", "start": "2026-10-23", "end": "2026-12-03"}, "hitos": [["2026-09-10", "Entrega 1"], ["2026-10-01", "Entrega 2"], ["2026-10-22", "Entrega 3"], ["2026-11-05", "Entrega 4 (Gantt)"], ["2026-11-19", "Entrega 5 (informe final)"], ["2026-11-26", "Coloquio final"], ["2026-12-03", "Recuperatorio"]], "hoy": "2026-11-05"};
+const DAY = 10;
+const d = s => new Date(s + "T00:00:00");
+const T0 = d("2026-08-24"), T1 = d("2026-12-21");
+const days = (a, b) => Math.round((b - a) / 86400000);
+const W = days(T0, T1) * DAY;
+const COL = {E1:"var(--e1)", E2:"var(--e2)", E3:"var(--e3)", E4:"var(--e4)"};
+const MES = ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
+const f = s => { const x = d(s); return x.getDate() + " " + MES[x.getMonth()]; };
+const h = n => (n == null ? "—" : String(n).replace(".", ","));
+const esc = t => String(t).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const x = s => days(T0, d(s)) * DAY;
+const w = (a, b) => (days(d(a), d(b)) + 1) * DAY - 2;
+
+function stats(rows) {
+  let est = 0, real = 0, dev = 0, both = 0, nreal = 0;
+  rows.forEach(r => {
+    if (r.est != null) est += r.est;
+    if (r.realn != null) { real += r.realn; nreal++; }
+    if (r.est != null && r.realn != null) { dev += r.realn - r.est; both++; }
+  });
+  return {est, real, dev, both, nreal, n: rows.length};
+}
+const sg = v => (v > 0 ? "+" : v < 0 ? "−" : "") + h(Math.abs(Math.round(v * 10) / 10));
+const cls = v => (v > 0.04 ? "pos" : v < -0.04 ? "neg" : "nd");
+
+// Resumen
+let tb = "<tr><th>Entrega</th><th>Tareas</th><th>Estimadas (h)</th><th>Reales (h)</th><th>Desvío (h)</th></tr>";
+let T = {est:0, real:0, dev:0, n:0, nreal:0};
+DATA.epics.forEach(e => {
+  const s = stats(e.rows);
+  const sinReal = s.nreal === 0;
+  tb += `<tr><td><span class="dot" style="background:${COL[e.code]}"></span>${esc(e.title)} <span class="nd">· ${esc(e.sub)}</span></td><td>${s.n}</td><td>${h(Math.round(s.est*10)/10)}</td>` +
+        (sinReal ? `<td class="nd">sin dato</td><td class="nd">—</td>` : `<td>${h(Math.round(s.real*10)/10)}</td><td class="${cls(s.dev)}">${sg(s.dev)}</td>`) + "</tr>";
+  T.n += s.n; T.est += s.est; if (!sinReal) { T.real += s.real; T.dev += s.dev; }
+});
+tb += `<tr class="tot"><td>Total</td><td>${T.n}</td><td>${h(Math.round(T.est*10)/10)}</td><td>${h(Math.round(T.real*10)/10)}</td><td class="${cls(T.dev)}">${sg(T.dev)}</td></tr>`;
+document.getElementById("res").innerHTML = tb;
+
+// Gráfico
+const L = (k, n, est, real, extra) =>
+  `<div class="l"><span class="k">${k}</span><span class="n" title="${esc(n)}">${n}</span><span class="c">${est}</span><span class="c real ${extra||""}">${real}</span></div>`;
+let hd = `<div class="row hdr"><div class="l"><span class="k">Clave</span><span class="n">Actividad</span><span class="c">Est. h</span><span class="c">Real h</span></div><div class="ch" style="width:${W}px">`;
+let m = new Date(T0);
+while (m < T1) {
+  const first = m.getDate() === 1 || m.getTime() === T0.getTime() ? m : null;
+  m = new Date(m.getFullYear(), m.getMonth(), m.getDate() + 1);
+}
+for (let mo = new Date(2026,7,1); mo < T1; mo = new Date(mo.getFullYear(), mo.getMonth()+1, 1)) {
+  const a = mo < T0 ? T0 : mo, nx = new Date(mo.getFullYear(), mo.getMonth()+1, 1), b = nx > T1 ? T1 : nx;
+  hd += `<div class="mes" style="left:${days(T0,a)*DAY}px;width:${days(a,b)*DAY}px">${MES[mo.getMonth()]}</div>`;
+}
+for (let k = 0; k < days(T0, T1); k += 7) {
+  const t = new Date(T0.getFullYear(), T0.getMonth(), T0.getDate() + k);
+  hd += `<div class="sem" style="left:${k*DAY}px;width:${7*DAY}px">${t.getDate()}</div>`;
+}
+hd += "</div></div>";
+
+const hitosAbr = {"Entrega 1":"Entrega 1","Entrega 2":"Entrega 2","Entrega 3":"Entrega 3","Entrega 4 (Gantt)":"Entrega 4","Entrega 5 (informe final)":"Entrega 5","Coloquio final":"Coloquio","Recuperatorio":"Recup."};
+let hi = `<div class="row hitos"><div class="l">Entregas e hitos</div><div class="ch" style="width:${W}px">`;
+DATA.hitos.forEach(([fecha, nom], i) => {
+  hi += `<div class="hito ${["", "alt", "alt2"][i % 3]}" style="left:${x(fecha) + DAY/2}px" title="${esc(nom)} · ${f(fecha)}"><em>${esc(hitosAbr[nom])} · ${f(fecha)}</em><i></i></div>`;
+});
+hi += "</div></div>";
+
+let body = "";
+DATA.epics.forEach(e => {
+  const s = stats(e.rows);
+  const estS = h(Math.round(s.est*10)/10), realS = s.nreal ? h(Math.round(s.real*10)/10) : "—";
+  body += `<div class="row ep" style="--col:${COL[e.code]}"><div class="l"><span class="k">${e.epic}</span><span class="n">${esc(e.title)}<small>${esc(e.sub)}</small></span><span class="c">${estS}</span><span class="c real">${realS}</span></div>` +
+          `<div class="ch" style="width:${W}px"><div class="bar" style="left:${x(e.start)}px;width:${w(e.start, e.end)}px"><b>${f(e.start)} – ${f(e.end)}</b></div></div></div>`;
+  e.rows.forEach(r => {
+    let dv = "";
+    if (r.est != null && r.realn != null) { const v = r.realn - r.est; dv = cls(v); }
+    const tip = `${r.key} · ${r.name} · ${f(r.start)}${r.start === r.end ? "" : " – " + f(r.end)} · Est. ${h(r.est)} h · Real ${r.real == null ? "—" : r.real}`;
+    body += `<div class="row" style="--col:${COL[e.code]}">` +
+      L(r.key, esc(r.name), h(r.est), r.real == null ? "—" : (r.real === "No realizada" ? "N/R" : esc(r.real).replace(/ ?hs?$/, "")), dv) +
+      `<div class="ch" style="width:${W}px"><div class="bar ${r.done ? "" : "pend"}" style="left:${x(r.start)}px;width:${w(r.start, r.end)}px" title="${esc(tip)}"></div></div></div>`;
+  });
+});
+const fe = DATA.final;
+body += `<div class="row ep" style="--col:${COL.E4}"><div class="l"><span class="k">${fe.epic}</span><span class="n">${esc(fe.title)}<small>${esc(fe.sub)}</small></span><span class="c">—</span><span class="c real">—</span></div>` +
+        `<div class="ch" style="width:${W}px"><div class="bar todo" style="left:${x(fe.start)}px;width:${w(fe.start, fe.end)}px"><b>${f(fe.start)} – ${f(fe.end)} · por planificar</b></div></div></div>`;
+
+const chart = document.getElementById("chart");
+chart.innerHTML = hd + hi + body;
+// líneas verticales de hitos sobre las filas
+const lineas = DATA.hitos.map(([fecha]) => `<div class="vline" style="left:${520 + x(fecha) + DAY/2}px"></div>`).join("");
+chart.insertAdjacentHTML("beforeend", lineas);
+</script>
