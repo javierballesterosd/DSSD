@@ -23,6 +23,9 @@ public class IntegracionNacionalConnector extends AbstractConnector {
     @Override public void validateInputParameters() {}
 
     @Override protected void executeBusinessLogic() throws ConnectorException {
+        // Salida para el gateway de Bonita. Por defecto true: si la fase no es VALIDAR o no hay nada que decidir,
+        // el proceso sigue por el camino de siempre. Solo VALIDAR la recalcula al final.
+        setOutputParameter("hayOfertasHabilitadas", Boolean.TRUE);
         try {
             String operacion = (String) getInputParameter("operacion");
             Boolean aceptar = (Boolean) getInputParameter("aceptar");
@@ -57,6 +60,7 @@ public class IntegracionNacionalConnector extends AbstractConnector {
                 if (jwt == null || jwt.isBlank()) throw new IllegalStateException("El SN no devolvió JWT");
             }
             if (validar) {
+                boolean hayHabilitadas = false;
                 for (Map<String,Object> oferta : ofertas) {
                     Map<String,Object> ids = ids(emergencia, lote, oferta);
                     // Si se perdió la respuesta local, reutilizar la reserva nacional vigente.
@@ -69,7 +73,11 @@ public class IntegracionNacionalConnector extends AbstractConnector {
                             ? activos(objeto(anterior.body()), Set.of("BLOQUEADA")) : List.of();
                     boolean aprobada = true;
                     if (items.isEmpty()) {
-                        var reserva = request("POST", nacional + "/reservas/temporales", jwt, ids, Set.of(200,201,409));
+                        // parcial=true: el SN reserva lo que haya libre de cada recurso y solo responde 409 si no
+                        // puede reservar nada. Sin el flag es todo o nada.
+                        Map<String,Object> pedido = new HashMap<>(ids);
+                        pedido.put("parcial", true);
+                        var reserva = request("POST", nacional + "/reservas/temporales", jwt, pedido, Set.of(200,201,409));
                         aprobada = reserva.statusCode() != 409;
                         items = aprobada ? activos(objeto(reserva.body()), Set.of("BLOQUEADA")) : List.of();
                     }
@@ -77,7 +85,11 @@ public class IntegracionNacionalConnector extends AbstractConnector {
                     Map<String,Object> resultado = resultado(oferta, aprobada, items);
                     request("POST", ruta + "/validacion-sn", localToken,
                             respuesta(lote, caso, List.of(resultado)), Set.of(204));
+                    hayHabilitadas |= aprobada;
                 }
+                // Si todas las ofertas quedaron sin recursos (otro se llevó el stock) el gateway evita
+                // pasar por "Ver ofertas validadas". Ante un reintento solo cuenta las ofertas aún pendientes.
+                setOutputParameter("hayOfertasHabilitadas", hayHabilitadas || ofertas.isEmpty());
             } else {
                 // Verificar TODO el conjunto antes de comprometer la primera oferta.
                 if (Boolean.TRUE.equals(aceptar)) {
