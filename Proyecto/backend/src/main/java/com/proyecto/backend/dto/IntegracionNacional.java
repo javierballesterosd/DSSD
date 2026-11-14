@@ -8,11 +8,12 @@ import java.util.List;
 public final class IntegracionNacional {
     private IntegracionNacional() {}
 
-    public record Item(Long detalleOfertaId, Long ongId, Long recursoId, Integer cantidad) {}
+    // La ONG viaja por su código común: el id numérico es propio de cada base
+    public record Item(Long detalleOfertaId, String ongCodigo, Long recursoId, Integer cantidad) {}
     public record Oferta(Long ofertaId, List<Item> items) {}
     public record Plan(Long emergenciaId, Long loteId, String caseId, Boolean decision,
                        boolean confirmada, List<Oferta> ofertas) {}
-    public record ItemSN(@NotNull Long ongId, @NotNull Long recursoId,
+    public record ItemSN(@NotNull String ongCodigo, @NotNull Long recursoId,
                          @NotNull Integer cantidad, @NotNull String estado) {}
     public record Resultado(@NotNull Long ofertaId, @NotNull Boolean aprobada,
                             @NotNull List<@Valid ItemSN> items) {}

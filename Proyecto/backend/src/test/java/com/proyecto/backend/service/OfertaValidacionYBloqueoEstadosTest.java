@@ -126,9 +126,12 @@ public class OfertaValidacionYBloqueoEstadosTest {
         ));
 
         ofertaValidacionService.procesarValidacionSN(ofertaId, validacion);
-
         Oferta ofertaActualizada = ofertaRepository.findById(ofertaId).get();
         assertEquals(EstadoOferta.VALIDADA, ofertaActualizada.getEstado());
+       
+        ofertaValidacionService.procesarAceptacionMunicipalYBloquearRecursos(ofertaId);
+        ofertaActualizada = ofertaRepository.findById(ofertaId).get();
+        assertEquals(EstadoOferta.EN_EJECUCION, ofertaActualizada.getEstado());
 
         // Descuenta todo lo ofrecido
         assertEquals(100, inventarioOngRepository.findByOngIdAndRecursoId(ongId, recursoFrazadasId).get().getCantidadDisponible()); // 200 - 100
@@ -148,6 +151,10 @@ public class OfertaValidacionYBloqueoEstadosTest {
         Oferta ofertaActualizada = ofertaRepository.findById(ofertaId).get();
         assertEquals(EstadoOferta.ACEPTADA_PARCIAL, ofertaActualizada.getEstado());
 
+        ofertaValidacionService.procesarAceptacionMunicipalYBloquearRecursos(ofertaId);
+        ofertaActualizada = ofertaRepository.findById(ofertaId).get();
+        assertEquals(EstadoOferta.EN_EJECUCION, ofertaActualizada.getEstado());
+
         // Solo descuenta las 40 frazadas aceptadas
         assertEquals(160, inventarioOngRepository.findByOngIdAndRecursoId(ongId, recursoFrazadasId).get().getCantidadDisponible()); // 200 - 40
         assertEquals(0, inventarioOngRepository.findByOngIdAndRecursoId(ongId, recursoMedicosId).get().getCantidadDisponible());
@@ -165,6 +172,9 @@ public class OfertaValidacionYBloqueoEstadosTest {
 
         Oferta ofertaActualizada = ofertaRepository.findById(ofertaId).get();
         assertEquals(EstadoOferta.ACEPTADA_PARCIAL, ofertaActualizada.getEstado());
+        ofertaValidacionService.procesarAceptacionMunicipalYBloquearRecursos(ofertaId);
+        ofertaActualizada = ofertaRepository.findById(ofertaId).get();
+        assertEquals(EstadoOferta.EN_EJECUCION, ofertaActualizada.getEstado());
 
         // Descuenta las frazadas, pero el stock de médicos queda intacto
         assertEquals(100, inventarioOngRepository.findByOngIdAndRecursoId(ongId, recursoFrazadasId).get().getCantidadDisponible());

@@ -66,15 +66,15 @@
   <section class="dashboard-seccion">
     <div class="seccion-encabezado">
       <h2>Resumen</h2>
-      <span>Registros devueltos por las consultas del dashboard.</span>
+      <span>Cantidad de elementos mostrados en los gráficos y el seguimiento.</span>
     </div>
 
     <div class="row g-3">
       <div class="col-12 col-sm-6 col-xl-3">
         <app-tarjeta-indicador
-          titulo="ONGs en ranking"
+          titulo="ONG mostradas"
           [valor]="cantidadONGsRanking()"
-          descripcion="Organizaciones devueltas por el ranking"
+          descripcion="ONG incluidas en el gráfico de ofertas"
           icono="bi bi-building"
           color="success"
         />
@@ -82,9 +82,9 @@
 
       <div class="col-12 col-sm-6 col-xl-3">
         <app-tarjeta-indicador
-          titulo="Municipios en ranking"
+          titulo="Municipios mostrados"
           [valor]="cantidadMunicipiosRanking()"
-          descripcion="Municipios devueltos por el ranking"
+          descripcion="Municipios incluidos en el gráfico de emergencias"
           icono="bi bi-geo-alt"
           color="primary"
         />
@@ -94,7 +94,7 @@
         <app-tarjeta-indicador
           titulo="Emergencias en seguimiento"
           [valor]="cantidadEmergenciasSeguimiento()"
-          descripcion="Casos identificados en monitoreo"
+          descripcion="Emergencias actualmente en la etapa de monitoreo"
           icono="bi bi-clipboard-check"
           color="warning"
         />
@@ -102,9 +102,9 @@
 
       <div class="col-12 col-sm-6 col-xl-3">
         <app-tarjeta-indicador
-          titulo="Etapas analizadas"
+          titulo="Etapas con tiempos"
           [valor]="cantidadEtapasAnalizadas()"
-          descripcion="Etapas con resultados devueltos"
+          descripcion="Tipos de tareas incluidos en el ranking de duración"
           icono="bi bi-clock-history"
           color="info"
         />
@@ -222,7 +222,7 @@
   <section class="dashboard-seccion">
     <div class="seccion-encabezado">
       <h2>Tiempos de gestión</h2>
-      <span>Ranking de etapas e indicadores de duración de las emergencias seleccionadas.</span>
+      <span>Los tiempos son promedios calculados sobre las emergencias y ejecuciones que cumplen los filtros.</span>
     </div>
 
     <div class="row g-3 align-items-end mb-4">
@@ -285,7 +285,7 @@
         <div class="alert alert-danger">{{ error }}</div>
         } @else {
         <app-tiempos-gestion
-          titulo="Ranking de duración de etapas"
+          titulo="Ranking de duración promedio por etapa"
           [tiempos]="tiemposEtapas()"
           [cargando]="cargando()"
         />
@@ -297,39 +297,21 @@
 
           <div class="col-12 col-md-6">
             <app-tarjeta-indicador
-              titulo="Validación nacional"
+              titulo="Tiempo promedio hasta validación nacional"
               [valor]="formatearDuracion(tiempoValidacion()?.promedioSegundos)"
-              [descripcion]="(tiempoValidacion()?.cantidad ?? 0) + ' casos considerados'"
+              [descripcion]="'Desde el inicio del caso hasta la primera validación, incluida la espera de ofertas. Promedio de ' + (tiempoValidacion()?.cantidad ?? 0) + ' emergencias.'"
               icono="bi bi-shield-check"
               color="success"
             />
           </div>
 
-          <div class="col-12 col-md-6">
-            <app-tarjeta-indicador
-              titulo="Decisión municipal"
-              [valor]="formatearDuracion(tiempoDecision()?.promedioSegundos)"
-              [descripcion]="(tiempoDecision()?.cantidad ?? 0) + ' casos considerados'"
-              icono="bi bi-building-check"
-              color="primary"
-            />
-          </div>
+
 
           <div class="col-12 col-md-6">
             <app-tarjeta-indicador
-              titulo="Registro de compromiso"
-              [valor]="formatearDuracion(tiempoCompromiso()?.promedioSegundos)"
-              [descripcion]="(tiempoCompromiso()?.cantidad ?? 0) + ' casos considerados'"
-              icono="bi bi-file-earmark-check"
-              color="warning"
-            />
-          </div>
-
-          <div class="col-12 col-md-6">
-            <app-tarjeta-indicador
-              titulo="Finalización de emergencias"
+              titulo="Duración promedio de emergencias finalizadas"
               [valor]="formatearDuracion(tiempoFinalizacion()?.promedioSegundos)"
-              [descripcion]="(tiempoFinalizacion()?.cantidad ?? 0) + ' casos considerados'"
+              [descripcion]="'Desde el inicio hasta el cierre del caso. Promedio de ' + (tiempoFinalizacion()?.cantidad ?? 0) + ' emergencias finalizadas.'"
               icono="bi bi-check-circle"
               color="info"
             />
