@@ -96,9 +96,7 @@ export class Dashboard {
 
   protected readonly tiempoValidacion = signal<DashboardTiempo | null>(null);
 
-  protected readonly tiempoDecision = signal<DashboardTiempo | null>(null);
 
-  protected readonly tiempoCompromiso = signal<DashboardTiempo | null>(null);
 
   protected readonly tiempoFinalizacion = signal<DashboardTiempo | null>(null);
 
@@ -280,17 +278,7 @@ export class Dashboard {
         this.tiempoVacio('Validación nacional'),
       ),
 
-      tiempoDecision: registrarError(
-        this.dashboardService.tiempoDecisionMunicipal(filtrosBonita),
-        'tiempoDecision',
-        this.tiempoVacio('Decisión municipal'),
-      ),
 
-      tiempoCompromiso: registrarError(
-        this.dashboardService.tiempoCompromiso(filtrosBonita),
-        'tiempoCompromiso',
-        this.tiempoVacio('Registro de compromiso'),
-      ),
 
       tiempoFinalizacion: registrarError(
         this.dashboardService.tiempoEmergenciasFinalizadas(filtrosBonita),
@@ -322,8 +310,6 @@ export class Dashboard {
         this.tiemposEtapas.set(resultado.tiemposEtapas);
 
         this.tiempoValidacion.set(resultado.tiempoValidacion);
-        this.tiempoDecision.set(resultado.tiempoDecision);
-        this.tiempoCompromiso.set(resultado.tiempoCompromiso);
         this.tiempoFinalizacion.set(resultado.tiempoFinalizacion);
 
         this.emergenciasSeguimiento.set(resultado.emergenciasSeguimiento);
@@ -362,6 +348,10 @@ export class Dashboard {
 
     if (segundos < 0) {
       return 'Dato inválido';
+    }
+
+    if (segundos > 0 && segundos < 1) {
+      return 'Menos de 1 seg';
     }
 
     const dias = Math.floor(segundos / 86400);

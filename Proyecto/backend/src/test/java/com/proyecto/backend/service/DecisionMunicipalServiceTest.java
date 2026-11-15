@@ -68,6 +68,7 @@ class DecisionMunicipalServiceTest {
         item.setRecurso(recurso);
         var ong = new Ong();
         ong.setId(2L);
+        ong.setCodigo("cod-2");
         ong.setBonitaGroupPath("/ONG/Caritas");
         oferta = new Oferta();
         oferta.setId(20L);
@@ -96,7 +97,7 @@ class DecisionMunicipalServiceTest {
 
     IntegracionNacional.Respuesta resultado(boolean aceptar, int cantidad) {
         return new IntegracionNacional.Respuesta(10L, "caso-7", List.of(new IntegracionNacional.Resultado(20L, true,
-                List.of(new IntegracionNacional.ItemSN(2L, 3L, cantidad, aceptar ? "COMPROMETIDA" : "LIBERADA")))));
+                List.of(new IntegracionNacional.ItemSN("cod-2", 3L, cantidad, aceptar ? "COMPROMETIDA" : "LIBERADA")))));
     }
 
     @Test void sumaSoloCantidadesAceptadasSinDesgloseDeOngs() {
@@ -204,7 +205,7 @@ class DecisionMunicipalServiceTest {
         service.decidir(7L, new DecisionMunicipalRequest(10L, false), usuario, session);
         assertThatThrownBy(() -> service.confirmar(7L, new IntegracionNacional.Respuesta(10L, "caso-7",
                 List.of(new IntegracionNacional.Resultado(20L, true,
-                        List.of(new IntegracionNacional.ItemSN(2L, 3L, 40, "BLOQUEADA")))))))
+                        List.of(new IntegracionNacional.ItemSN("cod-2", 3L, 40, "BLOQUEADA")))))))
                 .isInstanceOf(ReglaNegocioException.class);
         verifyNoInteractions(inventarios, eventos);
     }
