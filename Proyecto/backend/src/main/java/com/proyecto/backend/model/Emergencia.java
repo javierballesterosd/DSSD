@@ -60,4 +60,7 @@ public class Emergencia {
 
     @OneToMany(mappedBy = "emergencia", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Lote> lotes = new ArrayList<>();
+
+    @OneToMany(mappedBy = "emergencia", cascade = {CascadeType.REMOVE, CascadeType.MERGE})
+    private List<Actividad> actividades = new ArrayList<>();
 }
