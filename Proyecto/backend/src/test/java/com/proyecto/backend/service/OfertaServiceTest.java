@@ -570,19 +570,17 @@ class OfertaServiceTest {
     }
 
     @Test
-    void callbackParcialOmiteCantidadesNoHabilitadasYNoDescuentaDosVeces() {
+    void callbackParcialOmiteCantidadesNoHabilitadasSinModificarStockLocal() {
         Oferta oferta = prepararValidacionSN();
         var inventario = inventario(ongA, raciones, 800);
-        when(inventarioOngRepository.findByOngIdAndRecursoIdForUpdate(1L, 100L))
-                .thenReturn(java.util.Optional.of(inventario));
         var validacion = new com.proyecto.backend.dto.ValidacionSNRequest(true, "Parcial",
                 List.of(new com.proyecto.backend.dto.ItemValidadoRequest(null, 40, 200L, 1L)));
         ofertaService.procesarValidacionSN(50L, validacion);
         ofertaService.procesarValidacionSN(50L, validacion);
-        assertThat(inventario.getCantidadDisponible()).isEqualTo(760);
+        assertThat(inventario.getCantidadDisponible()).isEqualTo(800);
         assertThat(oferta.getEstado()).isEqualTo(EstadoOferta.ACEPTADA_PARCIAL);
         assertThat(oferta.getDetalles().get(1).getCantidadAceptada()).isZero();
-        org.mockito.Mockito.verify(inventarioOngRepository, org.mockito.Mockito.times(1)).save(any());
+        org.mockito.Mockito.verifyNoInteractions(inventarioOngRepository);
     }
 
     @Test
