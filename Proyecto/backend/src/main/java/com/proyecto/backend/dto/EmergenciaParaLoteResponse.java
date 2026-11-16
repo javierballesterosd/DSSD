@@ -4,6 +4,7 @@ import com.proyecto.backend.model.EstadoLote;
 import com.proyecto.backend.model.NivelGravedad;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 /** Emergencia en los listados y el detalle de municipal y coordinador, con su último lote (null si todavía no tiene). */
 public record EmergenciaParaLoteResponse(
@@ -17,6 +18,7 @@ public record EmergenciaParaLoteResponse(
         LocalDateTime fechaRegistro,
         Long loteId,
         EstadoLote estadoLote,
-        boolean requiereActualizacion
+        boolean requiereActualizacion,
+        List<ActividadResponse> actividades
 ) {
 }

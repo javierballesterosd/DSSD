@@ -247,7 +247,7 @@ class DecisionMunicipalServiceTest {
         LocalDateTime fechaOriginal = emergencia.getFechaRegistro();
         when(emergencias.bloquearPorId(7L)).thenReturn(Optional.of(emergencia));
         when(bonita.buscarTareaPendiente(session, "caso-7", "Registrar emergencia")).thenReturn("registrar");
-        var respuesta = service.actualizar(7L, new EmergenciaRequest(NivelGravedad.ALTA, "Zona", "Descripción actualizada"), usuario, session);
+        var respuesta = service.actualizar(7L, new EmergenciaRequest(NivelGravedad.ALTA, "Zona", "Descripción actualizada", List.of()), usuario, session);
         assertThat(respuesta.id()).isEqualTo(7L);
         assertThat(emergencia.getBonitaCaseId()).isEqualTo("caso-7");
         assertThat(emergencia.getFechaRegistro()).isEqualTo(fechaOriginal);

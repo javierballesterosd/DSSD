@@ -19,6 +19,7 @@ export const NIVEL_GRAVEDAD_BADGE: Record<NivelGravedad, string> = {
   CRITICA: 'text-bg-critica',
 };
 
+
 /** Color según la gravedad, para armar `bg-<color>-subtle` (`critica` está en styles.scss). */
 export const NIVEL_GRAVEDAD_COLOR: Record<NivelGravedad, string> = {
   BAJA: 'secondary',
@@ -27,11 +28,25 @@ export const NIVEL_GRAVEDAD_COLOR: Record<NivelGravedad, string> = {
   CRITICA: 'critica',
 };
 
+export interface ActividadRequest {
+  nombre: string;
+  descripcion: string;
+}
+
+export interface ActividadResponse {
+  id: number;
+  nombre: string;
+  descripcion: string;
+  finalizada: boolean;
+}
+
 export interface EmergenciaRequest {
   nivelGravedad: NivelGravedad;
   zonaAfectada: string;
   descripcion: string;
+  actividades: ActividadRequest[];
 }
+
 
 export interface EmergenciaResponse {
   id: number;
@@ -66,6 +81,7 @@ export interface EmergenciaParaLoteResponse {
   loteId: number | null;
   estadoLote: EstadoLote | null;
   requiereActualizacion?: boolean;
+  actividades: ActividadResponse[];
 }
 
 export interface RecursosMunicipalesResponse {

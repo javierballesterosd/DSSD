@@ -1,13 +1,17 @@
+
 package com.proyecto.backend.mapper;
 
+import com.proyecto.backend.dto.ActividadResponse;
 import com.proyecto.backend.dto.EmergenciaParaLoteResponse;
 import com.proyecto.backend.dto.EmergenciaRequest;
 import com.proyecto.backend.dto.EmergenciaResponse;
+import com.proyecto.backend.model.Actividad;
 import com.proyecto.backend.model.Emergencia;
 import com.proyecto.backend.model.Lote;
 import com.proyecto.backend.model.Municipio;
 import org.springframework.stereotype.Component;
 
+import java.util.List;
 import java.util.Optional;
 
 @Component
@@ -34,7 +38,14 @@ public class EmergenciaMapper {
         );
     }
 
-    public EmergenciaParaLoteResponse toParaLoteResponse(Emergencia emergencia, Optional<Lote> ultimoLote) {
+    public EmergenciaParaLoteResponse toParaLoteResponse(
+            Emergencia emergencia,
+            Optional<Lote> ultimoLote) {
+
+        List<ActividadResponse> actividades = emergencia.getActividades().stream()
+                .map(this::toActividadResponse)
+                .toList();
+
         return new EmergenciaParaLoteResponse(
                 emergencia.getId(),
                 emergencia.getDescripcion(),
@@ -46,7 +57,17 @@ public class EmergenciaMapper {
                 emergencia.getFechaRegistro(),
                 ultimoLote.map(Lote::getId).orElse(null),
                 ultimoLote.map(Lote::getEstado).orElse(null),
-                emergencia.isRequiereActualizacion()
+                emergencia.isRequiereActualizacion(),
+                actividades
+        );
+    }
+
+    private ActividadResponse toActividadResponse(Actividad actividad) {
+        return new ActividadResponse(
+                actividad.getId(),
+                actividad.getNombre(),
+                actividad.getDescripcion(),
+                actividad.isFinalizada()
         );
     }
 }

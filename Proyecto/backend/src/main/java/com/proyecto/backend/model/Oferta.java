@@ -72,6 +72,4 @@ public class Oferta {
     @OrderBy("numero desc")
     private List<OfertaVersion> versiones = new ArrayList<>();
 
-    @OneToMany(mappedBy = "oferta", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<Actividad> actividades = new ArrayList<>();
 }

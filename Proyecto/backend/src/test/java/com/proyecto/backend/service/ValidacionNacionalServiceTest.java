@@ -3,7 +3,7 @@ import com.proyecto.backend.dto.*;
 import com.proyecto.backend.exception.ReglaNegocioException;
 import com.proyecto.backend.model.*;
 import com.proyecto.backend.repository.*;
-import com.proyecto.backend.service.*;.*;
+import com.proyecto.backend.service.*;
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
