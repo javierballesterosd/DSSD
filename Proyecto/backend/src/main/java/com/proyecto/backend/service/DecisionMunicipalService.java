@@ -137,6 +137,7 @@ public class DecisionMunicipalService {
             verificarReservas(oferta, resultado, aceptar);
         }
         if (!resultados.isEmpty()) throw new ReglaNegocioException("El resultado contiene ofertas ajenas al conjunto");
+        if (aceptar) bloquearStock(habilitadas);
         LoginResponse usuario = new LoginResponse();
         usuario.setUserId(lote.getUsuarioDecisionMunicipalId());
         usuario.setUsername(lote.getUsuarioDecisionMunicipal());
@@ -147,7 +148,6 @@ public class DecisionMunicipalService {
                 oferta.getOngs().forEach(ong -> destinatarios.add(ong.getBonitaGroupPath()));
             }
             if (habilitada(oferta)) {
-                if (!aceptar) devolverStock(oferta);
                 oferta.setEstado(aceptar ? EstadoOferta.ADJUDICADA : EstadoOferta.NO_ADJUDICADA);
                 oferta.setFechaModificacion(LocalDateTime.now());
                 ofertas.save(oferta);
@@ -189,19 +189,31 @@ public class DecisionMunicipalService {
         }
     }
 
-    private void devolverStock(Oferta oferta) {
-        // Orden estable de locks de inventario para solicitudes concurrentes.
-        var detalles = oferta.getDetalles().stream().sorted(Comparator
-                .comparing((DetalleOferta d) -> d.getOng().getId())
-                .thenComparing(d -> d.getItemLote().getRecurso().getId())).toList();
-        for (DetalleOferta detalle : detalles) {
-            if (cantidad(detalle) == 0) continue;
-            InventarioOng inventario = inventarios.findByOngIdAndRecursoIdForUpdate(
-                    detalle.getOng().getId(), detalle.getItemLote().getRecurso().getId())
-                    .orElseThrow(() -> new ReglaNegocioException("No existe el inventario que se debe liberar."));
-            inventario.setCantidadDisponible(Math.addExact(inventario.getCantidadDisponible(), cantidad(detalle)));
-            inventarios.save(inventario);
+    private void bloquearStock(List<Oferta> conjunto) {
+        // Agrupar todo el conjunto y bloquear en orden estable, incluso entre distintos lotes.
+        record Clave(Long ongId, Long recursoId) {}
+        Map<Clave, Integer> cantidades = new TreeMap<>(Comparator.comparing(Clave::ongId)
+                .thenComparing(Clave::recursoId));
+        for (Oferta oferta : conjunto) {
+            for (DetalleOferta detalle : oferta.getDetalles()) {
+                if (cantidad(detalle) == 0) continue;
+                cantidades.merge(new Clave(detalle.getOng().getId(), detalle.getItemLote().getRecurso().getId()),
+                        cantidad(detalle), Math::addExact);
+            }
         }
+        Map<Clave, InventarioOng> bloqueados = new LinkedHashMap<>();
+        cantidades.forEach((clave, cantidad) -> {
+            InventarioOng inventario = inventarios.findByOngIdAndRecursoIdForUpdate(clave.ongId(), clave.recursoId())
+                    .orElseThrow(() -> new ReglaNegocioException("No existe el inventario para bloquear los recursos."));
+            if (inventario.getCantidadDisponible() < cantidad)
+                throw new ReglaNegocioException("La ONG no tiene stock local suficiente para confirmar la adjudicación.");
+            bloqueados.put(clave, inventario);
+        });
+        // Se valida todo antes de modificar. La confirmación y el descuento comparten transacción.
+        bloqueados.forEach((clave, inventario) -> {
+            inventario.setCantidadDisponible(Math.subtractExact(inventario.getCantidadDisponible(), cantidades.get(clave)));
+            inventarios.save(inventario);
+        });
     }
 
     @Transactional
