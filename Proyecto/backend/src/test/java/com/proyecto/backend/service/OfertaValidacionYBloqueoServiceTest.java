@@ -136,14 +136,19 @@ public class OfertaValidacionYBloqueoServiceTest {
 
     @Test
     public void testBloqueoPesimistaInventarioLocal() throws InterruptedException {
-        // La semilla indica que Cruz Roja (ID 1) tiene 200 frazadas en inventario.
+        // 1. Fase de Validación (Módulo 1) - Secuencial
         // Simulamos que el SN aprueba ambas ofertas por 150 frazadas cada una.
+        // Esto cambia el estado a VALIDADA y asigna la cantidad aceptada, pero NO toca el stock.
         ValidacionSNRequest validacion1 = new ValidacionSNRequest(true, "OK",
                 List.of(new ItemValidadoRequest(detalleIdOferta1, 150)));
-
         ValidacionSNRequest validacion2 = new ValidacionSNRequest(true, "OK",
                 List.of(new ItemValidadoRequest(detalleIdOferta2, 150)));
 
+        ofertaValidacionService.procesarValidacionSN(ofertaId1, validacion1);
+        ofertaValidacionService.procesarValidacionSN(ofertaId2, validacion2);
+
+        // 2. Fase de Aceptación Municipal y Bloqueo (Módulo 2) - Concurrente
+        // La semilla indica que Cruz Roja (ID 1) tiene 200 frazadas en inventario.
         int hilosConcurrentes = 2;
         ExecutorService executor = Executors.newFixedThreadPool(hilosConcurrentes);
         CountDownLatch latchLargada = new CountDownLatch(1);
@@ -155,7 +160,8 @@ public class OfertaValidacionYBloqueoServiceTest {
         executor.submit(() -> {
             try {
                 latchLargada.await();
-                ofertaValidacionService.procesarValidacionSNYBloquearRecursos(ofertaId1, validacion1);
+                // Llamamos al NUEVO método que hace el bloqueo
+                ofertaValidacionService.procesarAceptacionMunicipalYBloquearRecursos(ofertaId1);
                 exitosas.incrementAndGet();
             } catch (Exception e) {
                 fallidas.incrementAndGet();
@@ -167,7 +173,8 @@ public class OfertaValidacionYBloqueoServiceTest {
         executor.submit(() -> {
             try {
                 latchLargada.await();
-                ofertaValidacionService.procesarValidacionSNYBloquearRecursos(ofertaId2, validacion2);
+                // Llamamos al NUEVO método que hace el bloqueo
+                ofertaValidacionService.procesarAceptacionMunicipalYBloquearRecursos(ofertaId2);
                 exitosas.incrementAndGet();
             } catch (Exception e) {
                 fallidas.incrementAndGet(); 
@@ -179,11 +186,11 @@ public class OfertaValidacionYBloqueoServiceTest {
         latchLargada.countDown();
         latchLlegada.await();
 
-        assertEquals(1, exitosas.get(), "Solo una validación debió procesarse (consumió 150 de las 200 frazadas)");
-        assertEquals(1, fallidas.get(), "La segunda validación debió rebotar porque solo quedaban 50 frazadas tras el bloqueo");
+        // 3. Verificación
+        assertEquals(1, exitosas.get(), "Solo una aceptación debió procesarse (consumió 150 de las 200 frazadas)");
+        assertEquals(1, fallidas.get(), "La segunda aceptación debió rebotar por falta de stock al bloquear");
 
         // El stock final debe ser 50 (200 iniciales de la semilla - 150 de la petición ganadora)
-        // Usamos el método de lectura simple para no requerir una transacción activa en el test
         InventarioOng inventarioFinal = inventarioOngRepository.findByOngIdAndRecursoId(ongId, recursoId).get();
         assertEquals(50, inventarioFinal.getCantidadDisponible());
     }

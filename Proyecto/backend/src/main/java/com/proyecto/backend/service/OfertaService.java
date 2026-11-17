@@ -330,12 +330,13 @@ public class OfertaService {
     }
 
     @Transactional
-    public void procesarValidacionSNYBloquearRecursos(Long ofertaId, ValidacionSNRequest validacion) {
+    public void procesarValidacionSN(Long ofertaId, ValidacionSNRequest validacion) {
         Long loteId = ofertaRepository.findLoteIdByOfertaId(ofertaId)
                 .orElseThrow(() -> new RecursoNoEncontradoException("La oferta no existe"));
         Lote lote = loteRepository.bloquearPorId(loteId)
                 .orElseThrow(() -> new RecursoNoEncontradoException("El lote no existe"));
         Oferta oferta = ofertaRepository.findById(ofertaId).orElseThrow();
+
         if (validacion.aprobada() == null) throw rechazar("Debe indicarse si el SN aprobó la oferta");
 
         Map<Long, Integer> cantidades = new HashMap<>();
@@ -353,7 +354,8 @@ public class OfertaService {
                 }
             }
         }
-        // Repetir el mismo callback no vuelve a descontar inventario.
+
+        // Control de idempotencia
         if (oferta.getEstado() != EstadoOferta.PENDIENTE) {
             boolean mismoResultado = oferta.getEstado() != EstadoOferta.ELIMINADA
                     && oferta.getDetalles().stream().allMatch(d ->
@@ -362,33 +364,72 @@ public class OfertaService {
             if (mismoResultado) return;
             throw rechazar("La oferta ya fue procesada con otra validación");
         }
+
         if (lote.getEstado() != EstadoLote.ACTIVO || lote.getDecisionMunicipal() != null) {
             throw rechazar("El lote ya tiene una decisión municipal o está cancelado");
         }
+
         boolean parcial = false;
         boolean tieneRecursos = false;
-        var detalles = oferta.getDetalles().stream().sorted(Comparator
-                .comparing((DetalleOferta d) -> d.getOng().getId())
-                .thenComparing(d -> d.getItemLote().getRecurso().getId())).toList();
-        for (DetalleOferta detalle : detalles) {
+        
+        // Iteramos para asignar cantidades aceptadas (sin bloquear inventario)
+        for (DetalleOferta detalle : oferta.getDetalles()) {
             int aceptada = cantidades.getOrDefault(detalle.getId(), 0);
             detalle.setCantidadAceptada(aceptada);
             parcial |= aceptada < detalle.getCantidadOfrecida();
+            if (aceptada > 0) tieneRecursos = true;
+        }
+
+        // Asignamos el estado transitorio basado en la respuesta del SN
+        oferta.setEstado(!tieneRecursos ? EstadoOferta.RECHAZADA
+                : parcial ? EstadoOferta.ACEPTADA_PARCIAL : EstadoOferta.VALIDADA); // o EstadoOferta.ACEPTADA si cambiaste el enum
+        
+        ofertaRepository.save(oferta);
+        log.info("Validación SN registrada. ofertaId={}, estado={}", ofertaId, oferta.getEstado());
+    }
+
+    @Transactional
+    public void procesarAceptacionMunicipalYBloquearRecursos(Long ofertaId) {
+        Long loteId = ofertaRepository.findLoteIdByOfertaId(ofertaId)
+                .orElseThrow(() -> new RecursoNoEncontradoException("La oferta no existe"));
+        
+        // Bloqueo del lote para evitar colisiones con otras ofertas del mismo lote
+        Lote lote = loteRepository.bloquearPorId(loteId)
+                .orElseThrow(() -> new RecursoNoEncontradoException("El lote no existe"));
+        
+        Oferta oferta = ofertaRepository.findById(ofertaId).orElseThrow();
+
+        // Verificamos que la oferta haya sido previamente validada por el SN
+        if (oferta.getEstado() != EstadoOferta.VALIDADA && oferta.getEstado() != EstadoOferta.ACEPTADA_PARCIAL) {
+            throw rechazar("La oferta no se encuentra en un estado válido para ser aceptada por el municipio");
+        }
+
+        // Ordenamos los detalles por ONG y Recurso para prevenir deadlocks en PostgreSQL al usar forUpdate
+        var detalles = oferta.getDetalles().stream().sorted(Comparator
+                .comparing((DetalleOferta d) -> d.getOng().getId())
+                .thenComparing(d -> d.getItemLote().getRecurso().getId())).toList();
+
+        for (DetalleOferta detalle : detalles) {
+            int aceptada = detalle.getCantidadAceptada() == null ? 0 : detalle.getCantidadAceptada();
             if (aceptada == 0) continue;
-            tieneRecursos = true;
+
             InventarioOng inventario = inventarioOngRepository.findByOngIdAndRecursoIdForUpdate(
                     detalle.getOng().getId(), detalle.getItemLote().getRecurso().getId())
                     .orElseThrow(() -> rechazar("No existe el inventario para bloquear los recursos"));
+            
             if (inventario.getCantidadDisponible() < aceptada) {
+                // Se puede enviar notificacion a la ONG si es necesario
                 throw rechazar("La ONG ya no tiene stock suficiente localmente");
             }
+            
             inventario.setCantidadDisponible(inventario.getCantidadDisponible() - aceptada);
             inventarioOngRepository.save(inventario);
         }
-        oferta.setEstado(!tieneRecursos ? EstadoOferta.RECHAZADA
-                : parcial ? EstadoOferta.ACEPTADA_PARCIAL : EstadoOferta.VALIDADA);
+
+        oferta.setEstado(EstadoOferta.EN_EJECUCION);
         ofertaRepository.save(oferta);
-        log.info("Validación SN registrada. ofertaId={}, estado={}", ofertaId, oferta.getEstado());
+        
+        log.info("Decisión municipal procesada y recursos bloqueados. ofertaId={}, estado={}", ofertaId, oferta.getEstado());
     }
 
     @Transactional

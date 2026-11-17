@@ -38,9 +38,48 @@
   </div>
 
   <div class="card border-0 shadow-sm mb-4">
+  <div class="card-body py-3">
+    <h2 class="h6 card-title">Seguimiento</h2>
+    <p class="mb-0">{{ seguimiento() }}</p>
+  </div>
+</div>
+
+  <!-- Actividades de la emergencia -->
+  <div class="card border-0 shadow-sm mb-4">
     <div class="card-body py-3">
-      <h2 class="h6 card-title">Seguimiento</h2>
-      <p class="mb-0">{{ seguimiento() }}</p>
+      <h2 class="h6 card-title">Actividades</h2>
+
+      @if (e.actividades && e.actividades.length > 0) {
+        <div class="list-group list-group-flush">
+          @for (actividad of e.actividades; track actividad.id) {
+            <div class="list-group-item px-0">
+              <div class="d-flex justify-content-between align-items-start gap-3">
+                <div>
+                  <div class="fw-semibold">{{ actividad.nombre }}</div>
+
+                  @if (actividad.descripcion?.trim()) {
+                    <p class="text-body-secondary mb-0 small">
+                      {{ actividad.descripcion }}
+                    </p>
+                  }
+                </div>
+
+                <span
+                  class="badge"
+                  [class.bg-success]="actividad.finalizada"
+                  [class.bg-secondary]="!actividad.finalizada"
+                >
+                  {{ actividad.finalizada ? 'Finalizada' : 'Pendiente' }}
+                </span>
+              </div>
+            </div>
+          }
+        </div>
+      } @else {
+        <p class="text-body-secondary mb-0">
+          Esta emergencia todavía no tiene actividades registradas.
+        </p>
+      }
     </div>
   </div>
 

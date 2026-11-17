@@ -570,19 +570,17 @@ class OfertaServiceTest {
     }
 
     @Test
-    void callbackParcialOmiteCantidadesNoHabilitadasYNoDescuentaDosVeces() {
+    void callbackParcialOmiteCantidadesNoHabilitadasSinModificarStockLocal() {
         Oferta oferta = prepararValidacionSN();
         var inventario = inventario(ongA, raciones, 800);
-        when(inventarioOngRepository.findByOngIdAndRecursoIdForUpdate(1L, 100L))
-                .thenReturn(java.util.Optional.of(inventario));
         var validacion = new com.proyecto.backend.dto.ValidacionSNRequest(true, "Parcial",
                 List.of(new com.proyecto.backend.dto.ItemValidadoRequest(null, 40, 200L, 1L)));
-        ofertaService.procesarValidacionSNYBloquearRecursos(50L, validacion);
-        ofertaService.procesarValidacionSNYBloquearRecursos(50L, validacion);
-        assertThat(inventario.getCantidadDisponible()).isEqualTo(760);
+        ofertaService.procesarValidacionSN(50L, validacion);
+        ofertaService.procesarValidacionSN(50L, validacion);
+        assertThat(inventario.getCantidadDisponible()).isEqualTo(800);
         assertThat(oferta.getEstado()).isEqualTo(EstadoOferta.ACEPTADA_PARCIAL);
         assertThat(oferta.getDetalles().get(1).getCantidadAceptada()).isZero();
-        org.mockito.Mockito.verify(inventarioOngRepository, org.mockito.Mockito.times(1)).save(any());
+        org.mockito.Mockito.verifyNoInteractions(inventarioOngRepository);
     }
 
     @Test
@@ -590,7 +588,7 @@ class OfertaServiceTest {
         prepararValidacionSN();
         var validacion = new com.proyecto.backend.dto.ValidacionSNRequest(true, "",
                 List.of(new com.proyecto.backend.dto.ItemValidadoRequest(101L, 501)));
-        assertThatThrownBy(() -> ofertaService.procesarValidacionSNYBloquearRecursos(50L, validacion))
+        assertThatThrownBy(() -> ofertaService.procesarValidacionSN(50L, validacion))
                 .isInstanceOf(ReglaNegocioException.class);
         org.mockito.Mockito.verifyNoInteractions(inventarioOngRepository);
     }
@@ -600,7 +598,7 @@ class OfertaServiceTest {
         prepararValidacionSN();
         var item = new com.proyecto.backend.dto.ItemValidadoRequest(101L, 40);
         var validacion = new com.proyecto.backend.dto.ValidacionSNRequest(true, "", List.of(item, item));
-        assertThatThrownBy(() -> ofertaService.procesarValidacionSNYBloquearRecursos(50L, validacion))
+        assertThatThrownBy(() -> ofertaService.procesarValidacionSN(50L, validacion))
                 .isInstanceOf(ReglaNegocioException.class);
         org.mockito.Mockito.verifyNoInteractions(inventarioOngRepository);
     }
@@ -610,7 +608,7 @@ class OfertaServiceTest {
         prepararValidacionSN();
         lote.setDecisionMunicipal(false);
         var validacion = new com.proyecto.backend.dto.ValidacionSNRequest(false, "Rechazada", List.of());
-        assertThatThrownBy(() -> ofertaService.procesarValidacionSNYBloquearRecursos(50L, validacion))
+        assertThatThrownBy(() -> ofertaService.procesarValidacionSN(50L, validacion))
                 .isInstanceOf(ReglaNegocioException.class);
         org.mockito.Mockito.verifyNoInteractions(inventarioOngRepository);
     }

@@ -24,13 +24,20 @@ public class Actividad {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, length = 500)
+    @Column(nullable = false, length = 100)
+    private String nombre;
+    
+    @Column(nullable = true, length = 500)
     private String descripcion;
 
     @Column(nullable = false)
     private boolean finalizada;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "oferta_id", nullable = false)
-    private Oferta oferta;
+    @ManyToOne(fetch = FetchType.EAGER, optional = false)
+    @JoinColumn(name = "emergencia_id", nullable = false)
+    private Emergencia emergencia;
+
+    public void setFinalizada(){
+        finalizada = true;
+    }
 }

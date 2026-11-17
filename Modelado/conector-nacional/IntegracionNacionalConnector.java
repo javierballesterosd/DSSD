@@ -45,11 +45,12 @@ public class IntegracionNacionalConnector extends AbstractConnector {
             long lote = ((Number) getInputParameter("loteId")).longValue();
             String caso = Long.toString(getExecutionContext().getProcessInstanceId());
             String ruta = backend + "/api/emergencias/" + emergencia;
-            Map<String,Object> plan = objeto(request("GET", ruta + "/integracion-nacional?loteId=" + lote
+            boolean finalizar = "FINALIZAR".equals(operacion);
+            Map<String,Object> plan = objeto(request("GET", ruta + (finalizar ? "/despliegue/integracion-nacional?loteId=" : "/integracion-nacional?loteId=") + lote
                     + "&caseId=" + caso, localToken, null, Set.of(200)).body());
             if (Boolean.TRUE.equals(plan.get("confirmada"))) return;
             boolean validar = "VALIDAR".equals(operacion);
-            if (validar ? plan.get("decision") != null : !Objects.equals(plan.get("decision"), aceptar)) {
+            if (!finalizar && (validar ? plan.get("decision") != null : !Objects.equals(plan.get("decision"), aceptar))) {
                 throw new IllegalStateException("La fase o la decisión de Bonita no coincide con la intención local");
             }
             List<Map<String,Object>> ofertas = lista(plan.get("ofertas"));
@@ -89,7 +90,7 @@ public class IntegracionNacionalConnector extends AbstractConnector {
                 setOutputParameter("hayOfertasHabilitadas", hayHabilitadas || ofertas.isEmpty());
             } else {
                 // Verificar TODO el conjunto antes de comprometer la primera oferta.
-                if (Boolean.TRUE.equals(aceptar)) {
+                if (!finalizar && Boolean.TRUE.equals(aceptar)) {
                     for (Map<String,Object> oferta : ofertas) {
                         Map<String,Object> reserva = objeto(request("GET", nacional + "/reservas?emergenciaId=" + emergencia
                                 + "&loteId=" + lote + "&ofertaId=" + oferta.get("ofertaId"), jwt, null, Set.of(200)).body());
@@ -102,13 +103,13 @@ public class IntegracionNacionalConnector extends AbstractConnector {
                 List<Map<String,Object>> resultados = new ArrayList<>();
                 for (Map<String,Object> oferta : ofertas) {
                     Map<String,Object> reserva = objeto(request("POST", nacional
-                            + (Boolean.TRUE.equals(aceptar) ? "/reservas/definitivas" : "/reservas/liberaciones"),
+                            + (!finalizar && Boolean.TRUE.equals(aceptar) ? "/reservas/definitivas" : "/reservas/liberaciones"),
                             jwt, ids(emergencia, lote, oferta), Set.of(200)).body());
-                    List<Map<String,Object>> items = Boolean.TRUE.equals(aceptar)
+                    List<Map<String,Object>> items = !finalizar && Boolean.TRUE.equals(aceptar)
                             ? activos(reserva, Set.of("COMPROMETIDA")) : lista(reserva.get("items"));
                     resultados.add(resultado(oferta, true, items));
                 }
-                request("POST", ruta + "/decision-municipal/confirmacion", localToken,
+                request("POST", ruta + (finalizar ? "/despliegue/confirmacion" : "/decision-municipal/confirmacion"), localToken,
                         respuesta(lote, caso, resultados), Set.of(204));
             }
         } catch (InterruptedException e) {

@@ -13,6 +13,7 @@ import com.proyecto.backend.exception.AccesoDenegadoException;
 import com.proyecto.backend.exception.RecursoNoEncontradoException;
 import com.proyecto.backend.exception.ReglaNegocioException;
 import com.proyecto.backend.mapper.EmergenciaMapper;
+import com.proyecto.backend.model.Actividad;
 import com.proyecto.backend.model.DetalleOferta;
 import com.proyecto.backend.model.Emergencia;
 import com.proyecto.backend.model.EstadoLote;
@@ -77,6 +78,22 @@ public class EmergenciaService {
 
         Emergencia emergencia = emergenciaMapper.toEntity(request, municipio);
         emergencia.setFechaRegistro(LocalDateTime.now());
+
+        if (request.actividades() != null && !request.actividades().isEmpty()) {
+            List<Actividad> nuevasActividades = request.actividades().stream()
+                    .map(actDto -> {
+                        Actividad actividad = new Actividad();
+                        actividad.setNombre(actDto.nombre());
+                        actividad.setDescripcion(actDto.descripcion());
+                        actividad.setFinalizada(false); // Siempre inician como pendientes
+                        actividad.setEmergencia(emergencia); // Seteamos el dueño de la relación para la FK
+                        return actividad;
+                    })
+                    .toList();
+            
+            emergencia.setActividades(nuevasActividades);
+        } 
+
         Emergencia guardada = emergenciaRepository.save(emergencia);
         log.info("Emergencia guardada. emergenciaId={}", guardada.getId());
 

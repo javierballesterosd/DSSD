@@ -54,10 +54,19 @@ public class Emergencia {
 
     private LocalDateTime fechaActualizacion;
 
+    private String tareaMonitoreoBonitaId;
+    private String tareaValidacionDespliegueBonitaId;
+    private LocalDateTime fechaFinMonitoreo;
+    private LocalDateTime fechaValidacionDespliegue;
+    private LocalDateTime fechaFinalizacion;
+
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "municipio_id", nullable = false)
     private Municipio municipio;
 
     @OneToMany(mappedBy = "emergencia", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Lote> lotes = new ArrayList<>();
+
+    @OneToMany(mappedBy = "emergencia", cascade = {CascadeType.ALL, CascadeType.MERGE})
+    private List<Actividad> actividades = new ArrayList<>();
 }

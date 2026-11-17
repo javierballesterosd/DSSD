@@ -1,6 +1,7 @@
 import { DatePipe } from '@angular/common';
 import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
+
 import {
   EmergenciaParaLoteResponse,
   NIVEL_GRAVEDAD_BADGE,

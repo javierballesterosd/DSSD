@@ -4,6 +4,7 @@ import com.proyecto.backend.client.BonitaClient;
 import com.proyecto.backend.client.BonitaSession;
 import com.proyecto.backend.dto.auth.LoginResponse;
 import com.proyecto.backend.dto.EmergenciaRequest;
+import com.proyecto.backend.dto.ActividadRequest;
 import com.proyecto.backend.dto.DescriptorAudiencia;
 import com.proyecto.backend.exception.AccesoDenegadoException;
 import com.proyecto.backend.exception.BonitaIntegrationException;
@@ -209,9 +210,13 @@ class EmergenciaServiceTest {
     }
 
     private EmergenciaRequest request() {
-        return new EmergenciaRequest(
-                NivelGravedad.ALTA, "Zona Norte", "Desborde del arroyo con familias evacuadas");
-    }
+            return new EmergenciaRequest(
+                    NivelGravedad.ALTA, 
+                    "Zona Norte", 
+                    "Desborde del arroyo con familias evacuadas",
+                    List.of(new ActividadRequest("Rescate", "Rescate de personas con botes"))
+            );
+        }
 
 
     private Emergencia emergenciaGuardada() {

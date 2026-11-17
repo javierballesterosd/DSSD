@@ -116,21 +116,64 @@ class DecisionMunicipalServiceTest {
         assertThat(respuesta.puedeDecidir()).isTrue();
     }
 
-    @Test void aceptarComprometeSinDescontarElStockOtraVez() {
+    @Test void aceptarBloqueaElStockSoloUnaVezAlConfirmarDesdeBonita() {
         prepararDecision();
 
+        var inventario = new InventarioOng(); inventario.setCantidadDisponible(200);
+        when(inventarios.findByOngIdAndRecursoIdForUpdate(2L, 3L)).thenReturn(Optional.of(inventario));
         service.decidir(7L, new DecisionMunicipalRequest(10L, true), usuario, session);
+        assertThat(inventario.getCantidadDisponible()).isEqualTo(200);
         assertThat(oferta.getEstado()).isEqualTo(EstadoOferta.ACEPTADA_PARCIAL);
         assertThat(lote.getFechaDecisionMunicipal()).isNull();
         service.confirmar(7L, resultado(true, 40));
         assertThat(oferta.getEstado()).isEqualTo(EstadoOferta.ADJUDICADA);
 
-        verifyNoInteractions(inventarios);
+        assertThat(inventario.getCantidadDisponible()).isEqualTo(160);
+        service.confirmar(7L, resultado(true, 40));
+        assertThat(inventario.getCantidadDisponible()).isEqualTo(160);
+        verify(inventarios, times(1)).save(inventario);
         verify(bonita).ejecutarTareaIdempotente(session, "tarea", Map.of("aceptaOfertas", true));
         assertThat(lote.getFechaDecisionMunicipal()).isNotNull();
     }
 
-    @Test void rechazarLiberaSoloLoAceptadoYNotificaTodasLasOngs() {
+    @Test void noConfirmaSiElStockLocalEsInsuficiente() {
+        prepararDecision();
+        var inventario = new InventarioOng(); inventario.setCantidadDisponible(39);
+        when(inventarios.findByOngIdAndRecursoIdForUpdate(2L, 3L)).thenReturn(Optional.of(inventario));
+        service.decidir(7L, new DecisionMunicipalRequest(10L, true), usuario, session);
+        assertThatThrownBy(() -> service.confirmar(7L, resultado(true, 40)))
+                .isInstanceOf(ReglaNegocioException.class).hasMessageContaining("stock local suficiente");
+        assertThat(inventario.getCantidadDisponible()).isEqualTo(39);
+        assertThat(lote.getFechaDecisionMunicipal()).isNull();
+        assertThat(oferta.getEstado()).isEqualTo(EstadoOferta.ACEPTADA_PARCIAL);
+        verify(inventarios, never()).save(any());
+        verifyNoInteractions(eventos);
+        inventario.setCantidadDisponible(50);
+        service.confirmar(7L, resultado(true, 40));
+        assertThat(inventario.getCantidadDisponible()).isEqualTo(10);
+    }
+
+    @Test void agrupaElMismoRecursoDeVariasOfertasAntesDeDescontar() {
+        prepararDecision();
+        var segunda = new Oferta(); segunda.setId(21L); segunda.setEstado(EstadoOferta.VALIDADA);
+        segunda.getDetalles().addAll(oferta.getDetalles());
+        when(ofertas.findByLoteIdOrderByIdAsc(10L)).thenReturn(List.of(oferta, segunda));
+        var inventario = new InventarioOng(); inventario.setCantidadDisponible(60);
+        when(inventarios.findByOngIdAndRecursoIdForUpdate(2L, 3L)).thenReturn(Optional.of(inventario));
+        service.decidir(7L, new DecisionMunicipalRequest(10L, true), usuario, session);
+        var primero = resultado(true, 40).resultados().getFirst();
+        var segundo = new IntegracionNacional.Resultado(21L, true, primero.items());
+        var respuesta = new IntegracionNacional.Respuesta(10L, "caso-7", List.of(primero, segundo));
+        assertThatThrownBy(() -> service.confirmar(7L, respuesta)).isInstanceOf(ReglaNegocioException.class);
+        assertThat(inventario.getCantidadDisponible()).isEqualTo(60);
+        verify(inventarios, never()).save(any());
+        inventario.setCantidadDisponible(100);
+        service.confirmar(7L, respuesta);
+        assertThat(inventario.getCantidadDisponible()).isEqualTo(20);
+        verify(inventarios, times(1)).save(inventario);
+    }
+
+    @Test void rechazarLiberaEnSnSinModificarStockLocalYNotificaTodasLasOngs() {
         prepararDecision();
         var rechazada = new Oferta();
         rechazada.setEstado(EstadoOferta.RECHAZADA);
@@ -138,11 +181,10 @@ class DecisionMunicipalServiceTest {
         rechazada.getOngs().add(otraOng);
         when(ofertas.findByLoteIdOrderByIdAsc(10L)).thenReturn(List.of(oferta, rechazada));
         var inventario = new InventarioOng(); inventario.setCantidadDisponible(160);
-        when(inventarios.findByOngIdAndRecursoIdForUpdate(2L, 3L)).thenReturn(Optional.of(inventario));
         service.decidir(7L, new DecisionMunicipalRequest(10L, false), usuario, session);
         assertThat(inventario.getCantidadDisponible()).isEqualTo(160);
         service.confirmar(7L, resultado(false, 40));
-        assertThat(inventario.getCantidadDisponible()).isEqualTo(200);
+        assertThat(inventario.getCantidadDisponible()).isEqualTo(160);
         assertThat(oferta.getEstado()).isEqualTo(EstadoOferta.NO_ADJUDICADA);
         assertThat(lote.getEstado()).isEqualTo(EstadoLote.CANCELADO);
         assertThat(emergencia.isRequiereActualizacion()).isTrue();
@@ -150,9 +192,9 @@ class DecisionMunicipalServiceTest {
                 && decision.ongGroupPaths().equals(Set.of("/ONG/Caritas", "/ONG/Otra"))));
         // Un segundo envío no devuelve stock ni notifica de nuevo.
         service.decidir(7L, new DecisionMunicipalRequest(10L, false), usuario, session);
-        verify(inventarios, times(1)).save(any());
+        verifyNoInteractions(inventarios);
         service.confirmar(7L, resultado(false, 40));
-        verify(inventarios, times(1)).save(any());
+        verifyNoInteractions(inventarios);
         verify(eventos, times(1)).publishEvent(any(Object.class));
     }
 
@@ -247,7 +289,7 @@ class DecisionMunicipalServiceTest {
         LocalDateTime fechaOriginal = emergencia.getFechaRegistro();
         when(emergencias.bloquearPorId(7L)).thenReturn(Optional.of(emergencia));
         when(bonita.buscarTareaPendiente(session, "caso-7", "Registrar emergencia")).thenReturn("registrar");
-        var respuesta = service.actualizar(7L, new EmergenciaRequest(NivelGravedad.ALTA, "Zona", "Descripción actualizada"), usuario, session);
+        var respuesta = service.actualizar(7L, new EmergenciaRequest(NivelGravedad.ALTA, "Zona", "Descripción actualizada", List.of()), usuario, session);
         assertThat(respuesta.id()).isEqualTo(7L);
         assertThat(emergencia.getBonitaCaseId()).isEqualTo("caso-7");
         assertThat(emergencia.getFechaRegistro()).isEqualTo(fechaOriginal);
