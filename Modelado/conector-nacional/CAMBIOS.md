@@ -3,6 +3,19 @@
 Archivo a recompilar: `IntegracionNacionalConnector.java` (paquete `com.rescuesync.bonita`).
 `IntegracionNacionalConnector.java.orig` es el original, para comparar con `diff`.
 
+## Versión 1.0.6 (`rescueSync-V1.17.bos`): validación del lote con prioridad por ONG y categoría
+
+Ya recompilado (Java 17, contra `bonita-common` 10.4.0 y Groovy 3.0.25) y empaquetado en `rescueSync-V1.17.bos`, que sale del V1.16 con el jar, la definición, la implementación, `app/pom.xml`, `.conf` y el `.proc` pasados de 1.0.5 a 1.0.6. No se probó en Studio: al importarlo conviene correr un ciclo de validación completo.
+
+Requiere el SN con la rama `feature/validacion-prioridad-ong-categoria` (`POST /validaciones`).
+
+- **Una sola llamada:** en `VALIDAR` el conector ya no recorre las ofertas pidiendo `POST /reservas/temporales` una por una. Llama a `POST {SN}/validaciones` con `{emergenciaId, loteId}` y el SN reparte lo que pide el lote entre todas las ofertas y deja los recursos bloqueados.
+- **Algoritmo (en el SN):** por cada recurso, primero las ONGs de mejor nivel en la categoría del recurso (especialista antes que apoyo), después la oferta más antigua; no se reserva más de lo que pide el lote ni más del stock libre; una ONG sin nivel en la categoría no está habilitada.
+- **Respuesta:** `resultados[]` con `{ofertaId, aprobada, items[]}`. El conector la reenvía oferta por oferta al callback `/validacion-sn` (mismo contrato que antes) y calcula `hayOfertasHabilitadas` como antes.
+- **Reintentos:** si el lote ya tiene bloqueos vigentes el SN devuelve esos mismos; con recursos comprometidos responde 409 y el conector falla.
+- **Sin cambios:** `ACEPTAR` y `RECHAZAR`, `GET /reservas`, `POST /reservas/temporales` (se mantiene en el SN por el Swagger, el conector ya no la usa), y las rutas del backend local.
+- **Desplegar juntos:** con el SN viejo `POST /validaciones` da 404 y la validación falla.
+
 ## Versión 1.0.5 (`rescueSync-V1.16.bos`): reserva parcial y gateway de "sin recursos"
 
 Requiere el SN con la rama `feature/reserva-temporal-parcial` (campo `parcial` en `POST /reservas/temporales`).

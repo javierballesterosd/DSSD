@@ -61,31 +61,28 @@ public class IntegracionNacionalConnector extends AbstractConnector {
             }
             if (validar) {
                 boolean hayHabilitadas = false;
-                for (Map<String,Object> oferta : ofertas) {
-                    Map<String,Object> ids = ids(emergencia, lote, oferta);
-                    // Si se perdió la respuesta local, reutilizar la reserva nacional vigente.
-                    var anterior = request("GET", nacional + "/reservas?emergenciaId=" + emergencia
-                            + "&loteId=" + lote + "&ofertaId=" + oferta.get("ofertaId"), jwt, null, Set.of(200,404));
-                    if (anterior.statusCode() == 200 && !activos(objeto(anterior.body()), Set.of("COMPROMETIDA")).isEmpty()) {
-                        throw new IllegalStateException("La oferta ya tiene recursos comprometidos; revisar el estado del proceso");
+                if (!ofertas.isEmpty()) {
+                    // El SN reparte lo que pide el lote entre todas las ofertas (prioridad por ONG y por categoría
+                    // del recurso, tope en lo requerido y en el stock libre) y deja los recursos bloqueados en una
+                    // sola operación. Es repetible: con bloqueos vigentes devuelve los mismos.
+                    Map<String,Object> validacion = objeto(request("POST", nacional + "/validaciones", jwt,
+                            Map.of("emergenciaId", emergencia, "loteId", lote), Set.of(200,201)).body());
+                    Map<Long,Map<String,Object>> porOferta = new HashMap<>();
+                    for (Map<String,Object> resultadoSn : lista(validacion.get("resultados"))) {
+                        porOferta.put(((Number) resultadoSn.get("ofertaId")).longValue(), resultadoSn);
                     }
-                    List<Map<String,Object>> items = anterior.statusCode() == 200
-                            ? activos(objeto(anterior.body()), Set.of("BLOQUEADA")) : List.of();
-                    boolean aprobada = true;
-                    if (items.isEmpty()) {
-                        // parcial=true: el SN reserva lo que haya libre de cada recurso y solo responde 409 si no
-                        // puede reservar nada. Sin el flag es todo o nada.
-                        Map<String,Object> pedido = new HashMap<>(ids);
-                        pedido.put("parcial", true);
-                        var reserva = request("POST", nacional + "/reservas/temporales", jwt, pedido, Set.of(200,201,409));
-                        aprobada = reserva.statusCode() != 409;
-                        items = aprobada ? activos(objeto(reserva.body()), Set.of("BLOQUEADA")) : List.of();
+                    for (Map<String,Object> oferta : ofertas) {
+                        Map<String,Object> resultadoSn = porOferta.get(((Number) oferta.get("ofertaId")).longValue());
+                        if (resultadoSn == null) {
+                            throw new IllegalStateException("El SN no devolvió resultado para la oferta " + oferta.get("ofertaId"));
+                        }
+                        boolean aprobada = Boolean.TRUE.equals(resultadoSn.get("aprobada"));
+                        List<Map<String,Object>> items = activos(resultadoSn, Set.of("BLOQUEADA"));
+                        if (aprobada == items.isEmpty()) throw new IllegalStateException("Resultado nacional inconsistente");
+                        request("POST", ruta + "/validacion-sn", localToken,
+                                respuesta(lote, caso, List.of(resultado(oferta, aprobada, items))), Set.of(204));
+                        hayHabilitadas |= aprobada;
                     }
-                    if (aprobada && items.isEmpty()) throw new IllegalStateException("Reserva nacional vacía");
-                    Map<String,Object> resultado = resultado(oferta, aprobada, items);
-                    request("POST", ruta + "/validacion-sn", localToken,
-                            respuesta(lote, caso, List.of(resultado)), Set.of(204));
-                    hayHabilitadas |= aprobada;
                 }
                 // Si todas las ofertas quedaron sin recursos (otro se llevó el stock) el gateway evita
                 // pasar por "Ver ofertas validadas". Ante un reintento solo cuenta las ofertas aún pendientes.
