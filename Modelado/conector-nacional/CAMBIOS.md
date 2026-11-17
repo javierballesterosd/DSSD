@@ -3,9 +3,9 @@
 Archivo a recompilar: `IntegracionNacionalConnector.java` (paquete `com.rescuesync.bonita`).
 `IntegracionNacionalConnector.java.orig` es el original, para comparar con `diff`.
 
-## Versión 1.0.6 (`rescueSync-V1.17.bos`): validación del lote con prioridad por ONG y categoría
+## Versión 1.0.7 (`rescueSync-V1.18.bos`): validación del lote con prioridad por ONG y categoría
 
-Ya recompilado (Java 17, contra `bonita-common` 10.4.0 y Groovy 3.0.25) y empaquetado en `rescueSync-V1.17.bos`, que sale del V1.16 con el jar, la definición, la implementación, `app/pom.xml`, `.conf` y el `.proc` pasados de 1.0.5 a 1.0.6. No se probó en Studio: al importarlo conviene correr un ciclo de validación completo.
+Recompilado (Java 17, contra `bonita-common` 10.4.0 y Groovy 3.0.25) sobre el conector ya fusionado con development, que incluye la operación `FINALIZAR` y las rutas `/despliegue/...` del 1.0.6 (despliegue y monitoreo). `rescueSync-V1.18.bos` sale del V1.17 de development con el jar, la definición, la implementación, `app/pom.xml`, `.conf` y el `.proc` pasados de 1.0.6 a 1.0.7. No se probó en Studio: al importarlo conviene correr un ciclo completo (validar, decidir y finalizar).
 
 Requiere el SN con la rama `feature/validacion-prioridad-ong-categoria` (`POST /validaciones`).
 
