@@ -50,6 +50,8 @@ ALTER TABLE lote ADD COLUMN IF NOT EXISTS fecha_cierre_ofertas timestamp;
 ALTER TABLE emergencia DROP COLUMN IF EXISTS fecha_apertura_ofertas;
 ALTER TABLE emergencia DROP COLUMN IF EXISTS fecha_cierre_ofertas;
 DROP INDEX IF EXISTS ux_lote_un_no_cancelado_por_emergencia;
+-- Actividad dejó de relacionarse con oferta: ddl-auto=update no borra la columna vieja (NOT NULL) y rompe el alta de emergencias.
+ALTER TABLE IF EXISTS actividad DROP COLUMN IF EXISTS oferta_id;
 -- Edición y baja lógica de ofertas. Hibernate crea el check del enum una sola vez y ddl-auto=update
 -- no lo regenera: se borra para que acepte estados nuevos (ELIMINADA).
 ALTER TABLE oferta ADD COLUMN IF NOT EXISTS fecha_modificacion timestamp;

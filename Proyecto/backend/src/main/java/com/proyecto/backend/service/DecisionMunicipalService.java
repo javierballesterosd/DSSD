@@ -206,10 +206,10 @@ public class DecisionMunicipalService {
             InventarioOng inventario = inventarios.findByOngIdAndRecursoIdForUpdate(clave.ongId(), clave.recursoId())
                     .orElseThrow(() -> new ReglaNegocioException("No existe el inventario para bloquear los recursos."));
             if (inventario.getCantidadDisponible() < cantidad)
-                throw new ReglaNegocioException("La ONG no tiene stock local suficiente para confirmar la adjudicación.");
+                throw new ReglaNegocioException("La ONG no tiene stock local suficiente para confirmar la adjudicaciÃ³n.");
             bloqueados.put(clave, inventario);
         });
-        // Se valida todo antes de modificar. La confirmación y el descuento comparten transacción.
+        // Se valida todo antes de modificar. La confirmaciÃ³n y el descuento comparten transacciÃ³n.
         bloqueados.forEach((clave, inventario) -> {
             inventario.setCantidadDisponible(Math.subtractExact(inventario.getCantidadDisponible(), cantidades.get(clave)));
             inventarios.save(inventario);
