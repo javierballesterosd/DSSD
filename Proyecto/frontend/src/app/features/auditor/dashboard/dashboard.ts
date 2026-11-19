@@ -98,6 +98,8 @@ export class Dashboard {
 
 
 
+  protected readonly tiempoMonitoreo = signal<DashboardTiempo | null>(null);
+
   protected readonly tiempoFinalizacion = signal<DashboardTiempo | null>(null);
 
   // ============================================================
@@ -280,6 +282,12 @@ export class Dashboard {
 
 
 
+      tiempoMonitoreo: registrarError(
+        this.dashboardService.tiempoMonitoreo(filtrosBonita),
+        'tiempoMonitoreo',
+        this.tiempoVacio('Monitorear despliegue'),
+      ),
+
       tiempoFinalizacion: registrarError(
         this.dashboardService.tiempoEmergenciasFinalizadas(filtrosBonita),
         'tiempoFinalizacion',
@@ -311,6 +319,7 @@ export class Dashboard {
 
         this.tiempoValidacion.set(resultado.tiempoValidacion);
         this.tiempoFinalizacion.set(resultado.tiempoFinalizacion);
+        this.tiempoMonitoreo.set(resultado.tiempoMonitoreo);
 
         this.emergenciasSeguimiento.set(resultado.emergenciasSeguimiento);
 

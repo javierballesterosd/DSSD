@@ -21,10 +21,11 @@ describe('DashboardService', () => {
     service.tiempoValidacionNacional(filtros).subscribe();
     service.tiempoDecisionMunicipal(filtros).subscribe();
     service.tiempoCompromiso(filtros).subscribe();
+    service.tiempoMonitoreo(filtros).subscribe();
     service.tiempoEmergenciasFinalizadas(filtros).subscribe();
     service.seguimiento(filtros).subscribe();
     const peticiones = http.match(() => true);
-    expect(peticiones).toHaveLength(6);
+    expect(peticiones).toHaveLength(7);
     expect(peticiones[0].request.url).toMatch(/\/etapas\/ranking$/);
     for (const peticion of peticiones) {
       expect(peticion.request.params.get('municipioId')).toBe('2');
