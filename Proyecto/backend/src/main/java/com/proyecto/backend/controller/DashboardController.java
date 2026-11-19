@@ -130,6 +130,20 @@ public class DashboardController {
         return dashboardService.tarea(authService.bonitaSession(session), "Registrar compromiso y bloqueo", desde, hasta, municipioId, gravedad, recursoId, ongId);
     }
 
+    /** Promedio de ejecuciones completadas; las fechas filtran el fin del monitoreo. */
+    @GetMapping("/tiempos/monitoreo")
+    public Tiempo monitoreo(HttpSession session,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate desde,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hasta,
+            @RequestParam(required = false) Long municipioId,
+            @RequestParam(required = false) NivelGravedad gravedad,
+            @RequestParam(required = false) Long recursoId,
+            @RequestParam(required = false) Long ongId) {
+        authService.requerirRol(session, "AUDITOR");
+        return dashboardService.tarea(authService.bonitaSession(session), "Monitorear despliegue",
+                desde, hasta, municipioId, gravedad, recursoId, ongId);
+    }
+
     @GetMapping("/tiempos/emergencias-finalizadas")
     public Tiempo finalizadas(HttpSession session,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate desde,

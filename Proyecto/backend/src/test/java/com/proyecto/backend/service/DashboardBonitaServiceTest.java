@@ -75,6 +75,42 @@ class DashboardBonitaServiceTest {
         assertThat(service.seguimiento(session,null,null, null, null, null, null)).containsExactly(
                 new Seguimiento(12L,"6","Municipio","Emergencia","Monitorear despliegue","ready"));
     }
+    @Test void monitoreoFiltraMunicipioYFechaDeFinSinContarPendientesNiCancelados() {
+        when(repository.emergenciasConCaso(2L, null, null, null)).thenReturn(List.of(
+                new EmergenciaLocal(12L, "6", "Municipio", "Emergencia")));
+        when(bonita.datosDashboard(session, "archivedFlowNode")).thenReturn(List.of(
+                nodo("1", "Monitorear despliegue", "ready", "2026-09-30 10:00:00.000"),
+                nodo("1", "Monitorear despliegue", "completed", "2026-10-01 10:00:00.000"),
+                nodo("1", "Monitorear despliegue", "completed", "2026-10-01 10:00:00.000"),
+                nodo("2", "Monitorear despliegue", "ready", "2026-10-01 11:00:00.000"),
+                nodo("2", "Monitorear despliegue", "completed", "2026-10-01 13:00:00.000"),
+                nodo("3", "Monitorear despliegue", "ready", "2026-10-01 10:00:00.000"),
+                nodo("4", "Monitorear despliegue", "ready", "2026-10-01 10:00:00.000"),
+                nodo("4", "Monitorear despliegue", "cancelled", "2026-10-01 11:00:00.000"),
+                nodo("5", "Monitorear despliegue", "ready", "2026-10-01 10:00:00.000"),
+                nodo("5", "Monitorear despliegue", "completed", "2026-10-02 11:00:00.000"),
+                Map.of("caseId", "otro", "type", "USER_TASK", "sourceObjectId", "8",
+                        "name", "Monitorear despliegue", "state", "completed")));
+        var auth = mock(AuthService.class);
+        var http = mock(jakarta.servlet.http.HttpSession.class);
+        when(auth.bonitaSession(http)).thenReturn(session);
+        var controller = new com.proyecto.backend.controller.DashboardController(service, auth);
+        var resultado = controller.monitoreo(http, LocalDate.of(2026, 10, 1), LocalDate.of(2026, 10, 1),
+                2L, null, null, null);
+        assertThat(resultado).isEqualTo(new Tiempo("Monitorear despliegue", 2, 46800.0));
+        verify(auth).requerirRol(http, "AUDITOR");
+        verify(repository).emergenciasConCaso(2L, null, null, null);
+    }
+
+    @Test void monitoreoSinHistorialCompletoNoInventaUnPromedio() {
+        locales();
+        when(bonita.datosDashboard(session, "archivedFlowNode")).thenReturn(List.of(
+                nodo("1", "Monitorear despliegue", "ready", "2026-10-01 10:00:00.000"),
+                nodo("2", "Monitorear despliegue", "completed", "2026-10-01 11:00:00.000")));
+        assertThat(service.tarea(session, "Monitorear despliegue", null, null, null, null, null, null))
+                .isEqualTo(new Tiempo("Monitorear despliegue", 0, null));
+    }
+
     @Test void losSeisEndpointsExigenAuditorAntesDeConsultarBonita() {
         var auth = mock(AuthService.class);
         var reportes = mock(DashboardService.class);
@@ -87,6 +123,7 @@ class DashboardBonitaServiceTest {
         assertThatThrownBy(() -> controller.compromiso(http, null, null, null, null, null, null)).isInstanceOf(AccesoDenegadoException.class);
         assertThatThrownBy(() -> controller.finalizadas(http, null, null, null, null, null, null)).isInstanceOf(AccesoDenegadoException.class);
         assertThatThrownBy(() -> controller.seguimiento(http, null, null, null, null, null, null)).isInstanceOf(AccesoDenegadoException.class);
+        assertThatThrownBy(() -> controller.monitoreo(http, null, null, null, null, null, null)).isInstanceOf(AccesoDenegadoException.class);
         verifyNoInteractions(reportes);
     }
 

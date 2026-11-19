@@ -307,6 +307,20 @@
 
 
 
+          <div class="col-12">
+            @if (errorDe('tiempoMonitoreo'); as error) {
+              <div class="alert alert-danger" role="alert">{{ error }}</div>
+            } @else {
+              <app-tarjeta-indicador
+                titulo="Tiempo promedio de monitoreo del despliegue"
+                [valor]="formatearDuracion(tiempoMonitoreo()?.promedioSegundos)"
+                [descripcion]="'Desde el inicio hasta la finalización de Monitorear despliegue. Promedio de ' + (tiempoMonitoreo()?.cantidad ?? 0) + ' ejecuciones completadas. Las fechas filtran el fin del monitoreo; los casos abiertos no se incluyen.'"
+                icono="bi bi-clock-history"
+                color="info"
+              />
+            }
+          </div>
+
           <div class="col-12 col-md-6">
             <app-tarjeta-indicador
               titulo="Duración promedio de emergencias finalizadas"
