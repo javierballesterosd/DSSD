@@ -48,7 +48,13 @@ public class IntegracionNacionalConnector extends AbstractConnector {
             boolean finalizar = "FINALIZAR".equals(operacion);
             Map<String,Object> plan = objeto(request("GET", ruta + (finalizar ? "/despliegue/integracion-nacional?loteId=" : "/integracion-nacional?loteId=") + lote
                     + "&caseId=" + caso, localToken, null, Set.of(200)).body());
-            if (Boolean.TRUE.equals(plan.get("confirmada"))) return;
+            if (Boolean.TRUE.equals(plan.get("confirmada"))) {
+                // Lote ya cerrado sin decisión municipal: el SN no había habilitado recursos y el cierre ya se hizo.
+                if ("VALIDAR".equals(operacion) && plan.get("decision") == null) {
+                    setOutputParameter("hayOfertasHabilitadas", Boolean.FALSE);
+                }
+                return;
+            }
             boolean validar = "VALIDAR".equals(operacion);
             if (!finalizar && (validar ? plan.get("decision") != null : !Objects.equals(plan.get("decision"), aceptar))) {
                 throw new IllegalStateException("La fase o la decisión de Bonita no coincide con la intención local");
@@ -85,9 +91,16 @@ public class IntegracionNacionalConnector extends AbstractConnector {
                         hayHabilitadas |= aprobada;
                     }
                 }
-                // Si todas las ofertas quedaron sin recursos (otro se llevó el stock) el gateway evita
-                // pasar por "Ver ofertas validadas". Ante un reintento solo cuenta las ofertas aún pendientes.
-                setOutputParameter("hayOfertasHabilitadas", hayHabilitadas || ofertas.isEmpty());
+                // Si todas las ofertas quedaron sin recursos (otro se llevó el stock) el gateway evita pasar por
+                // "Ver ofertas validadas". Ante un reintento sin ofertas pendientes cuenta lo ya validado que informa
+                // el backend. Si no hay nada habilitado se cierra el lote en la app local (lo cancela, marca la
+                // emergencia para volver a registrarla y avisa al municipio y a las ONGs).
+                boolean hay = ofertas.isEmpty() ? Boolean.TRUE.equals(plan.get("hayHabilitadas")) : hayHabilitadas;
+                if (!hay) {
+                    request("POST", ruta + "/sin-recursos/confirmacion", localToken,
+                            Map.of("loteId", lote, "caseId", caso), Set.of(204));
+                }
+                setOutputParameter("hayOfertasHabilitadas", hay);
             } else {
                 // Verificar TODO el conjunto antes de comprometer la primera oferta.
                 if (!finalizar && Boolean.TRUE.equals(aceptar)) {

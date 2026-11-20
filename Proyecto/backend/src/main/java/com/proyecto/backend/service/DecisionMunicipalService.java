@@ -42,28 +42,45 @@ public class DecisionMunicipalService {
         }
         Lote lote = ultimo.get();
         List<Oferta> conjunto = ofertas.findByLoteIdOrderByIdAsc(lote.getId());
-        Map<Long, RecursosMunicipalesResponse.RecursoAceptado> recursos = new TreeMap<>();
+        Map<Long, Recurso> catalogo = new TreeMap<>();
+        Map<Long, Map<Long, Long>> cantidadPorRecursoYOng = new HashMap<>();
+        Map<Long, Ong> ongsPorId = new HashMap<>();
+        Map<Long, Long> requeridas = new HashMap<>();
         for (Oferta oferta : conjunto) {
             if (!habilitada(oferta) && oferta.getEstado() != EstadoOferta.ADJUDICADA) continue;
             for (DetalleOferta detalle : oferta.getDetalles()) {
                 int cantidad = cantidad(detalle);
                 if (cantidad == 0) continue;
                 Recurso recurso = detalle.getItemLote().getRecurso();
-                var anterior = recursos.get(recurso.getId());
-                recursos.put(recurso.getId(), new RecursosMunicipalesResponse.RecursoAceptado(
-                        recurso.getId(), recurso.getNombre(), recurso.getUnidadMedida(),
-                        cantidad + (anterior == null ? 0 : anterior.cantidad())));
+                catalogo.putIfAbsent(recurso.getId(), recurso);
+                requeridas.putIfAbsent(recurso.getId(), (long) detalle.getItemLote().getCantidadRequerida());
+                ongsPorId.putIfAbsent(detalle.getOng().getId(), detalle.getOng());
+                cantidadPorRecursoYOng.computeIfAbsent(recurso.getId(), id -> new TreeMap<>())
+                        .merge(detalle.getOng().getId(), (long) cantidad, Long::sum);
             }
         }
+        List<RecursosMunicipalesResponse.RecursoAceptado> recursos = catalogo.values().stream().map(recurso -> {
+            List<RecursosMunicipalesResponse.AporteOng> porOng = cantidadPorRecursoYOng.get(recurso.getId())
+                    .entrySet().stream()
+                    .map(e -> new RecursosMunicipalesResponse.AporteOng(e.getKey(),
+                            ongsPorId.get(e.getKey()).getRazonSocial(), e.getValue()))
+                    .toList();
+            return new RecursosMunicipalesResponse.RecursoAceptado(recurso.getId(), recurso.getNombre(),
+                    recurso.getUnidadMedida(), requeridas.get(recurso.getId()), porOng.stream().mapToLong(RecursosMunicipalesResponse.AporteOng::cantidad).sum(),
+                    porOng);
+        }).toList();
         boolean confirmada = lote.getFechaDecisionMunicipal() != null;
         String mensaje = confirmada ? (Boolean.TRUE.equals(lote.getDecisionMunicipal())
                 ? "Aceptaste todos los recursos habilitados por el SN."
-                : emergencia.isRequiereActualizacion() ? "Debés actualizar la emergencia para reiniciar el proceso."
+                : emergencia.isRequiereActualizacion() ? (lote.getDecisionMunicipal() == null
+                        ? "El Sistema Nacional no habilitó recursos para ninguna oferta. Debés volver a registrar la "
+                        + "emergencia, aunque mantengas los mismos datos, para reiniciar la convocatoria."
+                        : "Debés actualizar la emergencia para reiniciar el proceso.")
                 : "La emergencia fue actualizada; el coordinador puede publicar otro lote.")
-                : lote.getDecisionMunicipal() != null ? "Bonita está procesando la decisión en el Sistema Nacional."
+                : lote.getDecisionMunicipal() != null ? "Estamos procesando la decisión en el Sistema Nacional."
                 : impedimento(lote, conjunto);
         return new RecursosMunicipalesResponse(lote.getId(), lote.getDecisionMunicipal(), confirmada,
-                !confirmada && (lote.getDecisionMunicipal() != null || mensaje == null), mensaje, List.copyOf(recursos.values()));
+                !confirmada && (lote.getDecisionMunicipal() != null || mensaje == null), mensaje, recursos);
     }
 
     /** Se confirma la intención en una transacción independiente de los efectos externos.
@@ -160,10 +177,46 @@ public class DecisionMunicipalService {
             emergencias.save(emergencia);
         }
         lotes.saveAndFlush(lote);
-        eventos.publishEvent(new DecisionMunicipalEvent(emergenciaId, aceptar,
+        eventos.publishEvent(new DecisionMunicipalEvent(emergenciaId, emergencia.getZonaAfectada(), aceptar,
                 emergencia.getMunicipio().getBonitaGroupPath(), Set.copyOf(destinatarios), usuario));
         log.info("Decisión municipal confirmada. emergenciaId={}, loteId={}, acepta={}, usuario={}",
                 emergenciaId, lote.getId(), aceptar, usuario.getUsername());
+    }
+
+    /**
+     * Cierre del lote cuando el SN no dejó recursos habilitados en ninguna oferta (no hay nada que decidir).
+     * Se cancela el lote, la emergencia queda pendiente de nuevo registro y se avisa al municipio y a las ONGs.
+     * Es idempotente: si el lote ya se cerró no hace nada, así Bonita puede reintentar.
+     */
+    @Transactional
+    public void confirmarSinRecursos(Long emergenciaId, IntegracionNacional.SinRecursos pedido) {
+        Emergencia emergencia = emergencias.bloquearPorId(emergenciaId)
+                .orElseThrow(() -> new RecursoNoEncontradoException("No existe la emergencia"));
+        Lote lote = bloquearLote(pedido.loteId(), emergenciaId);
+        if (!Objects.equals(emergencia.getBonitaCaseId(), pedido.caseId())) {
+            throw new ReglaNegocioException("El caso de Bonita no corresponde a la emergencia");
+        }
+        if (lote.getFechaDecisionMunicipal() != null) return;
+        if (lote.getEstado() != EstadoLote.ACTIVO || lote.getDecisionMunicipal() != null
+                || lote.getFechaCierreOfertas() == null || lote.getFechaCierreOfertas().isAfter(LocalDateTime.now())) {
+            throw new ReglaNegocioException("El lote ya no admite este cierre");
+        }
+        List<Oferta> conjunto = ofertas.findByLoteIdOrderByIdAsc(lote.getId());
+        if (conjunto.stream().anyMatch(o -> o.getEstado() == EstadoOferta.PENDIENTE || habilitada(o))) {
+            throw new ReglaNegocioException("El lote todavía tiene ofertas pendientes o habilitadas por el SN");
+        }
+        Set<String> destinatarios = new HashSet<>();
+        conjunto.stream().filter(o -> o.getEstado() != EstadoOferta.ELIMINADA)
+                .forEach(o -> o.getOngs().forEach(ong -> destinatarios.add(ong.getBonitaGroupPath())));
+        lote.setEstado(EstadoLote.CANCELADO);
+        lote.setFechaDecisionMunicipal(LocalDateTime.now());
+        lotes.saveAndFlush(lote);
+        emergencia.setRequiereActualizacion(true);
+        emergencias.save(emergencia);
+        eventos.publishEvent(new SinRecursosEvent(emergenciaId, emergencia.getZonaAfectada(),
+                emergencia.getMunicipio().getBonitaGroupPath(),
+                Set.copyOf(destinatarios)));
+        log.info("Lote cancelado: el SN no habilitó recursos. emergenciaId={}, loteId={}", emergenciaId, lote.getId());
     }
 
     private void verificarReservas(Oferta oferta, IntegracionNacional.Resultado resultado, boolean aceptar) {
@@ -226,6 +279,7 @@ public class DecisionMunicipalService {
         emergencia.setDescripcion(request.descripcion());
         emergencia.setNivelGravedad(request.nivelGravedad());
         emergencia.setZonaAfectada(request.zonaAfectada());
+        sincronizarActividades(emergencia, request.actividades());
         emergencia.setFechaActualizacion(LocalDateTime.now());
         emergencia.setRequiereActualizacion(false);
         emergencias.saveAndFlush(emergencia);
@@ -243,6 +297,30 @@ public class DecisionMunicipalService {
                 emergencia.getMunicipio().getRegion().getBonitaGroupPath(), usuario));
         log.info("Emergencia actualizada tras rechazo. emergenciaId={}, usuario={}", emergenciaId, usuario.getUsername());
         return mapper.toResponse(emergencia);
+    }
+
+    /**
+     * Deja las actividades de la emergencia como las envió el municipio: las existentes se editan en su lugar
+     * (conservan su estado), las nuevas se agregan y las que sobran se quitan. Sin lista no se toca nada.
+     */
+    private void sincronizarActividades(Emergencia emergencia, List<ActividadRequest> pedidas) {
+        if (pedidas == null) return;
+        List<Actividad> actuales = emergencia.getActividades();
+        for (int i = 0; i < pedidas.size(); i++) {
+            ActividadRequest pedida = pedidas.get(i);
+            if (i < actuales.size()) {
+                actuales.get(i).setNombre(pedida.nombre());
+                actuales.get(i).setDescripcion(pedida.descripcion());
+            } else {
+                Actividad nueva = new Actividad();
+                nueva.setNombre(pedida.nombre());
+                nueva.setDescripcion(pedida.descripcion());
+                nueva.setFinalizada(false);
+                nueva.setEmergencia(emergencia);
+                actuales.add(nueva);
+            }
+        }
+        while (actuales.size() > pedidas.size()) actuales.remove(actuales.size() - 1);
     }
 
     private Emergencia buscar(Long id, Long municipioId, boolean bloquear) {

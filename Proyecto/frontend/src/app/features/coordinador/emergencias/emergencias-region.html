@@ -24,9 +24,14 @@
     @for (emergencia of emergencias(); track emergencia.id) {
       <div class="col">
         <app-emergencia-tarjeta [emergencia]="emergencia" [enlace]="enlace(emergencia)">
+          @if (esNuevoDesglose(emergencia) && !emergencia.requiereActualizacion) {
+            <p class="small text-body-secondary mb-0">{{ motivoNuevoDesglose(emergencia) }}</p>
+          }
           <span class="small fw-semibold text-primary mt-auto">
             @if (emergencia.requiereActualizacion) {
               Pendiente de actualización municipal
+            } @else if (esNuevoDesglose(emergencia)) {
+              <i class="bi bi-arrow-repeat me-1"></i>Desglosar de nuevo
             } @else if (puedeDesglosar(emergencia)) {
               <i class="bi bi-diagram-3 me-1"></i>Desglosar en lotes
             } @else {

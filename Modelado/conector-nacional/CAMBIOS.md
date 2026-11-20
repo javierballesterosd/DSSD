@@ -3,6 +3,14 @@
 Archivo a recompilar: `IntegracionNacionalConnector.java` (paquete `com.rescuesync.bonita`).
 `IntegracionNacionalConnector.java.orig` es el original, para comparar con `diff`.
 
+## Versión 1.0.8 (`rescueSync-V1.19.bos`): camino "sin recursos"
+
+Recompilado (Java 17, `bonita-common` 10.4.0, Groovy 3.0.25) y empaquetado en `rescueSync-V1.19.bos`, que sale del V1.18 con el jar, la definición, la implementación, `app/pom.xml`, `.conf` y el `.proc` pasados de 1.0.7 a 1.0.8. No se probó en Studio. Requiere el backend local de la rama `feature/camino-sin-recursos` (endpoint nuevo): con el backend viejo, el cierre da 404.
+
+- **Cierre local cuando el SN no habilita nada:** al terminar `VALIDAR`, si ninguna oferta quedó con recursos el conector llama a `POST /api/emergencias/{id}/sin-recursos/confirmacion` con `{loteId, caseId}`. El backend cancela el lote, marca la emergencia para volver a registrarla y notifica al municipio y a las ONGs. Después `hayOfertasHabilitadas = false` lleva al gateway a `Registrar emergencia`, como antes.
+- **Reintentos:** el plan local trae un campo nuevo `hayHabilitadas`. Si al reintentar ya no quedan ofertas pendientes, el conector usa ese dato en vez de dar por habilitado todo. Si el lote ya estaba cerrado sin recursos, devuelve `hayOfertasHabilitadas = false` sin repetir nada. El endpoint es idempotente.
+- **Sin cambios:** `ACEPTAR`, `RECHAZAR`, `FINALIZAR` y las rutas del SN.
+
 ## Versión 1.0.7 (`rescueSync-V1.18.bos`): validación del lote con prioridad por ONG y categoría
 
 Recompilado (Java 17, contra `bonita-common` 10.4.0 y Groovy 3.0.25) sobre el conector ya fusionado con development, que incluye la operación `FINALIZAR` y las rutas `/despliegue/...` del 1.0.6 (despliegue y monitoreo). `rescueSync-V1.18.bos` sale del V1.17 de development con el jar, la definición, la implementación, `app/pom.xml`, `.conf` y el `.proc` pasados de 1.0.6 a 1.0.7. No se probó en Studio: al importarlo conviene correr un ciclo completo (validar, decidir y finalizar).

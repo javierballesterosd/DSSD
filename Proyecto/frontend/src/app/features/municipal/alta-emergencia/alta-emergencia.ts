@@ -57,7 +57,8 @@ export class AltaEmergencia implements OnInit {
       '',
       [Validators.required, Validators.minLength(10), Validators.maxLength(2000)]
     ],
-    actividades: this.fb.array<ActividadForm>([])
+    // Toda emergencia necesita al menos una actividad
+    actividades: this.fb.array<ActividadForm>([], [Validators.minLength(1)])
   });
 
   // Getter tipado para acceder al FormArray
@@ -66,7 +67,10 @@ export class AltaEmergencia implements OnInit {
   }
 
   ngOnInit(): void {
-    if (this.emergenciaId === null) return;
+    if (this.emergenciaId === null) {
+      this.actividades.push(this.crearActividadForm());
+      return;
+    }
 
     this.cargandoDatos.set(true);
 
@@ -97,6 +101,9 @@ export class AltaEmergencia implements OnInit {
           });
         }
 
+        // Emergencias viejas sin actividades: se pide cargar al menos una
+        if (this.actividades.length === 0) this.actividades.push(this.crearActividadForm());
+
         this.form.patchValue({
           nivelGravedad: e.nivelGravedad,
           zonaAfectada: e.zonaAfectada,
@@ -126,6 +133,8 @@ export class AltaEmergencia implements OnInit {
   }
 
   eliminarActividad(index: number): void {
+    // La última actividad no se puede quitar
+    if (this.actividades.length <= 1) return;
     this.actividades.removeAt(index);
   }
 
@@ -151,7 +160,7 @@ export class AltaEmergencia implements OnInit {
         this.cargando.set(false);
         this.toast.exito(
           this.emergenciaId === null ? 'Emergencia registrada' : 'Emergencia actualizada',
-          `La emergencia #${res.id} se ${this.emergenciaId === null ? 'registró' : 'actualizó'} y se notificó al Centro Coordinador Regional.`,
+          `La emergencia «${res.zonaAfectada}» se ${this.emergenciaId === null ? 'registró' : 'actualizó'} y se notificó al Centro Coordinador Regional.`,
         );
         this.router.navigate(['/municipal/emergencias', res.id]);
       },

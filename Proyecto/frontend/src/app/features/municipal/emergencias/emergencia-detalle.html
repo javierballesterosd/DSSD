@@ -98,16 +98,29 @@
               <thead>
                 <tr>
                   <th>Recurso</th>
+                  <th>Cantidad requerida</th>
                   <th>Cantidad aceptada</th>
                   <th>Unidad</th>
+                  <th>Aporte de cada ONG</th>
                 </tr>
               </thead>
               <tbody>
                 @for (recurso of r.recursos; track recurso.recursoId) {
                   <tr>
                     <td>{{ recurso.nombre }}</td>
+                    <td>{{ recurso.cantidadRequerida }}</td>
                     <td>{{ recurso.cantidad }}</td>
                     <td>{{ recurso.unidadMedida }}</td>
+                    <td>
+                      @for (aporte of recurso.porOng; track aporte.ongId) {
+                        <div class="mb-1">
+                          <span class="chip-ong" [style.--ong-color]="colorOng(aporte.ongId)">{{
+                            aporte.razonSocial
+                          }}</span>
+                          {{ aporte.cantidad }} {{ recurso.unidadMedida }}
+                        </div>
+                      }
+                    </td>
                   </tr>
                 }
               </tbody>
@@ -159,7 +172,7 @@
       }
       @if (e.requiereActualizacion) {
         <a class="btn btn-primary" [routerLink]="['/municipal/emergencias', e.id, 'actualizar']"
-          >Actualizar emergencia</a
+          >{{ e.sinRecursos ? 'Volver a registrar la emergencia' : 'Actualizar emergencia' }}</a
         >
       }
     </div>

@@ -11,8 +11,11 @@ public final class IntegracionNacional {
     // La ONG viaja por su código común: el id numérico es propio de cada base
     public record Item(Long detalleOfertaId, String ongCodigo, Long recursoId, Integer cantidad) {}
     public record Oferta(Long ofertaId, List<Item> items) {}
+    // hayHabilitadas: alguna oferta del lote quedó habilitada por el SN (también las ya validadas antes de un reintento)
     public record Plan(Long emergenciaId, Long loteId, String caseId, Boolean decision,
-                       boolean confirmada, List<Oferta> ofertas) {}
+                       boolean confirmada, boolean hayHabilitadas, List<Oferta> ofertas) {}
+    /** Cierre del lote cuando el SN no dejó recursos habilitados en ninguna oferta. */
+    public record SinRecursos(@NotNull Long loteId, @NotNull String caseId) {}
     public record ItemSN(@NotNull String ongCodigo, @NotNull Long recursoId,
                          @NotNull Integer cantidad, @NotNull String estado) {}
     public record Resultado(@NotNull Long ofertaId, @NotNull Boolean aprobada,

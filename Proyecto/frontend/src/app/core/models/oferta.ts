@@ -21,6 +21,8 @@ export interface AporteOng {
   ongId: number;
   razonSocial: string;
   cantidadOfrecida: number;
+  /** Lo que habilitó el Sistema Nacional; ausente mientras la oferta no fue validada. */
+  cantidadAceptada?: number | null;
 }
 
 export interface AporteRecurso {
@@ -29,6 +31,8 @@ export interface AporteRecurso {
   unidadMedida: string;
   cantidadRequerida: number;
   totalOfrecido: number;
+  /** Suma de lo habilitado; ausente mientras la oferta no fue validada. */
+  totalAceptado?: number | null;
   porOng: AporteOng[];
 }
 

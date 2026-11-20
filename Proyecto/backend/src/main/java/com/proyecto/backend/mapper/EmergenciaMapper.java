@@ -7,6 +7,7 @@ import com.proyecto.backend.dto.EmergenciaRequest;
 import com.proyecto.backend.dto.EmergenciaResponse;
 import com.proyecto.backend.model.Actividad;
 import com.proyecto.backend.model.Emergencia;
+import com.proyecto.backend.model.EstadoLote;
 import com.proyecto.backend.model.Lote;
 import com.proyecto.backend.model.Municipio;
 import org.springframework.stereotype.Component;
@@ -58,8 +59,18 @@ public class EmergenciaMapper {
                 ultimoLote.map(Lote::getId).orElse(null),
                 ultimoLote.map(Lote::getEstado).orElse(null),
                 emergencia.isRequiereActualizacion(),
+                emergencia.isRequiereActualizacion() && ultimoLote.map(l -> l.getEstado() == EstadoLote.CANCELADO
+                        && l.getDecisionMunicipal() == null).orElse(false),
+                motivoLoteCancelado(ultimoLote),
                 actividades
         );
+    }
+
+    // Un lote se cancela porque el SN no habilitó recursos (no hay decisión municipal) o porque el municipio rechazó
+    private String motivoLoteCancelado(Optional<Lote> ultimoLote) {
+        return ultimoLote.filter(l -> l.getEstado() == EstadoLote.CANCELADO)
+                .map(l -> l.getDecisionMunicipal() == null ? "SIN_RECURSOS" : "RECHAZO_MUNICIPAL")
+                .orElse(null);
     }
 
     private ActividadResponse toActividadResponse(Actividad actividad) {
