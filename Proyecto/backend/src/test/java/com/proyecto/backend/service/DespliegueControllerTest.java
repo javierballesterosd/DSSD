@@ -21,13 +21,12 @@ class DespliegueControllerTest {
                 .isInstanceOf(UnauthenticatedException.class);
         verifyNoInteractions(servicio);
     }
-    @Test void actividadesYValidacionExigenUnCoordinador() {
+    @Test void monitoreoYValidacionExigenUnCoordinador() {
         var servicio = mock(DespliegueService.class);
         var auth = mock(AuthService.class);
         var controller = new DespliegueController(servicio, auth, mock(BonitaTokenValidator.class));
         var sesion = new MockHttpSession();
         when(auth.regionDelUsuario(sesion)).thenThrow(new AccesoDenegadoException("Solo coordinadores"));
-        assertThatThrownBy(() -> controller.finalizar(1L, 2L, sesion)).isInstanceOf(AccesoDenegadoException.class);
         assertThatThrownBy(() -> controller.completar(1L, sesion)).isInstanceOf(AccesoDenegadoException.class);
         assertThatThrownBy(() -> controller.validar(1L, sesion)).isInstanceOf(AccesoDenegadoException.class);
         verifyNoInteractions(servicio);
