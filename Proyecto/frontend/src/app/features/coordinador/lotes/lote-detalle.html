@@ -16,7 +16,7 @@
     </div>
   </app-lote-ficha>
 
-  @if (l.estado === 'ACTIVO' || l.estado === 'FINALIZADO') {
+  @if ((l.estado === 'ACTIVO' || l.estado === 'FINALIZADO') && (hayOfertasAdjudicadas() || ongs().length > 0)) {
     <section class="seguimiento card border-0 shadow-sm rounded-4 mb-4" aria-labelledby="seguimiento-titulo">
       <div class="card-body p-4">
         <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
@@ -32,8 +32,6 @@
           <div class="alert alert-danger mb-0">No se pudieron cargar las actividades de la emergencia.</div>
         } @else if (seguimiento().length === 0) {
           <p class="text-body-secondary mb-0">Esta emergencia todavía no tiene actividades registradas.</p>
-        } @else if (!hayOfertasAdjudicadas()) {
-          <p class="text-body-secondary mb-0">Todavía no hay ofertas adjudicadas para esta emergencia.</p>
         } @else {
           @if (ongs().length > 0) {
             <p class="small mb-3">
@@ -95,10 +93,18 @@
 
   <div class="d-flex flex-wrap gap-2">
     <a class="btn btn-outline-secondary" routerLink="/coordinador/lotes">Volver al listado</a>
-    @if (l.estado !== 'CANCELADO') {
-      <a class="btn btn-primary" [routerLink]="['/coordinador/emergencias', l.emergencia.id, 'cierre']">
-        {{ l.estado === 'FINALIZADO' ? 'Ver cierre del despliegue' : 'Validar cierre del despliegue' }}
-      </a>
+    @if (l.estado === 'ACTIVO') {
+      @if (!cargandoSeguimiento() && !seguimientoError()) {
+        @if (hayOfertasAdjudicadas() || ongs().length > 0) {
+          <a class="btn btn-primary" [routerLink]="['/coordinador/emergencias', l.emergencia.id, 'cierre']">
+            Validar cierre del despliegue
+          </a>
+        } @else {
+          <p class="small text-body-secondary align-self-center mb-0" role="status">
+            Pendiente de aceptación por parte del municipio.
+          </p>
+        }
+      }
     }
   </div>
 }
