@@ -2,7 +2,6 @@ package com.proyecto.backend.service;
 
 import com.proyecto.backend.client.BonitaClient;
 import com.proyecto.backend.client.BonitaSession;
-import com.proyecto.backend.dto.ActividadResponse;
 import com.proyecto.backend.dto.CierreDespliegueResponse;
 import com.proyecto.backend.dto.auth.LoginResponse;
 import org.springframework.context.ApplicationEventPublisher;
@@ -19,6 +18,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.function.Function;
 import java.util.function.Supplier;
 
 /** La aplicación avisa a Bonita; exclusivamente el conector habla con el SN. */
@@ -26,7 +26,7 @@ import java.util.function.Supplier;
 @RequiredArgsConstructor
 public class DespliegueService {
     private final EmergenciaRepository emergencias;
-    private final ActividadRepository actividades;
+    private final ActividadOfertaRepository asignaciones;
     private final LoteRepository lotes;
     private final OfertaRepository ofertas;
     private final InventarioOngRepository inventarios;
@@ -34,40 +34,35 @@ public class DespliegueService {
     private final PlatformTransactionManager transactionManager;
     private final ApplicationEventPublisher eventos;
 
-    public ActividadResponse finalizarActividad(Long emergenciaId, Long actividadId, Long regionId, BonitaSession sesion) {
-        ActividadResponse respuesta = transaccion(() -> {
-            Emergencia emergencia = autorizada(emergenciaId, regionId);
-            exigirAdjudicacion(emergencia);
-            Actividad actividad = actividades.findById(actividadId)
-                    .orElseThrow(() -> new RecursoNoEncontradoException("No existe la actividad"));
-            if (!actividad.getEmergencia().getId().equals(emergenciaId))
-                throw new ReglaNegocioException("La actividad no pertenece a esta emergencia");
-            actividad.setFinalizada(true);
-            actividades.saveAndFlush(actividad);
-            return new ActividadResponse(actividad.getId(), actividad.getNombre(), actividad.getDescripcion(), true);
-        });
-        // La actividad está confirmada y los locks liberados antes de cualquier llamada externa.
-        completarMonitoreo(emergenciaId, regionId, sesion);
-        return respuesta;
-    }
-
     /** También permite reintentar el aviso sin modificar actividades ni depender de su cantidad. */
     public void completarMonitoreo(Long emergenciaId, Long regionId, BonitaSession sesion) {
+        completarMonitoreo(emergenciaId, id -> autorizada(id, regionId), sesion);
+    }
+
+    /**
+     * Cierra el monitoreo cuando todas las ofertas adjudicadas terminaron todas las actividades. Lo dispara quien
+     * marca la última (la ONG), por eso no exige ser coordinador de la región.
+     */
+    public void verificarCierre(Long emergenciaId, BonitaSession sesion) {
+        completarMonitoreo(emergenciaId, this::bloqueada, sesion);
+    }
+
+    private void completarMonitoreo(Long emergenciaId, Function<Long, Emergencia> acceso, BonitaSession sesion) {
         String caso = transaccion(() -> {
-            Emergencia e = autorizada(emergenciaId, regionId);
+            Emergencia e = acceso.apply(emergenciaId);
             exigirAdjudicacion(e);
-            if (e.getFechaFinMonitoreo() != null || actividades.existsByEmergenciaIdAndFinalizadaFalse(emergenciaId))
+            if (e.getFechaFinMonitoreo() != null || hayPendientes(emergenciaId))
                 return null;
             return e.getBonitaCaseId();
         });
         if (caso == null) return;
         // No mantener locks mientras se espera a Bonita.
-        String guardada = transaccion(() -> autorizada(emergenciaId, regionId).getTareaMonitoreoBonitaId());
+        String guardada = transaccion(() -> acceso.apply(emergenciaId).getTareaMonitoreoBonitaId());
         String encontrada = guardada != null ? guardada : bonita.buscarTareaPendiente(sesion, caso, "Monitorear despliegue");
         String tarea = transaccion(() -> {
-            Emergencia e = autorizada(emergenciaId, regionId);
+            Emergencia e = acceso.apply(emergenciaId);
             if (e.getFechaFinMonitoreo() != null) return null;
-            if (actividades.existsByEmergenciaIdAndFinalizadaFalse(emergenciaId))
+            if (hayPendientes(emergenciaId))
                 throw new ReglaNegocioException("Todavía quedan actividades pendientes");
             if (e.getTareaMonitoreoBonitaId() == null) e.setTareaMonitoreoBonitaId(encontrada);
             emergencias.save(e);
@@ -76,7 +71,7 @@ public class DespliegueService {
         if (tarea == null) return;
         bonita.ejecutarTareaIdempotente(sesion, tarea, Map.of("hayActividadesPendientes", false));
         transaccion(() -> {
-            Emergencia e = autorizada(emergenciaId, regionId);
+            Emergencia e = acceso.apply(emergenciaId);
             if (e.getFechaFinMonitoreo() == null) e.setFechaFinMonitoreo(LocalDateTime.now());
             emergencias.save(e);
             return null;
@@ -89,7 +84,7 @@ public class DespliegueService {
         boolean adjudicada = lotes.findFirstByEmergenciaIdOrderByIdDesc(id)
                 .filter(l -> Boolean.TRUE.equals(l.getDecisionMunicipal()) && l.getFechaDecisionMunicipal() != null).isPresent();
         return new CierreDespliegueResponse(id, e.getMunicipio().getNombre(), e.getZonaAfectada(), e.getDescripcion(),
-                actividades.countByEmergenciaId(id), actividades.countByEmergenciaIdAndFinalizadaFalse(id),
+                asignaciones.contarActividades(id), asignaciones.contarActividadesPendientes(id),
                 adjudicada, e.getFechaValidacionDespliegue() != null, e.getFechaFinalizacion() != null,
                 e.getDescripcionCierre(), e.getFechaValidacionDespliegue(), e.getFechaFinalizacion());
     }
@@ -103,7 +98,7 @@ public class DespliegueService {
         transaccion(() -> {
             Emergencia e = autorizada(emergenciaId, regionId);
             exigirAdjudicacion(e);
-            if (actividades.existsByEmergenciaIdAndFinalizadaFalse(emergenciaId))
+            if (hayPendientes(emergenciaId))
                 throw new ReglaNegocioException("Todavía quedan actividades pendientes");
             if (e.getDescripcionCierre() != null && !e.getDescripcionCierre().equals(texto))
                 throw new ReglaNegocioException("El cierre ya fue solicitado con otra descripción; reintentá con la descripción guardada");
@@ -218,9 +213,13 @@ public class DespliegueService {
             throw new ReglaNegocioException("Faltan cantidades liberadas en SN");
     }
 
-    private Emergencia autorizada(Long id, Long regionId) {
-        Emergencia e = emergencias.bloquearPorId(id)
+    private Emergencia bloqueada(Long id) {
+        return emergencias.bloquearPorId(id)
                 .orElseThrow(() -> new RecursoNoEncontradoException("No existe la emergencia"));
+    }
+
+    private Emergencia autorizada(Long id, Long regionId) {
+        Emergencia e = bloqueada(id);
         if (regionId == null || !regionId.equals(e.getMunicipio().getRegion().getId()))
             throw new AccesoDenegadoException("La emergencia no pertenece a tu región");
         return e;
@@ -234,8 +233,14 @@ public class DespliegueService {
     }
 
     private void exigirSinPendientes(Emergencia e) {
-        if (e.getFechaFinMonitoreo() == null || actividades.existsByEmergenciaIdAndFinalizadaFalse(e.getId()))
+        if (e.getFechaFinMonitoreo() == null || hayPendientes(e.getId()))
             throw new ReglaNegocioException("El monitoreo todavía tiene actividades pendientes");
+    }
+
+    /** Pendiente si alguna oferta adjudicada no terminó una actividad, o si todavía no hay actividades asignadas. */
+    private boolean hayPendientes(Long emergenciaId) {
+        return !asignaciones.existsByActividadEmergenciaId(emergenciaId)
+                || asignaciones.existsByActividadEmergenciaIdAndFinalizadaFalse(emergenciaId);
     }
 
     private Lote comprobar(Long id, Long loteId, String caseId, boolean bloquear) {

@@ -10,14 +10,18 @@ import com.proyecto.backend.exception.RecursoNoEncontradoException;
 import com.proyecto.backend.mapper.ItemLoteMapper;
 import com.proyecto.backend.dto.LoteDetalleResponse;
 import com.proyecto.backend.dto.LoteResumenResponse;
+import com.proyecto.backend.dto.OngResponse;
 import com.proyecto.backend.mapper.LoteMapper;
 import com.proyecto.backend.model.Emergencia;
 import com.proyecto.backend.model.ItemLote;
 import com.proyecto.backend.model.EstadoLote;
 import com.proyecto.backend.model.Lote;
+import com.proyecto.backend.model.EstadoOferta;
+import com.proyecto.backend.model.Oferta;
 import com.proyecto.backend.model.Recurso;
 import com.proyecto.backend.repository.EmergenciaRepository;
 import com.proyecto.backend.repository.LoteRepository;
+import com.proyecto.backend.repository.OfertaRepository;
 import com.proyecto.backend.repository.RecursoRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -43,6 +47,7 @@ public class LoteService {
     static final String TAREA_DESGLOSAR_LOTES = "Desglosar en \"Lotes Necesidades\"";
 
     private final LoteRepository loteRepository;
+    private final OfertaRepository ofertaRepository;
     private final EmergenciaRepository emergenciaRepository;
     private final RecursoRepository recursoRepository;
     private final LoteMapper loteMapper;
@@ -217,6 +222,30 @@ public class LoteService {
             throw new AccesoDenegadoException("El lote no pertenece a tu región");
         }
         return loteMapper.toDetalleResponse(lote);
+    }
+
+    /** ONGs de ofertas adjudicadas/en ejecución del lote, visibles al coordinador de la región. */
+    @Transactional(readOnly = true)
+    public List<OngResponse> listarOngsAdjudicadas(Long loteId, Long regionId) {
+        Lote lote = loteRepository.findDetalleById(loteId)
+                .orElseThrow(() -> new RecursoNoEncontradoException("No existe el lote " + loteId));
+        if (regionId == null || !lote.getEmergencia().getMunicipio().getRegion().getId().equals(regionId)) {
+            throw new AccesoDenegadoException("El lote no pertenece a tu región");
+        }
+
+        Map<Long, OngResponse> ongs = new LinkedHashMap<>();
+        for (Oferta oferta : ofertaRepository.findByLoteId(loteId)) {
+            if (oferta.getEstado() != EstadoOferta.ADJUDICADA
+                    && oferta.getEstado() != EstadoOferta.EN_EJECUCION
+                    && oferta.getEstado() != EstadoOferta.FINALIZADA) {
+                continue;
+            }
+            oferta.getOngs().stream()
+                    .sorted(java.util.Comparator.comparing(ong -> ong.getRazonSocial().toLowerCase()))
+                    .forEach(ong -> ongs.putIfAbsent(ong.getId(),
+                            new OngResponse(ong.getId(), ong.getCodigo(), ong.getRazonSocial())));
+        }
+        return List.copyOf(ongs.values());
     }
 }
 

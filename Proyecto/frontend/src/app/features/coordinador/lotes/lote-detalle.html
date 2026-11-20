@@ -16,6 +16,83 @@
     </div>
   </app-lote-ficha>
 
+  @if (l.estado === 'ACTIVO' || l.estado === 'FINALIZADO') {
+    <section class="seguimiento card border-0 shadow-sm rounded-4 mb-4" aria-labelledby="seguimiento-titulo">
+      <div class="card-body p-4">
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+          <div>
+            <h2 id="seguimiento-titulo" class="h5 mb-1">Avance de la respuesta</h2>
+            <p class="small text-body-secondary mb-0">Las ONGs adjudicadas avanzan juntas sobre las mismas actividades</p>
+          </div>
+        </div>
+
+        @if (cargandoSeguimiento()) {
+          <p class="text-body-secondary mb-0">Cargando actividades…</p>
+        } @else if (seguimientoError()) {
+          <div class="alert alert-danger mb-0">No se pudieron cargar las actividades de la emergencia.</div>
+        } @else if (seguimiento().length === 0) {
+          <p class="text-body-secondary mb-0">Esta emergencia todavía no tiene actividades registradas.</p>
+        } @else if (!hayOfertasAdjudicadas()) {
+          <p class="text-body-secondary mb-0">Todavía no hay ofertas adjudicadas para esta emergencia.</p>
+        } @else {
+          @if (ongs().length > 0) {
+            <p class="small mb-3">
+              <span class="fw-semibold">ONGs adjudicadas:</span>
+              @for (ong of ongs(); track ong.id) {
+                <span class="badge text-bg-light border ms-1">{{ ong.razonSocial }}</span>
+              }
+            </p>
+          }
+
+          <div class="avance rounded-3 border" [class.expandida]="detalleAbierto()">
+            <button class="avance-cabecera btn w-100 text-start p-3" type="button"
+              [attr.aria-expanded]="detalleAbierto()" (click)="toggleDetalle()">
+              <span class="avance-identidad">
+                <strong>Actividades</strong>
+                <span class="small text-body-secondary">{{ actividadesHechas() }} de {{ seguimiento().length }} hechas</span>
+              </span>
+              <span class="barra-segmentada" aria-hidden="true">
+                @for (actividad of seguimiento(); track actividad.id) {
+                  <span class="segmento" [class.hecha]="actividad.estado === 'HECHA'" [class.parcial]="esParcial(actividad)"></span>
+                }
+              </span>
+              <strong class="porcentaje">{{ porcentajeGeneral() }}%</strong>
+              <span class="flecha" [class.abierta]="detalleAbierto()" aria-hidden="true">⌄</span>
+            </button>
+            @if (detalleAbierto()) {
+          <ol class="linea-tiempo list-unstyled mb-0 px-4 pb-3">
+            @for (actividad of seguimiento(); track actividad.id) {
+              <li class="actividad" [class.hecha]="actividad.estado === 'HECHA'" [class.parcial]="esParcial(actividad)">
+                <span class="actividad-nombre">
+                  {{ actividad.nombre }}
+                  @if (actividad.descripcion) {
+                    <small class="d-block text-body-secondary fw-normal">{{ actividad.descripcion }}</small>
+                  }
+                  @for (marca of actividad.marcas; track $index) {
+                    <small class="d-block text-body-secondary fw-normal">
+                      Marcada por {{ marca.ong }}
+                      @if (marca.fecha) {
+                        el {{ marca.fecha | date: FECHA_LISTADO }}
+                      }
+                    </small>
+                  }
+                </span>
+                <span class="actividad-estado">
+                  @if (actividad.estado === 'HECHA') { Hecha }
+                  @else if (esParcial(actividad)) { Pendiente · {{ actividad.ofertasFinalizadas }} de {{ actividad.totalOfertas }} ofertas }
+                  @else { Pendiente }
+                </span>
+              </li>
+            }
+          </ol>
+            }
+          </div>
+          <p class="small text-body-secondary mt-3 mb-0">Una actividad queda hecha cuando todas las ofertas adjudicadas la completaron. El avance lo registran las ONGs desde su pantalla.</p>
+        }
+      </div>
+    </section>
+  }
+
   <div class="d-flex flex-wrap gap-2">
     <a class="btn btn-outline-secondary" routerLink="/coordinador/lotes">Volver al listado</a>
     @if (l.estado !== 'CANCELADO') {

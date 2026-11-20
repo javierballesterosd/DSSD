@@ -147,6 +147,33 @@ class DecisionMunicipalServiceTest {
         assertThat(lote.getFechaDecisionMunicipal()).isNotNull();
     }
 
+    @Test void alAdjudicarSeCreaElAvanceDeCadaActividadParaLaOferta() {
+        prepararDecision();
+        var a1 = new Actividad(); a1.setId(1L);
+        var a2 = new Actividad(); a2.setId(2L);
+        emergencia.setActividades(new ArrayList<>(List.of(a1, a2)));
+        var inventario = new InventarioOng(); inventario.setCantidadDisponible(200);
+        when(inventarios.findByOngIdAndRecursoIdForUpdate(2L, 3L)).thenReturn(Optional.of(inventario));
+        service.decidir(7L, new DecisionMunicipalRequest(10L, true), usuario, session);
+        assertThat(a1.getAsignaciones()).isEmpty();
+        service.confirmar(7L, resultado(true, 40));
+        for (var actividad : List.of(a1, a2)) {
+            assertThat(actividad.getAsignaciones()).hasSize(1);
+            assertThat(actividad.getAsignaciones().getFirst().getOferta()).isSameAs(oferta);
+            assertThat(actividad.getAsignaciones().getFirst().isFinalizada()).isFalse();
+            assertThat(actividad.isFinalizada()).isFalse();
+        }
+    }
+
+    @Test void siElMunicipioRechazaNoSeCreaNingunAvance() {
+        prepararDecision();
+        var actividad = new Actividad(); actividad.setId(1L);
+        emergencia.setActividades(new ArrayList<>(List.of(actividad)));
+        service.decidir(7L, new DecisionMunicipalRequest(10L, false), usuario, session);
+        service.confirmar(7L, resultado(false, 40));
+        assertThat(actividad.getAsignaciones()).isEmpty();
+    }
+
     @Test void noConfirmaSiElStockLocalEsInsuficiente() {
         prepararDecision();
         var inventario = new InventarioOng(); inventario.setCantidadDisponible(39);
@@ -312,7 +339,6 @@ class DecisionMunicipalServiceTest {
         emergencia.setRequiereActualizacion(true);
         var existente = new Actividad();
         existente.setNombre("Evacuación");
-        existente.setFinalizada(false);
         emergencia.setActividades(new ArrayList<>(List.of(existente)));
         when(emergencias.bloquearPorId(7L)).thenReturn(Optional.of(emergencia));
         when(bonita.buscarTareaPendiente(session, "caso-7", "Registrar emergencia")).thenReturn("registrar");

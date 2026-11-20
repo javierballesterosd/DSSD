@@ -20,7 +20,7 @@ import static org.mockito.ArgumentMatchers.*;
 @ExtendWith(MockitoExtension.class)
 class DespliegueServiceTest {
     @Mock EmergenciaRepository emergencias;
-    @Mock ActividadRepository actividades;
+    @Mock ActividadOfertaRepository asignaciones;
     @Mock LoteRepository lotes;
     @Mock OfertaRepository ofertas;
     @Mock InventarioOngRepository inventarios;
@@ -33,7 +33,7 @@ class DespliegueServiceTest {
     final BonitaSession sesion = new BonitaSession("sesion", "token");
 
     @BeforeEach void preparar() {
-        servicio = new DespliegueService(emergencias, actividades, lotes, ofertas, inventarios, bonita, tx, eventos);
+        servicio = new DespliegueService(emergencias, asignaciones, lotes, ofertas, inventarios, bonita, tx, eventos);
         Region region = new Region(); region.setId(3L);
         Municipio municipio = new Municipio(); municipio.setRegion(region);
         emergencia = new Emergencia(); emergencia.setId(7L); emergencia.setBonitaCaseId("44"); emergencia.setMunicipio(municipio);
@@ -45,30 +45,32 @@ class DespliegueServiceTest {
         when(emergencias.bloquearPorId(7L)).thenReturn(Optional.of(emergencia));
         when(lotes.findFirstByEmergenciaIdOrderByIdDesc(7L)).thenReturn(Optional.of(lote));
     }
-    Actividad actividad() {
-        Actividad actividad = new Actividad(); actividad.setId(9L); actividad.setEmergencia(emergencia);
-        when(actividades.findById(9L)).thenReturn(Optional.of(actividad)); return actividad;
+    /** Hay actividades asignadas a las ofertas adjudicadas y ninguna quedó pendiente. */
+    void todoFinalizado() {
+        when(asignaciones.existsByActividadEmergenciaId(7L)).thenReturn(true);
     }
     @Test void unaActividadPendienteMantieneElMonitoreoAbierto() {
-        prepararTransaccion(); Actividad actividad = actividad();
-        when(actividades.existsByEmergenciaIdAndFinalizadaFalse(7L)).thenReturn(true);
-        servicio.finalizarActividad(7L, 9L, 3L, sesion);
-        assertThat(actividad.isFinalizada()).isTrue(); verifyNoInteractions(bonita);
+        prepararTransaccion(); todoFinalizado();
+        when(asignaciones.existsByActividadEmergenciaIdAndFinalizadaFalse(7L)).thenReturn(true);
+        servicio.verificarCierre(7L, sesion);
+        verifyNoInteractions(bonita);
         assertThat(emergencia.getFechaFinMonitoreo()).isNull();
     }
-    @Test void laUltimaActividadSeConfirmaAntesDeAvisarABonita() {
-        prepararTransaccion(); actividad();
+    @Test void sinActividadesAsignadasElMonitoreoNoSeCierra() {
+        prepararTransaccion();
+        servicio.verificarCierre(7L, sesion);
+        verifyNoInteractions(bonita);
+        assertThat(emergencia.getFechaFinMonitoreo()).isNull();
+    }
+    @Test void laUltimaActividadCierraElMonitoreoSinExigirCoordinador() {
+        prepararTransaccion(); todoFinalizado();
         when(bonita.buscarTareaPendiente(sesion, "44", "Monitorear despliegue")).thenReturn("100");
-        servicio.finalizarActividad(7L, 9L, 3L, sesion);
-        var orden = inOrder(actividades, tx, bonita);
-        orden.verify(actividades).saveAndFlush(any());
-        orden.verify(tx).commit(any());
-        orden.verify(bonita).buscarTareaPendiente(sesion, "44", "Monitorear despliegue");
+        servicio.verificarCierre(7L, sesion);
         verify(bonita).ejecutarTareaIdempotente(sesion, "100", Map.of("hayActividadesPendientes", false));
         assertThat(emergencia.getFechaFinMonitoreo()).isNotNull();
     }
     @Test void reintentarReutilizaLaMismaTareaDespuesDeUnFallo() {
-        prepararTransaccion(); emergencia.setTareaMonitoreoBonitaId("100");
+        prepararTransaccion(); todoFinalizado(); emergencia.setTareaMonitoreoBonitaId("100");
         doThrow(new BonitaIntegrationException("Sin conexion")).doNothing().when(bonita)
                 .ejecutarTareaIdempotente(sesion, "100", Map.of("hayActividadesPendientes", false));
         assertThatThrownBy(() -> servicio.completarMonitoreo(7L, 3L, sesion)).isInstanceOf(BonitaIntegrationException.class);
@@ -77,11 +79,11 @@ class DespliegueServiceTest {
         verify(bonita, never()).buscarTareaPendiente(any(), anyString(), anyString());
         assertThat(emergencia.getFechaFinMonitoreo()).isNotNull();
     }
-    @Test void unCoordinadorAjenoNoPuedeFinalizarActividades() {
+    @Test void unCoordinadorAjenoNoPuedeCompletarElMonitoreo() {
         when(tx.getTransaction(any())).thenReturn(new SimpleTransactionStatus());
         when(emergencias.bloquearPorId(7L)).thenReturn(Optional.of(emergencia));
-        assertThatThrownBy(() -> servicio.finalizarActividad(7L, 9L, 99L, sesion)).isInstanceOf(AccesoDenegadoException.class);
-        verifyNoInteractions(actividades, bonita);
+        assertThatThrownBy(() -> servicio.completarMonitoreo(7L, 99L, sesion)).isInstanceOf(AccesoDenegadoException.class);
+        verifyNoInteractions(asignaciones, bonita);
     }
     Oferta oferta() {
         Oferta oferta = new Oferta(); oferta.setId(20L); oferta.setEstado(EstadoOferta.ADJUDICADA);
@@ -100,6 +102,7 @@ class DespliegueServiceTest {
         when(emergencias.bloquearPorId(7L)).thenReturn(Optional.of(emergencia));
         when(lotes.bloquearPorId(8L)).thenReturn(Optional.of(lote));
         emergencia.setFechaFinMonitoreo(LocalDateTime.now()); emergencia.setFechaValidacionDespliegue(LocalDateTime.now());
+        todoFinalizado();
     }
     @Test void soloUnaConfirmacionDevuelveElStockYFinalizaElLote() {
         prepararCierre(); Oferta oferta = oferta();
@@ -125,7 +128,7 @@ class DespliegueServiceTest {
         verifyNoInteractions(inventarios);
     }
     @Test void noSePuedeLiberarSiQuedanActividades() {
-        prepararCierre(); when(actividades.existsByEmergenciaIdAndFinalizadaFalse(7L)).thenReturn(true);
+        prepararCierre(); when(asignaciones.existsByActividadEmergenciaIdAndFinalizadaFalse(7L)).thenReturn(true);
         assertThatThrownBy(() -> servicio.confirmar(7L, recibo("LIBERADA", 5))).isInstanceOf(ReglaNegocioException.class);
         verifyNoInteractions(ofertas, inventarios);
     }
@@ -135,7 +138,7 @@ class DespliegueServiceTest {
         verifyNoInteractions(ofertas, inventarios);
     }
     @Test void guardaDescripcionYCoordinadorAntesDeCompletarLaValidacionEnBonita() {
-        prepararTransaccion(); emergencia.setFechaFinMonitoreo(LocalDateTime.now());
+        prepararTransaccion(); todoFinalizado(); emergencia.setFechaFinMonitoreo(LocalDateTime.now());
         when(bonita.buscarTareaPendiente(sesion, "44", "Validar estado despliegue")).thenReturn("200");
         var usuario = new com.proyecto.backend.dto.auth.LoginResponse();
         usuario.setUserId("30"); usuario.setUsername("coord.norte");
@@ -152,8 +155,8 @@ class DespliegueServiceTest {
         orden.verify(bonita).ejecutarTareaIdempotente(sesion, "200", Map.of());
     }
     @Test void noValidaNiGuardaDescripcionSiHayActividadesPendientes() {
-        prepararTransaccion();
-        when(actividades.existsByEmergenciaIdAndFinalizadaFalse(7L)).thenReturn(true);
+        prepararTransaccion(); todoFinalizado();
+        when(asignaciones.existsByActividadEmergenciaIdAndFinalizadaFalse(7L)).thenReturn(true);
         assertThatThrownBy(() -> servicio.validarDespliegue(7L, 3L, sesion, "Asistencia completada.", null))
                 .isInstanceOf(ReglaNegocioException.class);
         verifyNoInteractions(bonita, eventos);
@@ -165,7 +168,7 @@ class DespliegueServiceTest {
         verifyNoInteractions(emergencias, bonita, eventos);
     }
     @Test void noPermiteCambiarLaDescripcionDeUnCierreSolicitado() {
-        prepararTransaccion(); emergencia.setDescripcionCierre("Texto de cierre original.");
+        prepararTransaccion(); todoFinalizado(); emergencia.setDescripcionCierre("Texto de cierre original.");
         assertThatThrownBy(() -> servicio.validarDespliegue(7L, 3L, sesion, "Una descripcion diferente.", null))
                 .isInstanceOf(ReglaNegocioException.class).hasMessageContaining("otra descripción");
         verifyNoInteractions(bonita, eventos);

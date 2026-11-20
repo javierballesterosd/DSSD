@@ -3,6 +3,7 @@ package com.proyecto.backend.controller;
 import com.proyecto.backend.dto.LoteDetalleResponse;
 import com.proyecto.backend.dto.LoteResumenResponse;
 import com.proyecto.backend.dto.LoteRequest;
+import com.proyecto.backend.dto.OngResponse;
 import com.proyecto.backend.dto.auth.LoginResponse;
 import com.proyecto.backend.model.EstadoLote;
 import com.proyecto.backend.service.AuthService;
@@ -65,5 +66,10 @@ public class LoteController {
     ) {
         LoginResponse usuario = authService.requerirRol(session, "ONG", "AUDITOR", "COORDINADOR");
         return loteService.obtenerDetalle(id, usuario);
+    }
+
+    @GetMapping("/lotes/{id}/ongs-adjudicadas")
+    public List<OngResponse> listarOngsAdjudicadas(@PathVariable Long id, HttpSession session) {
+        return loteService.listarOngsAdjudicadas(id, authService.regionDelUsuario(session));
     }
 }

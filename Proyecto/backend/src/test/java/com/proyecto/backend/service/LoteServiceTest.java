@@ -19,6 +19,7 @@ import com.proyecto.backend.model.Recurso;
 import com.proyecto.backend.model.Region;
 import com.proyecto.backend.repository.EmergenciaRepository;
 import com.proyecto.backend.repository.LoteRepository;
+import com.proyecto.backend.repository.OfertaRepository;
 import com.proyecto.backend.repository.RecursoRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -49,6 +50,8 @@ class LoteServiceTest {
     @Mock
     private LoteRepository loteRepository;
     @Mock
+    private OfertaRepository ofertaRepository;
+    @Mock
     private EmergenciaRepository emergenciaRepository;
     @Mock
     private RecursoRepository recursoRepository;
@@ -66,7 +69,7 @@ class LoteServiceTest {
     void setUp() {
         ItemLoteMapper itemLoteMapper = new ItemLoteMapper();
         loteService = new LoteService(
-                loteRepository, emergenciaRepository, recursoRepository,
+                loteRepository, ofertaRepository, emergenciaRepository, recursoRepository,
                 new LoteMapper(itemLoteMapper), itemLoteMapper, bonitaClient, eventPublisher);
 
         emergencia = new Emergencia();

@@ -33,11 +33,25 @@ export interface ActividadRequest {
   descripcion: string;
 }
 
+/** Avance de una oferta adjudicada en una actividad (las ONGs de un consorcio comparten el avance). */
+export interface AvanceOferta {
+  ofertaId: number;
+  ongs: string[];
+  finalizada: boolean;
+  fechaFinalizacion: string | null;
+  /** ONG desde la que se marcó como hecha. */
+  finalizadaPor: string | null;
+}
+
 export interface ActividadResponse {
   id: number;
   nombre: string;
   descripcion: string;
+  /** Derivada: todas las ofertas adjudicadas la completaron. */
   finalizada: boolean;
+  totalOfertas: number;
+  ofertasFinalizadas: number;
+  avance: AvanceOferta[];
 }
 
 export interface EmergenciaRequest {

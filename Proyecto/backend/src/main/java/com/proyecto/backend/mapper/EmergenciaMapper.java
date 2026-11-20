@@ -10,6 +10,7 @@ import com.proyecto.backend.model.Emergencia;
 import com.proyecto.backend.model.EstadoLote;
 import com.proyecto.backend.model.Lote;
 import com.proyecto.backend.model.Municipio;
+import com.proyecto.backend.model.Ong;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -74,11 +75,22 @@ public class EmergenciaMapper {
     }
 
     private ActividadResponse toActividadResponse(Actividad actividad) {
+        List<ActividadResponse.AvanceOferta> avance = actividad.getAsignaciones().stream()
+                .map(a -> new ActividadResponse.AvanceOferta(
+                        a.getOferta().getId(),
+                        a.getOferta().getOngs().stream().map(Ong::getRazonSocial).sorted().toList(),
+                        a.isFinalizada(),
+                        a.getFechaFinalizacion(),
+                        a.getOngFinalizacion() != null ? a.getOngFinalizacion().getRazonSocial() : null))
+                .toList();
         return new ActividadResponse(
                 actividad.getId(),
                 actividad.getNombre(),
                 actividad.getDescripcion(),
-                actividad.isFinalizada()
+                actividad.isFinalizada(),
+                avance.size(),
+                (int) avance.stream().filter(ActividadResponse.AvanceOferta::finalizada).count(),
+                avance
         );
     }
 }

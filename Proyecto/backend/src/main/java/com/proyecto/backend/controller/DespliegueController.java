@@ -1,6 +1,5 @@
 package com.proyecto.backend.controller;
 
-import com.proyecto.backend.dto.ActividadResponse;
 import com.proyecto.backend.dto.ValidarDespliegueRequest;
 import com.proyecto.backend.dto.CierreDespliegueResponse;
 import com.proyecto.backend.dto.IntegracionNacional;
@@ -21,11 +20,6 @@ public class DespliegueController {
     private final DespliegueService despliegue;
     private final AuthService auth;
     private final BonitaTokenValidator tokens;
-
-    @PostMapping("/actividades/{actividadId}/finalizacion")
-    public ActividadResponse finalizar(@PathVariable Long id, @PathVariable Long actividadId, HttpSession sesion) {
-        return despliegue.finalizarActividad(id, actividadId, auth.regionDelUsuario(sesion), auth.bonitaSession(sesion));
-    }
 
     @PostMapping("/monitoreo/completar")
     @ResponseStatus(HttpStatus.NO_CONTENT)

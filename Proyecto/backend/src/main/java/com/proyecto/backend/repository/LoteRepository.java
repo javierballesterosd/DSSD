@@ -38,8 +38,8 @@ public interface LoteRepository extends JpaRepository<Lote, Long> {
           and l.decisionMunicipal = true and l.fechaDecisionMunicipal is not null
           and e.fechaFinMonitoreo is not null
           and e.fechaValidacionDespliegue is null and e.fechaFinalizacion is null
-          and exists (select a.id from Actividad a where a.emergencia.id = e.id)
-          and not exists (select a.id from Actividad a where a.emergencia.id = e.id and a.finalizada = false)
+          and exists (select a.id from ActividadOferta a where a.actividad.emergencia.id = e.id)
+          and not exists (select a.id from ActividadOferta a where a.actividad.emergencia.id = e.id and a.finalizada = false)
         order by l.fechaCreacion desc
         """)
     List<Lote> findPendientesDeValidacion(@org.springframework.data.repository.query.Param("regionId") Long regionId);
