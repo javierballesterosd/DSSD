@@ -7,12 +7,14 @@ import com.proyecto.backend.dto.OfertaRequest;
 import com.proyecto.backend.dto.OfertaResponse;
 import com.proyecto.backend.dto.OfertaVersionResponse;
 import com.proyecto.backend.dto.ValidacionSNRequest;
+import com.proyecto.backend.dto.auth.LoginResponse;
 import com.proyecto.backend.exception.AccesoDenegadoException;
 import com.proyecto.backend.exception.RecursoNoEncontradoException;
 import com.proyecto.backend.exception.ReglaNegocioException;
 import com.proyecto.backend.mapper.OfertaMapper;
 import com.proyecto.backend.model.DetalleOferta;
 import com.proyecto.backend.model.DetalleOfertaVersion;
+import com.proyecto.backend.model.Emergencia;
 import com.proyecto.backend.model.EstadoLote;
 import com.proyecto.backend.model.EstadoOferta;
 import com.proyecto.backend.model.InventarioOng;
@@ -31,11 +33,14 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.context.ApplicationEventPublisher;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -51,6 +56,7 @@ public class OfertaService {
     private final InventarioOngRepository inventarioOngRepository;
     private final OfertaRepository ofertaRepository;
     private final OfertaMapper ofertaMapper;
+    private final ApplicationEventPublisher eventPublisher;
 
 
     @Transactional
@@ -389,14 +395,14 @@ public class OfertaService {
     }
 
     @Transactional
-    public void procesarAceptacionMunicipalYBloquearRecursos(Long ofertaId) {
+    public void procesarAceptacionMunicipalYBloquearRecursos(Long ofertaId, LoginResponse remitente) {
         Long loteId = ofertaRepository.findLoteIdByOfertaId(ofertaId)
                 .orElseThrow(() -> new RecursoNoEncontradoException("La oferta no existe"));
-        
+
         // Bloqueo del lote para evitar colisiones con otras ofertas del mismo lote
         Lote lote = loteRepository.bloquearPorId(loteId)
                 .orElseThrow(() -> new RecursoNoEncontradoException("El lote no existe"));
-        
+
         Oferta oferta = ofertaRepository.findById(ofertaId).orElseThrow();
 
         // Verificamos que la oferta haya sido previamente validada por el SN
@@ -409,6 +415,8 @@ public class OfertaService {
                 .comparing((DetalleOferta d) -> d.getOng().getId())
                 .thenComparing(d -> d.getItemLote().getRecurso().getId())).toList();
 
+        Set<String> ongsANotificar = new LinkedHashSet<>();
+
         for (DetalleOferta detalle : detalles) {
             int aceptada = detalle.getCantidadAceptada() == null ? 0 : detalle.getCantidadAceptada();
             if (aceptada == 0) continue;
@@ -416,19 +424,29 @@ public class OfertaService {
             InventarioOng inventario = inventarioOngRepository.findByOngIdAndRecursoIdForUpdate(
                     detalle.getOng().getId(), detalle.getItemLote().getRecurso().getId())
                     .orElseThrow(() -> rechazar("No existe el inventario para bloquear los recursos"));
-            
+
             if (inventario.getCantidadDisponible() < aceptada) {
-                // Se puede enviar notificacion a la ONG si es necesario
                 throw rechazar("La ONG ya no tiene stock suficiente localmente");
             }
-            
+
             inventario.setCantidadDisponible(inventario.getCantidadDisponible() - aceptada);
             inventarioOngRepository.save(inventario);
+
+            ongsANotificar.add(detalle.getOng().getBonitaGroupPath());
         }
 
         oferta.setEstado(EstadoOferta.EN_EJECUCION);
         ofertaRepository.save(oferta);
-        
+
+        Emergencia emergencia = lote.getEmergencia();
+        eventPublisher.publishEvent(new OfertaAceptadaEvent(
+                oferta.getId(),
+                emergencia.getId(),
+                emergencia.getZonaAfectada(),
+                emergencia.getMunicipio().getNombre(),
+                new ArrayList<>(ongsANotificar),
+                remitente));
+
         log.info("Decisión municipal procesada y recursos bloqueados. ofertaId={}, estado={}", ofertaId, oferta.getEstado());
     }
 

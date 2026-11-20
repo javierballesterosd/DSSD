@@ -2,6 +2,7 @@ package com.proyecto.backend.service;
 
 import com.proyecto.backend.dto.ItemValidadoRequest;
 import com.proyecto.backend.dto.ValidacionSNRequest;
+import com.proyecto.backend.dto.auth.LoginResponse;
 import com.proyecto.backend.model.*;
 import com.proyecto.backend.repository.*;
 import org.junit.jupiter.api.BeforeEach;
@@ -56,6 +57,7 @@ public class OfertaValidacionYBloqueoServiceTest {
     private Long detalleIdOferta2;
     private Long ongId;
     private Long recursoId;
+    private LoginResponse remitente;
 
     @BeforeEach
     public void setupDb() {
@@ -83,6 +85,13 @@ public class OfertaValidacionYBloqueoServiceTest {
         emergencia.setFechaRegistro(LocalDateTime.now());
         emergencia.setMunicipio(municipio);
         emergencia = emergenciaRepository.save(emergencia);
+
+        // Remitente
+        remitente = new LoginResponse();
+        remitente.setUserId("municipal-1");
+        remitente.setUsername("operador.municipal");
+        remitente.setRole("MUNICIPAL");
+        remitente.setGroupPath("/Municipio/Region1/LaPlata");
 
         Lote lote = new Lote();
         lote.setTitulo("Lote de frazadas");
@@ -161,7 +170,7 @@ public class OfertaValidacionYBloqueoServiceTest {
             try {
                 latchLargada.await();
                 // Llamamos al NUEVO método que hace el bloqueo
-                ofertaValidacionService.procesarAceptacionMunicipalYBloquearRecursos(ofertaId1);
+                ofertaValidacionService.procesarAceptacionMunicipalYBloquearRecursos(ofertaId1, remitente);
                 exitosas.incrementAndGet();
             } catch (Exception e) {
                 fallidas.incrementAndGet();
@@ -174,7 +183,7 @@ public class OfertaValidacionYBloqueoServiceTest {
             try {
                 latchLargada.await();
                 // Llamamos al NUEVO método que hace el bloqueo
-                ofertaValidacionService.procesarAceptacionMunicipalYBloquearRecursos(ofertaId2);
+                ofertaValidacionService.procesarAceptacionMunicipalYBloquearRecursos(ofertaId2, remitente);
                 exitosas.incrementAndGet();
             } catch (Exception e) {
                 fallidas.incrementAndGet(); 

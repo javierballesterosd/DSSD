@@ -32,6 +32,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 
 import java.util.List;
 import java.util.Set;
@@ -56,6 +57,8 @@ class OfertaServiceTest {
     private InventarioOngRepository inventarioOngRepository;
     @Mock
     private OfertaRepository ofertaRepository;
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
 
     /** La ONG del usuario logueado en todos los casos: Cruz Solidaria (ongA). */
     private static final Long ONG_USUARIO = 1L;
@@ -75,7 +78,7 @@ class OfertaServiceTest {
     void setUp() {
         ofertaService = new OfertaService(
                 loteRepository, ongRepository, itemLoteRepository, inventarioOngRepository,
-                ofertaRepository, new OfertaMapper(new com.proyecto.backend.mapper.OngMapper()));
+                ofertaRepository, new OfertaMapper(new com.proyecto.backend.mapper.OngMapper()), eventPublisher);
 
         Emergencia emergencia = new Emergencia();
         emergencia.setId(1L);

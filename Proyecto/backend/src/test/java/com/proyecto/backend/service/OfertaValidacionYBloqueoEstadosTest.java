@@ -1,7 +1,9 @@
 package com.proyecto.backend.service;
 
+import com.proyecto.backend.dto.DescriptorAudiencia;
 import com.proyecto.backend.dto.ItemValidadoRequest;
 import com.proyecto.backend.dto.ValidacionSNRequest;
+import com.proyecto.backend.dto.auth.LoginResponse;
 import com.proyecto.backend.model.*;
 import com.proyecto.backend.repository.*;
 import org.junit.jupiter.api.BeforeEach;
@@ -9,11 +11,16 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.TestPropertySource;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import java.time.LocalDateTime;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.contains;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
 
 @SpringBootTest
 @TestPropertySource(locations = "classpath:application.properties")
@@ -28,6 +35,8 @@ public class OfertaValidacionYBloqueoEstadosTest {
     @Autowired private EmergenciaRepository emergenciaRepository;
     @Autowired private LoteRepository loteRepository;
     @Autowired private ItemLoteRepository itemLoteRepository;
+    @MockitoBean
+    private NotificacionService notificacionService;
 
     private Long ofertaId;
     private Long detalleFrazadasId;
@@ -35,6 +44,7 @@ public class OfertaValidacionYBloqueoEstadosTest {
     private Long ongId;
     private Long recursoFrazadasId;
     private Long recursoMedicosId;
+    private LoginResponse remitente;
 
     @BeforeEach
     public void setupDb() {
@@ -64,6 +74,13 @@ public class OfertaValidacionYBloqueoEstadosTest {
         emergencia.setFechaRegistro(LocalDateTime.now());
         emergencia.setMunicipio(municipio);
         emergencia = emergenciaRepository.save(emergencia);
+
+        // Remitente
+        remitente = new LoginResponse();
+        remitente.setUserId("municipal-1");
+        remitente.setUsername("operador.municipal");
+        remitente.setRole("MUNICIPAL");
+        remitente.setGroupPath("/Municipio/Region1/LaPlata");
 
         Lote lote = new Lote();
         lote.setTitulo("Lote mixto");
@@ -129,7 +146,7 @@ public class OfertaValidacionYBloqueoEstadosTest {
         Oferta ofertaActualizada = ofertaRepository.findById(ofertaId).get();
         assertEquals(EstadoOferta.VALIDADA, ofertaActualizada.getEstado());
        
-        ofertaValidacionService.procesarAceptacionMunicipalYBloquearRecursos(ofertaId);
+        ofertaValidacionService.procesarAceptacionMunicipalYBloquearRecursos(ofertaId, remitente);
         ofertaActualizada = ofertaRepository.findById(ofertaId).get();
         assertEquals(EstadoOferta.EN_EJECUCION, ofertaActualizada.getEstado());
 
@@ -151,7 +168,7 @@ public class OfertaValidacionYBloqueoEstadosTest {
         Oferta ofertaActualizada = ofertaRepository.findById(ofertaId).get();
         assertEquals(EstadoOferta.ACEPTADA_PARCIAL, ofertaActualizada.getEstado());
 
-        ofertaValidacionService.procesarAceptacionMunicipalYBloquearRecursos(ofertaId);
+        ofertaValidacionService.procesarAceptacionMunicipalYBloquearRecursos(ofertaId, remitente);
         ofertaActualizada = ofertaRepository.findById(ofertaId).get();
         assertEquals(EstadoOferta.EN_EJECUCION, ofertaActualizada.getEstado());
 
@@ -172,7 +189,7 @@ public class OfertaValidacionYBloqueoEstadosTest {
 
         Oferta ofertaActualizada = ofertaRepository.findById(ofertaId).get();
         assertEquals(EstadoOferta.ACEPTADA_PARCIAL, ofertaActualizada.getEstado());
-        ofertaValidacionService.procesarAceptacionMunicipalYBloquearRecursos(ofertaId);
+        ofertaValidacionService.procesarAceptacionMunicipalYBloquearRecursos(ofertaId,remitente);
         ofertaActualizada = ofertaRepository.findById(ofertaId).get();
         assertEquals(EstadoOferta.EN_EJECUCION, ofertaActualizada.getEstado());
 
@@ -194,5 +211,24 @@ public class OfertaValidacionYBloqueoEstadosTest {
         // El inventario no se toca en absoluto
         assertEquals(200, inventarioOngRepository.findByOngIdAndRecursoId(ongId, recursoFrazadasId).get().getCantidadDisponible());
         assertEquals(30, inventarioOngRepository.findByOngIdAndRecursoId(ongId, recursoMedicosId).get().getCantidadDisponible());
+    }
+
+    @Test
+    public void testNotificaAOngCuandoSeAceptaLaOferta() {
+        ValidacionSNRequest validacion = new ValidacionSNRequest(true, "Aprobado", List.of(
+                new ItemValidadoRequest(detalleFrazadasId, 100),
+                new ItemValidadoRequest(detalleMedicosId, 30)
+        ));
+
+        ofertaValidacionService.procesarValidacionSN(ofertaId, validacion);
+        ofertaValidacionService.procesarAceptacionMunicipalYBloquearRecursos(ofertaId, remitente);
+
+        verify(notificacionService).crear(
+                eq("ONG"),
+                any(DescriptorAudiencia.class),
+                eq("Oferta aceptada por el municipio"),
+                contains("oferta #" + ofertaId),
+                eq(remitente)
+        );
     }
 } 
