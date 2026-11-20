@@ -3,6 +3,7 @@ import { Service, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { LoteDetalle, LoteRequest, LoteResumen } from '../models/lote';
+import { Ong } from '../models/ong';
 
 @Service()
 export class Lotes {
@@ -20,6 +21,10 @@ export class Lotes {
 
   obtenerDetalle(id: number): Observable<LoteDetalle> {
     return this.http.get<LoteDetalle>(`${this.apiUrl}/lotes/${id}`);
+  }
+
+  listarOngsAdjudicadas(id: number): Observable<Ong[]> {
+    return this.http.get<Ong[]>(`${this.apiUrl}/lotes/${id}/ongs-adjudicadas`);
   }
 
   publicar(emergenciaId: number, lote: LoteRequest): Observable<LoteDetalle> {

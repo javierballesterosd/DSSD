@@ -16,5 +16,74 @@
     </div>
   </app-lote-ficha>
 
+  @if (l.estado === 'ACTIVO') {
+    <section class="seguimiento card border-0 shadow-sm rounded-4 mb-4" aria-labelledby="seguimiento-titulo">
+      <div class="card-body p-4">
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+          <div>
+            <h2 id="seguimiento-titulo" class="h5 mb-1">Avance de la respuesta</h2>
+            <p class="small text-body-secondary mb-0">Avance de actividades por ONG</p>
+          </div>
+          @if (!cargandoSeguimiento() && !seguimientoError() && seguimiento().length > 0) {
+            <span class="badge rounded-pill text-bg-success-subtle text-success-emphasis">
+              Avance común · {{ porcentajeGeneral() }}%
+            </span>
+          }
+        </div>
+
+        @if (cargandoSeguimiento()) {
+          <p class="text-body-secondary mb-0">Cargando actividades…</p>
+        } @else if (seguimientoError()) {
+          <div class="alert alert-danger mb-0">No se pudieron cargar las actividades y las ONGs adjudicadas.</div>
+        } @else if (actividadesTotales() === 0 && seguimiento().length === 0) {
+          <p class="text-body-secondary mb-0">Esta emergencia todavía no tiene actividades registradas.</p>
+        } @else if (seguimiento().length === 0) {
+          <p class="text-body-secondary mb-0">Todavía no hay ONGs adjudicadas para esta emergencia.</p>
+        } @else {
+          <div class="d-flex flex-column gap-2">
+            @for (ong of seguimiento(); track ong.id) {
+              <article class="ong-avance rounded-3 border" [class.expandida]="expandida() === ong.id">
+                <button class="ong-avance-cabecera btn w-100 text-start p-3" type="button"
+                  [attr.aria-expanded]="expandida() === ong.id" (click)="toggle(ong.id)">
+                  <span class="ong-identidad">
+                    <strong>{{ ong.nombre }}</strong>
+                    <span class="small text-body-secondary">{{ cantidadHechas(ong) }} de {{ actividadesTotales() }} actividades</span>
+                  </span>
+                  <span class="barra-segmentada" aria-hidden="true">
+                    @for (actividad of ong.actividades; track actividad.id) {
+                      <span class="segmento" [class.hecha]="actividad.estado === 'HECHA'" [class.en-curso]="actividad.estado === 'EN_CURSO'"></span>
+                    }
+                  </span>
+                  <strong class="porcentaje">{{ porcentaje(ong) }}%</strong>
+                  <span class="flecha" [class.abierta]="expandida() === ong.id" aria-hidden="true">⌄</span>
+                </button>
+                @if (expandida() === ong.id) {
+                  <ol class="linea-tiempo list-unstyled mb-0 px-4 pb-3">
+                    @for (actividad of ong.actividades; track actividad.id) {
+                      <li class="actividad" [class.hecha]="actividad.estado === 'HECHA'" [class.en-curso]="actividad.estado === 'EN_CURSO'">
+                        <span class="actividad-nombre">
+                          {{ actividad.nombre }}
+                          @if (actividad.descripcion) {
+                            <small class="d-block text-body-secondary fw-normal">{{ actividad.descripcion }}</small>
+                          }
+                        </span>
+                        <span class="actividad-fecha">
+                          @if (actividad.estado === 'HECHA') { Hecha }
+                          @else if (actividad.estado === 'EN_CURSO') { En curso }
+                          @else { Pendiente }
+                        </span>
+                      </li>
+                    }
+                  </ol>
+                }
+              </article>
+            }
+          </div>
+          <p class="small text-body-secondary mt-3 mb-0">Las ONGs y actividades son reales. El avance individual es simulado hasta que la pantalla de ONG permita registrar los cambios de estado.</p>
+        }
+      </div>
+    </section>
+  }
+
   <a class="btn btn-outline-secondary" routerLink="/coordinador/lotes">Volver al listado</a>
 }
