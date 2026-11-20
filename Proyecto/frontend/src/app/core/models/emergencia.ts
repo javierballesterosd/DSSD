@@ -81,6 +81,10 @@ export interface EmergenciaParaLoteResponse {
   loteId: number | null;
   estadoLote: EstadoLote | null;
   requiereActualizacion?: boolean;
+  /** Hay que volver a registrar porque el SN no habilitó recursos (y no porque el municipio rechazó). */
+  sinRecursos?: boolean;
+  /** Por qué se canceló el último lote (solo si está cancelado). */
+  motivoLoteCancelado?: 'SIN_RECURSOS' | 'RECHAZO_MUNICIPAL' | null;
   actividades: ActividadResponse[];
 }
 
@@ -90,7 +94,17 @@ export interface RecursosMunicipalesResponse {
   confirmada: boolean;
   puedeDecidir: boolean;
   mensaje: string | null;
-  recursos: { recursoId: number; nombre: string; unidadMedida: string; cantidad: number }[];
+  recursos: {
+    recursoId: number;
+    nombre: string;
+    unidadMedida: string;
+    /** Lo que pedía el lote de este recurso. */
+    cantidadRequerida: number;
+    /** Lo que habilitó el Sistema Nacional. */
+    cantidad: number;
+    /** Cuánto aporta cada ONG de la cantidad habilitada. */
+    porOng: { ongId: number; razonSocial: string; cantidad: number }[];
+  }[];
 }
 
 export interface PaginaEmergencias {

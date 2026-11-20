@@ -40,6 +40,15 @@ public class ValidacionNacionalController {
         decisiones.confirmar(id, respuesta);
     }
 
+    /** Bonita avisa que el SN no habilitó recursos en ninguna oferta: se cancela el lote y el municipio debe volver a registrar. */
+    @PostMapping("/sin-recursos/confirmacion")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void confirmarSinRecursos(@PathVariable Long id, @Valid @RequestBody IntegracionNacional.SinRecursos pedido,
+            @RequestHeader(value = "Authorization", required = false) String authorization) {
+        autorizar(authorization);
+        decisiones.confirmarSinRecursos(id, pedido);
+    }
+
     private void autorizar(String authorization) {
         if (!tokens.isValid(authorization)) throw new UnauthenticatedException("Token de Bonita inválido o ausente");
     }

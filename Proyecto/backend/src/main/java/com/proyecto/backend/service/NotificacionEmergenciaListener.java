@@ -26,9 +26,8 @@ public class NotificacionEmergenciaListener {
     public void alRegistrarseEmergencia(EmergenciaRegistradaEvent evento) {
         try {
             String descripcion = String.format(
-                    "Se ha registrado una nueva emergencia en el municipio de %s. "
-                            + "Nivel de gravedad: %s. Zona afectada: %s.",
-                    evento.municipioNombre(), evento.nivelGravedad(), evento.zonaAfectada());
+                    "Se registró la emergencia «%s» en el municipio de %s. Nivel de gravedad: %s.",
+                    evento.zonaAfectada(), evento.municipioNombre(), evento.nivelGravedad());
 
             notificacionService.crear(
                     "COORDINADOR",

@@ -116,7 +116,7 @@ public class DespliegueService {
                                 d.getItemLote().getRecurso().getId(), cantidad(d))).toList())).toList();
         if (e.getFechaFinalizacion() == null && conjunto.isEmpty())
             throw new ReglaNegocioException("No hay ofertas adjudicadas para finalizar");
-        return new IntegracionNacional.Plan(id, loteId, caseId, true, e.getFechaFinalizacion() != null, conjunto);
+        return new IntegracionNacional.Plan(id, loteId, caseId, true, e.getFechaFinalizacion() != null, true, conjunto);
     }
 
     @Transactional

@@ -28,4 +28,15 @@ class IntegracionBonitaAutorizacionTest {
   controller.confirmar(7L,respuesta,"Bearer prueba");
   verify(decisiones).confirmar(7L,respuesta);verifyNoInteractions(validaciones);
  }
+ @Test void elCierreSinRecursosExigeElTokenYDelegaEnElServicio() {
+  var validaciones=mock(ValidacionNacionalService.class);
+  var decisiones=mock(DecisionMunicipalService.class);
+  var tokens=mock(BonitaTokenValidator.class);when(tokens.isValid("Bearer prueba")).thenReturn(true);
+  var controller=new ValidacionNacionalController(validaciones,decisiones,tokens);
+  var pedido=new IntegracionNacional.SinRecursos(10L,"7");
+  assertThatThrownBy(()->controller.confirmarSinRecursos(7L,pedido,"Bearer incorrecto")).isInstanceOf(UnauthenticatedException.class);
+  verifyNoInteractions(decisiones);
+  controller.confirmarSinRecursos(7L,pedido,"Bearer prueba");
+  verify(decisiones).confirmarSinRecursos(7L,pedido);verifyNoInteractions(validaciones);
+ }
 }

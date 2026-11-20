@@ -48,7 +48,8 @@ class NotificacionLoteListenerTest {
         assertThat(audiencia.getValue().grupoDestinatario()).isEqualTo("/Municipio/Region1/LaPlata");
         assertThat(descripcion.getValue())
                 .contains("«Asistencia alimentaria»")
-                .contains("emergencia #20 (Zona Norte)")
+                .contains("la emergencia «Zona Norte»")
+                .doesNotContain("#20")
                 .contains("del 01/10/2026 18:00hs al 03/10/2026 18:00hs");
     }
 

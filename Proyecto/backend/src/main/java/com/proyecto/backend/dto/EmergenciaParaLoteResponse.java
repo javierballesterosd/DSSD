@@ -19,6 +19,10 @@ public record EmergenciaParaLoteResponse(
         Long loteId,
         EstadoLote estadoLote,
         boolean requiereActualizacion,
+        // true si hay que volver a registrar porque el SN no habilitó recursos (y no porque el municipio rechazó)
+        boolean sinRecursos,
+        // Solo si el último lote está cancelado: SIN_RECURSOS (el SN no habilitó nada) o RECHAZO_MUNICIPAL
+        String motivoLoteCancelado,
         List<ActividadResponse> actividades
 ) {
 }

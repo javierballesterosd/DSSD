@@ -67,6 +67,6 @@ public class Emergencia {
     @OneToMany(mappedBy = "emergencia", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Lote> lotes = new ArrayList<>();
 
-    @OneToMany(mappedBy = "emergencia", cascade = {CascadeType.ALL, CascadeType.MERGE})
+    @OneToMany(mappedBy = "emergencia", cascade = {CascadeType.ALL, CascadeType.MERGE}, orphanRemoval = true)
     private List<Actividad> actividades = new ArrayList<>();
 }

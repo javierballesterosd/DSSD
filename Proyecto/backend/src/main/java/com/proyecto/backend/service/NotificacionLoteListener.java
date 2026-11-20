@@ -51,7 +51,7 @@ public class NotificacionLoteListener {
     }
 
     private String descripcion(LoteCambiadoEvent evento) {
-        String emergencia = String.format("la emergencia #%d (%s)", evento.emergenciaId(), evento.zonaAfectada());
+        String emergencia = String.format("la emergencia «%s»", evento.zonaAfectada());
         return switch (evento.estado()) {
             case ACTIVO -> String.format(
                     "El Centro Coordinador Regional publicó el lote «%s» para %s. "
