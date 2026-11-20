@@ -205,6 +205,12 @@ public class LoteService {
                 .toList();
     }
 
+    @Transactional(readOnly = true)
+    public List<LoteResumenResponse> listarPendientesDeValidacion(Long regionId) {
+        return loteRepository.findPendientesDeValidacion(regionId).stream()
+                .map(loteMapper::toResumenResponse).toList();
+    }
+
     /** Detalle de un lote. El coordinador solo ve los de su región. */
     @Transactional(readOnly = true)
     public LoteDetalleResponse obtenerDetalle(Long id, LoginResponse usuario) {

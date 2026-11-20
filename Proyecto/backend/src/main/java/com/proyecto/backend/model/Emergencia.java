@@ -60,6 +60,11 @@ public class Emergencia {
     private LocalDateTime fechaValidacionDespliegue;
     private LocalDateTime fechaFinalizacion;
 
+    @Column(length = 2000)
+    private String descripcionCierre;
+    private String usuarioCierreId;
+    private String usuarioCierre;
+
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "municipio_id", nullable = false)
     private Municipio municipio;

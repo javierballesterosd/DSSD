@@ -244,6 +244,16 @@ class LoteServiceTest {
     }
 
     @Test
+    void consultaPendientesDeValidacionSoloEnLaRegionDelCoordinador() {
+        when(loteRepository.findPendientesDeValidacion(REGION_ID)).thenReturn(List.of(loteDeLaEmergencia()));
+        var lotes = loteService.listarPendientesDeValidacion(REGION_ID);
+        assertThat(lotes).hasSize(1);
+        assertThat(lotes.getFirst().emergencia().municipio()).isEqualTo("La Plata");
+        verify(loteRepository).findPendientesDeValidacion(REGION_ID);
+        verify(loteRepository, never()).findByEmergenciaMunicipioRegionIdOrderByFechaCreacionDesc(any());
+    }
+
+    @Test
     void listaLosLotesDeLaRegionEnCualquierEstado() {
         when(loteRepository.findByEmergenciaMunicipioRegionIdOrderByFechaCreacionDesc(REGION_ID))
                 .thenReturn(List.of(loteDeLaEmergencia()));

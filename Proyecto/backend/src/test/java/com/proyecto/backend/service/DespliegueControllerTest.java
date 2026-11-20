@@ -28,7 +28,7 @@ class DespliegueControllerTest {
         var sesion = new MockHttpSession();
         when(auth.regionDelUsuario(sesion)).thenThrow(new AccesoDenegadoException("Solo coordinadores"));
         assertThatThrownBy(() -> controller.completar(1L, sesion)).isInstanceOf(AccesoDenegadoException.class);
-        assertThatThrownBy(() -> controller.validar(1L, sesion)).isInstanceOf(AccesoDenegadoException.class);
+        assertThatThrownBy(() -> controller.validar(1L, new com.proyecto.backend.dto.ValidarDespliegueRequest("Asistencia completada."), sesion)).isInstanceOf(AccesoDenegadoException.class);
         verifyNoInteractions(servicio);
     }
 }

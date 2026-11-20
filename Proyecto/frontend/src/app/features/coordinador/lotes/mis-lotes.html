@@ -8,20 +8,39 @@
   <a class="btn btn-primary" routerLink="/coordinador/emergencias">Publicar lote</a>
 </div>
 
+<div class="row align-items-end g-2 mb-4">
+  <div class="col-12 col-md-6 col-lg-4">
+    <label for="filtro-validacion" class="form-label">Estado de validación del despliegue</label>
+    <select id="filtro-validacion" class="form-select" [value]="pendientesValidacion() ? 'pendientes' : 'todos'" (change)="cambiarFiltro($event)">
+      <option value="todos">Todos los lotes</option>
+      <option value="pendientes">Pendientes de validación</option>
+    </select>
+  </div>
+  <div class="col-auto">
+    <button class="btn btn-outline-primary" (click)="ngOnInit()" [disabled]="cargando()">Actualizar</button>
+  </div>
+  @if (pendientesValidacion()) {
+    <p class="small text-body-secondary mb-0">Emergencias con ofertas aceptadas y todas las actividades completas, todavía sin validación de cierre.</p>
+  }
+</div>
+
 @if (cargando()) {
   <p class="text-body-secondary">Cargando lotes…</p>
 } @else if (error()) {
   <div class="alert alert-danger">No se pudieron cargar los lotes. Probá de nuevo más tarde.</div>
 } @else if (lotes().length === 0) {
-  <p class="text-body-secondary">Todavía no publicaste lotes para las emergencias de tu región.</p>
+  <p class="text-body-secondary">{{ pendientesValidacion() ? 'No hay emergencias pendientes de validación en tu región.' : 'Todavía no publicaste lotes para las emergencias de tu región.' }}</p>
 } @else {
   <div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-4">
     @for (lote of lotes(); track lote.id) {
       <div class="col">
-        <app-lote-tarjeta [lote]="lote" [enlace]="['/coordinador/lotes', lote.id]">
+        <app-lote-tarjeta [lote]="lote" [enlace]="pendientesValidacion() ? ['/coordinador/emergencias', lote.emergencia.id, 'cierre'] : ['/coordinador/lotes', lote.id]">
           <span class="badge" [class]="estadoBadge(lote.estado)">
             {{ estadoLabel(lote.estado) }}
           </span>
+          @if (pendientesValidacion()) {
+            <span class="badge text-bg-warning">Pendiente de validación</span>
+          }
         </app-lote-tarjeta>
       </div>
     }

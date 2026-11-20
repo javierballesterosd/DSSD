@@ -30,6 +30,20 @@ public interface LoteRepository extends JpaRepository<Lote, Long> {
     @EntityGraph(attributePaths = {"emergencia", "emergencia.municipio", "items", "items.recurso"})
     List<Lote> findByEmergenciaMunicipioRegionIdOrderByFechaCreacionDesc(Long regionId);
 
+    @EntityGraph(attributePaths = {"emergencia", "emergencia.municipio", "items", "items.recurso"})
+    @org.springframework.data.jpa.repository.Query("""
+        select l from Lote l join l.emergencia e
+        where e.municipio.region.id = :regionId
+          and l.estado = com.proyecto.backend.model.EstadoLote.ACTIVO
+          and l.decisionMunicipal = true and l.fechaDecisionMunicipal is not null
+          and e.fechaFinMonitoreo is not null
+          and e.fechaValidacionDespliegue is null and e.fechaFinalizacion is null
+          and exists (select a.id from ActividadOferta a where a.actividad.emergencia.id = e.id)
+          and not exists (select a.id from ActividadOferta a where a.actividad.emergencia.id = e.id and a.finalizada = false)
+        order by l.fechaCreacion desc
+        """)
+    List<Lote> findPendientesDeValidacion(@org.springframework.data.repository.query.Param("regionId") Long regionId);
+
     /**
      * Regla de negocio: una emergencia tiene un solo lote no cancelado. La usa la creación de lotes
      * (LoteService.crear, rama feature/publicacion-lotes) y la respalda un índice único parcial en la base.

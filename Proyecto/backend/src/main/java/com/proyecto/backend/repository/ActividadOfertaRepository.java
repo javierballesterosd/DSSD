@@ -19,6 +19,13 @@ public interface ActividadOfertaRepository extends JpaRepository<ActividadOferta
 
     boolean existsByActividadEmergenciaIdAndFinalizadaFalse(Long emergenciaId);
 
+    @Query("select count(distinct a.actividad.id) from ActividadOferta a where a.actividad.emergencia.id = :id")
+    long contarActividades(@Param("id") Long emergenciaId);
+
+    @Query("select count(distinct a.actividad.id) from ActividadOferta a "
+            + "where a.actividad.emergencia.id = :id and a.finalizada = false")
+    long contarActividadesPendientes(@Param("id") Long emergenciaId);
+
     Optional<ActividadOferta> findByActividadIdAndOfertaId(Long actividadId, Long ofertaId);
 
     /** Avance de las ofertas en las que participa la ONG, agrupable por oferta. */

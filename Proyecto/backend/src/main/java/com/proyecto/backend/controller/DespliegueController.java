@@ -1,5 +1,7 @@
 package com.proyecto.backend.controller;
 
+import com.proyecto.backend.dto.ValidarDespliegueRequest;
+import com.proyecto.backend.dto.CierreDespliegueResponse;
 import com.proyecto.backend.dto.IntegracionNacional;
 import com.proyecto.backend.exception.UnauthenticatedException;
 import com.proyecto.backend.security.BonitaTokenValidator;
@@ -27,8 +29,14 @@ public class DespliegueController {
 
     @PostMapping("/despliegue/validacion")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void validar(@PathVariable Long id, HttpSession sesion) {
-        despliegue.validarDespliegue(id, auth.regionDelUsuario(sesion), auth.bonitaSession(sesion));
+    public void validar(@PathVariable Long id, @Valid @RequestBody ValidarDespliegueRequest request, HttpSession sesion) {
+        Long region = auth.regionDelUsuario(sesion);
+        despliegue.validarDespliegue(id, region, auth.bonitaSession(sesion), request.descripcionCierre(), auth.currentUser(sesion));
+    }
+
+    @GetMapping("/despliegue/cierre")
+    public CierreDespliegueResponse cierre(@PathVariable Long id, HttpSession sesion) {
+        return despliegue.consultarCierre(id, auth.regionDelUsuario(sesion));
     }
 
     @GetMapping("/despliegue/integracion-nacional")

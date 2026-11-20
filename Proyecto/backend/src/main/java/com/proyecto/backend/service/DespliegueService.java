@@ -2,6 +2,9 @@ package com.proyecto.backend.service;
 
 import com.proyecto.backend.client.BonitaClient;
 import com.proyecto.backend.client.BonitaSession;
+import com.proyecto.backend.dto.CierreDespliegueResponse;
+import com.proyecto.backend.dto.auth.LoginResponse;
+import org.springframework.context.ApplicationEventPublisher;
 import com.proyecto.backend.dto.IntegracionNacional;
 import com.proyecto.backend.exception.*;
 import com.proyecto.backend.model.*;
@@ -29,6 +32,7 @@ public class DespliegueService {
     private final InventarioOngRepository inventarios;
     private final BonitaClient bonita;
     private final PlatformTransactionManager transactionManager;
+    private final ApplicationEventPublisher eventos;
 
     /** También permite reintentar el aviso sin modificar actividades ni depender de su cantidad. */
     public void completarMonitoreo(Long emergenciaId, Long regionId, BonitaSession sesion) {
@@ -74,7 +78,32 @@ public class DespliegueService {
         });
     }
 
-    public void validarDespliegue(Long emergenciaId, Long regionId, BonitaSession sesion) {
+    @Transactional
+    public CierreDespliegueResponse consultarCierre(Long id, Long regionId) {
+        Emergencia e = autorizada(id, regionId);
+        boolean adjudicada = lotes.findFirstByEmergenciaIdOrderByIdDesc(id)
+                .filter(l -> Boolean.TRUE.equals(l.getDecisionMunicipal()) && l.getFechaDecisionMunicipal() != null).isPresent();
+        return new CierreDespliegueResponse(id, e.getMunicipio().getNombre(), e.getZonaAfectada(), e.getDescripcion(),
+                asignaciones.contarActividades(id), asignaciones.contarActividadesPendientes(id),
+                adjudicada, e.getFechaValidacionDespliegue() != null, e.getFechaFinalizacion() != null,
+                e.getDescripcionCierre(), e.getFechaValidacionDespliegue(), e.getFechaFinalizacion());
+    }
+
+    public void validarDespliegue(Long emergenciaId, Long regionId, BonitaSession sesion,
+            String descripcion, LoginResponse usuario) {
+        if (descripcion == null || descripcion.strip().length() < 10 || descripcion.strip().length() > 2000)
+            throw new ReglaNegocioException("La descripción de cierre debe tener entre 10 y 2000 caracteres");
+        String texto = descripcion.strip();
+        // Validar antes de cualquier efecto externo y conservar el texto en los reintentos.
+        transaccion(() -> {
+            Emergencia e = autorizada(emergenciaId, regionId);
+            exigirAdjudicacion(e);
+            if (hayPendientes(emergenciaId))
+                throw new ReglaNegocioException("Todavía quedan actividades pendientes");
+            if (e.getDescripcionCierre() != null && !e.getDescripcionCierre().equals(texto))
+                throw new ReglaNegocioException("El cierre ya fue solicitado con otra descripción; reintentá con la descripción guardada");
+            return null;
+        });
         completarMonitoreo(emergenciaId, regionId, sesion);
         String caso = transaccion(() -> {
             Emergencia e = autorizada(emergenciaId, regionId);
@@ -90,6 +119,13 @@ public class DespliegueService {
             if (e.getFechaFinalizacion() != null) return null;
             if (e.getTareaValidacionDespliegueBonitaId() == null) e.setTareaValidacionDespliegueBonitaId(encontrada);
             // El conector solo puede liberar después de esta aprobación persistida.
+            if (e.getDescripcionCierre() != null && !e.getDescripcionCierre().equals(texto))
+                throw new ReglaNegocioException("El cierre ya fue solicitado con otra descripción");
+            if (e.getDescripcionCierre() == null) {
+                e.setDescripcionCierre(texto);
+                e.setUsuarioCierreId(usuario.getUserId());
+                e.setUsuarioCierre(usuario.getUsername());
+            }
             if (e.getFechaValidacionDespliegue() == null) e.setFechaValidacionDespliegue(LocalDateTime.now());
             emergencias.save(e);
             return e.getTareaValidacionDespliegueBonitaId();
@@ -152,6 +188,13 @@ public class DespliegueService {
         lotes.save(lote);
         e.setFechaFinalizacion(LocalDateTime.now());
         emergencias.save(e);
+        var remitente = new LoginResponse();
+        remitente.setUserId(e.getUsuarioCierreId() != null ? e.getUsuarioCierreId() : lote.getUsuarioDecisionMunicipalId());
+        remitente.setUsername(e.getUsuarioCierre() != null ? e.getUsuarioCierre() : lote.getUsuarioDecisionMunicipal());
+        Set<String> destinatarios = new HashSet<>();
+        conjunto.forEach(o -> o.getOngs().forEach(ong -> destinatarios.add(ong.getBonitaGroupPath())));
+        eventos.publishEvent(new DespliegueFinalizadoEvent(id, e.getMunicipio().getBonitaGroupPath(),
+                Set.copyOf(destinatarios), Objects.toString(e.getDescripcionCierre(), ""), remitente));
     }
 
     private void verificar(Oferta oferta, IntegracionNacional.Resultado recibo) {

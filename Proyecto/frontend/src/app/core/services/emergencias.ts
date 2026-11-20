@@ -3,6 +3,7 @@ import { Service, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import {
+  CierreDespliegueResponse,
   EmergenciaParaLoteResponse,
   EmergenciaRequest,
   EmergenciaResponse,
@@ -45,4 +46,12 @@ export class Emergencias {
   actualizar(id: number, emergencia: EmergenciaRequest): Observable<EmergenciaResponse> {
     return this.http.put<EmergenciaResponse>(`${this.apiUrl}/${id}`, emergencia);
   }
+  cierre(id: number): Observable<CierreDespliegueResponse> {
+    return this.http.get<CierreDespliegueResponse>(`${this.apiUrl}/${id}/despliegue/cierre`);
+  }
+
+  validarDespliegue(id: number, descripcionCierre: string): Observable<void> {
+    return this.http.post<void>(`${this.apiUrl}/${id}/despliegue/validacion`, { descripcionCierre });
+  }
+
 }

@@ -1,0 +1,77 @@
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-4">
+  <div>
+    <h1 class="h3 mb-1">Validar cierre del despliegue</h1>
+    <p class="text-body-secondary mb-0">Confirmá la asistencia realizada antes de finalizar la emergencia.</p>
+  </div>
+  <a class="btn btn-outline-secondary" routerLink="/coordinador/lotes">Volver a mis lotes</a>
+</div>
+
+@if (error()) { <div class="alert alert-danger" role="alert">{{ error() }}</div> }
+@if (aviso()) {
+  <div class="alert" [class.alert-success]="cierre()?.finalizada" [class.alert-info]="!cierre()?.finalizada" role="status">{{ aviso() }}</div>
+}
+@if (cargando()) {
+  <p class="text-body-secondary" role="status">Consultando el estado del despliegue…</p>
+}
+@if (cierre(); as c) {
+  <div class="card border-0 shadow-sm mb-4">
+    <div class="card-body">
+      <span class="badge text-bg-light border mb-2">Emergencia #{{ c.emergenciaId }}</span>
+      <h2 class="h5">{{ c.zonaAfectada }} · {{ c.municipio }}</h2>
+      <p>{{ c.descripcion }}</p>
+      <p class="mb-0">Actividades completadas: <strong>{{ c.actividadesTotales - c.actividadesPendientes }} de {{ c.actividadesTotales }}</strong>.</p>
+    </div>
+  </div>
+
+  @if (c.finalizada) {
+    <div class="card border-0 shadow-sm mb-3"><div class="card-body">
+      <h2 class="h5">Cierre registrado</h2>
+      <p class="text-break" style="white-space: pre-wrap">{{ c.descripcionCierre || 'Sin descripción registrada en este caso anterior.' }}</p>
+      <p class="mb-0 text-body-secondary">Finalización: {{ c.fechaFinalizacion | date:'dd/MM/yyyy HH:mm' }}</p>
+    </div></div>
+    <button type="button" class="btn btn-primary" disabled aria-describedby="motivo-cierre">Validar y finalizar despliegue</button>
+    <p id="motivo-cierre" class="text-danger small mt-2" role="status">{{ motivoBloqueo() }}</p>
+  } @else {
+    <form [formGroup]="form" (ngSubmit)="solicitarConfirmacion()" class="card border-0 shadow-sm mb-3">
+      <div class="card-body">
+        <h2 class="h5">Confirmación del coordinador</h2>
+        @if (habilitado()) {
+          <p class="text-body-secondary">Todas las actividades están completas. Describí el resultado de la asistencia y confirmá el cierre.</p>
+        }
+        <fieldset [disabled]="!habilitado() || enviando() || cargando()">
+        <label for="descripcion-cierre" class="form-label">Descripción de cierre</label>
+        <textarea id="descripcion-cierre" class="form-control" rows="5" formControlName="descripcionCierre"
+          minlength="10" maxlength="2000" [readOnly]="c.validacionRegistrada || enviando()"
+          aria-describedby="ayuda-cierre error-cierre" required></textarea>
+        <div id="ayuda-cierre" class="form-text">Entre 10 y 2000 caracteres. Indicá las tareas realizadas y el resultado obtenido.</div>
+        @if (form.controls.descripcionCierre.touched && form.controls.descripcionCierre.invalid) {
+          <p id="error-cierre" class="text-danger small mt-1">Ingresá una descripción de entre 10 y 2000 caracteres, sin contar espacios al inicio o al final.</p>
+        }
+        <div class="form-check my-3">
+          <input id="confirmar-cierre" class="form-check-input" type="checkbox" formControlName="confirmacion">
+          <label class="form-check-label" for="confirmar-cierre">Confirmo que todas las actividades finalizaron y corresponde cerrar el despliegue.</label>
+        </div>
+        </fieldset>
+        <p class="small text-body-secondary">Al validar se solicitará la liberación de recursos. El cierre y las notificaciones se confirmarán cuando termine esa operación.</p>
+        <button type="submit" class="btn btn-primary" aria-describedby="motivo-cierre" [disabled]="form.invalid || !habilitado() || enviando() || cargando()">
+          {{ enviando() ? 'Enviando…' : c.validacionRegistrada ? 'Reintentar envío de la validación' : 'Validar y finalizar despliegue' }}
+        </button>
+        @if (motivoBloqueo(); as motivo) {
+          <p id="motivo-cierre" class="text-danger small mt-2 mb-0" role="status">{{ motivo }}</p>
+        }
+      </div>
+    </form>
+  }
+} @else {
+  <button type="button" class="btn btn-primary" disabled aria-describedby="motivo-cierre">Validar y finalizar despliegue</button>
+  <p id="motivo-cierre" class="text-danger small mt-2" role="status">{{ motivoBloqueo() }}</p>
+}
+<button class="btn btn-outline-primary" type="button" (click)="actualizar()" [disabled]="cargando() || enviando()">Actualizar estado</button>
+
+@if (confirmando()) {
+  <app-confirm-modal titulo="Confirmar cierre del despliegue" variante="primary"
+    mensaje="¿Confirmás que corresponde finalizar esta emergencia y liberar los recursos?"
+    detalle="La descripción quedará registrada. Se notificará a las ONG participantes y al municipio cuando el cierre esté confirmado."
+    textoConfirmar="Confirmar cierre" [procesando]="enviando()"
+    (confirmar)="validar()" (cancelar)="confirmando.set(false)" />
+}

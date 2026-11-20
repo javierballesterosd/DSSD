@@ -130,3 +130,19 @@ export interface PaginaEmergencias {
   first: boolean;
   last: boolean;
 }
+
+/** Estado del cierre, calculado por el backend para el coordinador de la región. */
+export interface CierreDespliegueResponse {
+  emergenciaId: number;
+  municipio: string;
+  zonaAfectada: string;
+  descripcion: string;
+  actividadesTotales: number;
+  actividadesPendientes: number;
+  adjudicada: boolean;
+  validacionRegistrada: boolean;
+  finalizada: boolean;
+  descripcionCierre: string | null;
+  fechaValidacion: string | null;
+  fechaFinalizacion: string | null;
+}
