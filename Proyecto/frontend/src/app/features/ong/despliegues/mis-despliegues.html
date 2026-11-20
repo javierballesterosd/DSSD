@@ -1,0 +1,111 @@
+<h1 class="h3 mb-1">Mis despliegues</h1>
+<p class="text-body-secondary mb-4">
+  Ofertas adjudicadas en curso. Marcá las actividades a medida que se completan: si tu oferta es un
+  consorcio, el avance se comparte con las demás ONGs.
+</p>
+
+@if (cargando()) {
+  <p class="text-body-secondary">Cargando despliegues…</p>
+} @else if (error()) {
+  <div class="alert alert-danger">No se pudieron cargar los despliegues. Probá de nuevo más tarde.</div>
+} @else if (lista().length === 0) {
+  <p class="text-body-secondary">Tu ONG no tiene ofertas adjudicadas en curso por el momento.</p>
+} @else {
+  <div class="vstack gap-4">
+    @for (d of lista(); track d.ofertaId) {
+      <section class="card">
+        <div class="card-body">
+          <div class="d-flex flex-wrap justify-content-between align-items-start gap-2">
+            <div>
+              <h2 class="h5 card-title mb-1">{{ d.emergenciaZona }}</h2>
+              <p class="small text-body-secondary mb-0">
+                {{ d.municipio }} · Gravedad {{ d.nivelGravedadEtiqueta }} · Lote «{{ d.loteTitulo }}»
+              </p>
+            </div>
+            <span class="badge" [class]="badgeEstado(d.estado)">{{ d.estadoEtiqueta }}</span>
+          </div>
+
+          <p class="small mt-2 mb-3">
+            @if (esConsorcio(d)) {
+              <span class="fw-semibold">Consorcio:</span>
+            } @else {
+              <span class="fw-semibold">ONG:</span>
+            }
+            {{ d.ongs.join(', ') }}
+          </p>
+
+          <div class="d-flex align-items-center gap-2 mb-3">
+            <div
+              class="progress flex-grow-1"
+              role="progressbar"
+              [attr.aria-valuenow]="porcentaje(d)"
+              aria-valuemin="0"
+              aria-valuemax="100"
+            >
+              <div class="progress-bar" [style.width.%]="porcentaje(d)"></div>
+            </div>
+            <span class="small text-nowrap">
+              {{ d.actividadesFinalizadas }} de {{ d.totalActividades }} actividades
+            </span>
+          </div>
+
+          <ul class="list-group list-group-flush">
+            @for (a of d.actividades; track a.actividadId) {
+              <li
+                class="list-group-item px-0 d-flex flex-wrap justify-content-between align-items-center gap-2"
+              >
+                <div>
+                  <div class="fw-semibold" [class.text-decoration-line-through]="a.finalizada">
+                    {{ a.nombre }}
+                  </div>
+                  @if (a.descripcion?.trim()) {
+                    <div class="small text-body-secondary">{{ a.descripcion }}</div>
+                  }
+                  @if (a.finalizada) {
+                    <div class="small text-success">
+                      Hecha
+                      @if (a.finalizadaPor) {
+                        por {{ a.finalizadaPor }}
+                      }
+                      @if (a.fechaFinalizacion) {
+                        el {{ a.fechaFinalizacion | date: FECHA_LISTADO }}
+                      }
+                    </div>
+                  }
+                </div>
+                @if (a.finalizada) {
+                  <span class="badge text-bg-success">Finalizada</span>
+                } @else {
+                  <button
+                    type="button"
+                    class="btn btn-sm btn-outline-success"
+                    (click)="pedirConfirmacion(d, a)"
+                  >
+                    Marcar como hecha
+                  </button>
+                }
+              </li>
+            }
+          </ul>
+        </div>
+      </section>
+    }
+  </div>
+}
+
+@if (pendiente(); as p) {
+  <app-confirm-modal
+    titulo="Marcar actividad como hecha"
+    [mensaje]="'¿Confirmás que la actividad «' + p.actividad.nombre + '» ya está completada?'"
+    [detalle]="
+      esConsorcio(p.despliegue)
+        ? 'Queda marcada para todas las ONGs del consorcio y no se puede deshacer.'
+        : 'Esta acción no se puede deshacer.'
+    "
+    textoConfirmar="Marcar como hecha"
+    variante="primary"
+    [procesando]="procesando()"
+    (confirmar)="confirmar()"
+    (cancelar)="cancelar()"
+  />
+}

@@ -47,7 +47,7 @@ public class DecisionMunicipalService {
         Map<Long, Ong> ongsPorId = new HashMap<>();
         Map<Long, Long> requeridas = new HashMap<>();
         for (Oferta oferta : conjunto) {
-            if (!habilitada(oferta) && oferta.getEstado() != EstadoOferta.ADJUDICADA) continue;
+            if (!habilitada(oferta) && !adjudicada(oferta)) continue;
             for (DetalleOferta detalle : oferta.getDetalles()) {
                 int cantidad = cantidad(detalle);
                 if (cantidad == 0) continue;
@@ -168,6 +168,7 @@ public class DecisionMunicipalService {
                 oferta.setEstado(aceptar ? EstadoOferta.ADJUDICADA : EstadoOferta.NO_ADJUDICADA);
                 oferta.setFechaModificacion(LocalDateTime.now());
                 ofertas.save(oferta);
+                if (aceptar) asignarActividades(emergencia, oferta);
             }
         }
         lote.setFechaDecisionMunicipal(LocalDateTime.now());
@@ -315,7 +316,6 @@ public class DecisionMunicipalService {
                 Actividad nueva = new Actividad();
                 nueva.setNombre(pedida.nombre());
                 nueva.setDescripcion(pedida.descripcion());
-                nueva.setFinalizada(false);
                 nueva.setEmergencia(emergencia);
                 actuales.add(nueva);
             }
@@ -357,6 +357,29 @@ public class DecisionMunicipalService {
 
     private boolean habilitada(Oferta oferta) {
         return oferta.getEstado() == EstadoOferta.VALIDADA || oferta.getEstado() == EstadoOferta.ACEPTADA_PARCIAL;
+    }
+
+    /** Adjudicada, en despliegue o ya terminada: sigue siendo parte de los recursos aceptados. */
+    private boolean adjudicada(Oferta oferta) {
+        return oferta.getEstado() == EstadoOferta.ADJUDICADA || oferta.getEstado() == EstadoOferta.EN_EJECUCION
+                || oferta.getEstado() == EstadoOferta.FINALIZADA;
+    }
+
+    /**
+     * Cada oferta adjudicada con recursos debe completar todas las actividades de la emergencia: se crea una fila
+     * de avance por actividad (idempotente, por si la confirmación se reintenta).
+     */
+    private void asignarActividades(Emergencia emergencia, Oferta oferta) {
+        if (oferta.getDetalles().stream().noneMatch(d -> cantidad(d) > 0)) return;
+        for (Actividad actividad : emergencia.getActividades()) {
+            boolean existe = actividad.getAsignaciones().stream().anyMatch(a -> a.getOferta() == oferta
+                    || (oferta.getId() != null && oferta.getId().equals(a.getOferta().getId())));
+            if (existe) continue;
+            ActividadOferta avance = new ActividadOferta();
+            avance.setActividad(actividad);
+            avance.setOferta(oferta);
+            actividad.getAsignaciones().add(avance);
+        }
     }
 
     private int cantidad(DetalleOferta detalle) {

@@ -176,7 +176,7 @@ def esperar(descripcion, consulta, condicion, segundos=180):
     raise ErrorCarga(f"Tiempo agotado esperando {descripcion}. Revisa el caso en Bonita y vuelve a ejecutar la carga.")
 
 
-def finalizar_monitoreo(registro, duracion, coordinador, motor, estado):
+def finalizar_monitoreo(registro, duracion, coordinador, ong, motor, estado):
     """Completa el flujo publico; nunca cambia tiempos ni reservas por fuera de Bonita."""
     emergencia_id = registro["emergenciaId"]
     caso_id = str(registro["caseId"])
@@ -202,10 +202,14 @@ def finalizar_monitoreo(registro, duracion, coordinador, motor, estado):
     while time.time() < registro["finEsperaMonitoreo"]:
         time.sleep(min(2, max(0, registro["finEsperaMonitoreo"] - time.time())))
     # Releer permite retomar tras una respuesta perdida sin repetir el tiempo de espera.
-    detalle = coordinador.pedir("GET", ruta)
-    for actividad in detalle.get("actividades", []):
-        if not actividad.get("finalizada"):
-            coordinador.pedir("POST", ruta + f"/actividades/{actividad['id']}/finalizacion")
+    # Las actividades las marcan las ONG sobre su oferta adjudicada (en un consorcio el avance se comparte).
+    for despliegue in ong.pedir("GET", "/api/despliegues/mios"):
+        if despliegue["emergenciaId"] != emergencia_id:
+            continue
+        for actividad in despliegue["actividades"]:
+            if not actividad["finalizada"]:
+                ong.pedir("POST", f"/api/ofertas/{despliegue['ofertaId']}/actividades/"
+                                  f"{actividad['actividadId']}/finalizacion")
     coordinador.pedir("POST", ruta + "/monitoreo/completar")
     coordinador.pedir("POST", ruta + "/despliegue/validacion")
     esperar("confirmacion nacional del cierre", lambda: coordinador.pedir("GET", ruta),
@@ -421,7 +425,8 @@ def main():
                 "loteId": registro["loteId"], "aceptar": decision})
             esperar("confirmacion de decision", lambda: api.pedir("GET", ruta), lambda r: r["confirmada"])
         if clave in MONITOREOS and not registro.get("sinRecursos"):
-            finalizar_monitoreo(registro, MONITOREOS[clave], sesion(coordinador), motor, estado)
+            finalizar_monitoreo(registro, MONITOREOS[clave], sesion(coordinador),
+                                 sesion(ESCENARIOS[indice - 1][4][0][0]), motor, estado)
         registro["completo"] = True
         guardar(estado)
         resultado = "pendiente de decision" if decision is None else "aceptado" if decision else "rechazado"

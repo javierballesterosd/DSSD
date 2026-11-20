@@ -85,7 +85,6 @@ public class EmergenciaService {
                         Actividad actividad = new Actividad();
                         actividad.setNombre(actDto.nombre());
                         actividad.setDescripcion(actDto.descripcion());
-                        actividad.setFinalizada(false); // Siempre inician como pendientes
                         actividad.setEmergencia(emergencia); // Seteamos el dueño de la relación para la FK
                         return actividad;
                     })
