@@ -21,7 +21,10 @@ const NAV_LINKS: Record<Rol, NavLink[]> = {
     { label: 'Emergencias', path: '/coordinador/emergencias' },
     { label: 'Mis lotes', path: '/coordinador/lotes' },
   ],
-  ONG: [{ label: 'Lotes disponibles', path: '/ong/lotes' }],
+  ONG: [
+    { label: 'Lotes disponibles', path: '/ong/lotes' },
+    { label: 'Mis despliegues', path: '/ong/despliegues' },
+  ],
   AUDITOR: [
     { label: 'Dashboard', path: '/auditor/dashboard', exacto: true },
     { label: 'Ofertas', path: '/auditor/ofertas' },

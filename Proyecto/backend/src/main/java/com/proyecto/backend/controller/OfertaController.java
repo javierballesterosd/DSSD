@@ -43,7 +43,7 @@ public class OfertaController {
         if (!bonitaTokenValidator.isValid(token)) {
             throw new com.proyecto.backend.exception.UnauthenticatedException("Token de Bonita inválido o ausente");
         }
-        ofertaService.procesarValidacionSNYBloquearRecursos(id, request);
+        ofertaService.procesarValidacionSN(id, request);
     }
 
     /** Ofertas de un lote en las que participa la ONG del usuario logueado. */

@@ -59,11 +59,17 @@ export class EmergenciaTarjeta {
   protected readonly badge = computed(
     () => NIVEL_GRAVEDAD_BADGE[this.emergencia().nivelGravedad] ?? 'text-bg-secondary',
   );
+  /** Lote cancelado y ya sin nada pendiente del municipio: lo que falta es publicar un lote nuevo. */
+  private readonly faltaNuevoLote = computed(
+    () => this.emergencia().estadoLote === 'CANCELADO' && !this.emergencia().requiereActualizacion,
+  );
   protected readonly estadoLoteLabel = computed(() => {
+    if (this.faltaNuevoLote()) return 'Falta nuevo lote';
     const estado = this.emergencia().estadoLote;
     return estado ? ESTADO_LOTE_LABEL[estado] : 'Sin lote';
   });
   protected readonly estadoLoteBadge = computed(() => {
+    if (this.faltaNuevoLote()) return 'text-bg-warning';
     const estado = this.emergencia().estadoLote;
     return estado ? ESTADO_LOTE_BADGE[estado] : 'text-bg-secondary';
   });

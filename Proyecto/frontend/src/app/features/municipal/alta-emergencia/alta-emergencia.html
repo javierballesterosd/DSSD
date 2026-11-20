@@ -93,6 +93,66 @@
         }
       </div>
 
+      <!-- Actividades (FormArray) -->
+      <div class="mb-4">
+        <div class="d-flex justify-content-between align-items-end mb-2">
+          <label class="form-label fw-semibold mb-0">Actividades requeridas <span class="text-body-secondary fw-normal small">(al menos una)</span></label>
+          <button type="button" class="btn btn-sm btn-outline-primary" (click)="agregarActividad()">
+            + Agregar actividad
+          </button>
+        </div>
+
+        <div formArrayName="actividades">
+          @for (actividad of actividades.controls; track $index) {
+            <div class="card bg-light border-0 mb-3" [formGroupName]="$index">
+              <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                  <h6 class="card-subtitle text-muted mb-0">Actividad {{ $index + 1 }}</h6>
+                  <button
+                    type="button"
+                    class="btn btn-sm btn-outline-danger"
+                    [disabled]="actividades.length <= 1"
+                    (click)="eliminarActividad($index)"
+                  >
+                    Eliminar
+                  </button>
+                </div>
+
+                <!-- Nombre de la Actividad -->
+                <div class="mb-3">
+                  <label class="form-label small">Nombre</label>
+                  <input
+                    type="text"
+                    class="form-control form-control-sm"
+                    placeholder="Ej: Evacuación con botes"
+                    formControlName="nombre"
+                    [class.is-invalid]="actividad.get('nombre')?.touched && actividad.get('nombre')?.invalid"
+                  />
+                  @if (actividad.get('nombre')?.touched && actividad.get('nombre')?.invalid) {
+                    <div class="invalid-feedback">El nombre es obligatorio (máximo 100 caracteres).</div>
+                  }
+                </div>
+
+                <!-- Descripción de la Actividad -->
+                <div>
+                  <label class="form-label small">Descripción</label>
+                  <textarea
+                    rows="2"
+                    class="form-control form-control-sm"
+                    placeholder="Detalles de la tarea..."
+                    formControlName="descripcion"
+                    [class.is-invalid]="actividad.get('descripcion')?.touched && actividad.get('descripcion')?.invalid"
+                  ></textarea>
+                  @if (actividad.get('descripcion')?.touched && actividad.get('descripcion')?.invalid) {
+                    <div class="invalid-feedback">La descripción no puede superar los 500 caracteres.</div>
+                  }
+                </div>
+              </div>
+            </div>
+          }
+        </div>
+      </div>
+
       <div class="d-flex flex-wrap gap-2">
         <button
           type="submit"

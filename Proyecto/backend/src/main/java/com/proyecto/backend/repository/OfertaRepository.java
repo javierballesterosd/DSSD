@@ -12,6 +12,9 @@ public interface OfertaRepository extends JpaRepository<Oferta, Long> {
 
     List<Oferta> findByLoteIdOrderByIdAsc(Long loteId);
 
+    @EntityGraph(attributePaths = "ongs")
+    List<Oferta> findByLoteId(Long loteId);
+
     @Query("select o.lote.id from Oferta o where o.id = :id")
     java.util.Optional<Long> findLoteIdByOfertaId(@Param("id") Long id);
 

@@ -26,6 +26,17 @@ export class EmergenciasRegion implements OnInit {
   protected readonly region = this.auth.usuario()?.regionNombre ?? null;
   protected readonly puedeDesglosar = puedeDesglosar;
 
+  /** Se vuelve a desglosar una emergencia cuyo lote anterior fue cancelado. */
+  protected readonly esNuevoDesglose = (e: EmergenciaParaLoteResponse): boolean =>
+    puedeDesglosar(e) && e.estadoLote === 'CANCELADO';
+
+  /** Explica por qué hay que desglosar de nuevo. */
+  protected motivoNuevoDesglose(e: EmergenciaParaLoteResponse): string {
+    return e.motivoLoteCancelado === 'SIN_RECURSOS'
+      ? 'El Sistema Nacional no habilitó recursos para el lote anterior. Volvé a desglosar la emergencia.'
+      : 'El municipio rechazó las ofertas del lote anterior. Volvé a desglosar la emergencia.';
+  }
+
   protected readonly emergencias = signal<EmergenciaParaLoteResponse[]>([]);
   protected readonly cargando = signal(true);
   protected readonly error = signal(false);

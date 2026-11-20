@@ -3,6 +3,7 @@ import { Service, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { LoteDetalle, LoteRequest, LoteResumen } from '../models/lote';
+import { Ong } from '../models/ong';
 
 @Service()
 export class Lotes {
@@ -14,12 +15,18 @@ export class Lotes {
   }
 
   /** Lotes de las emergencias de la región del coordinador logueado, en cualquier estado. */
-  listarMios(): Observable<LoteResumen[]> {
-    return this.http.get<LoteResumen[]>(`${this.apiUrl}/lotes/mios`);
+  listarMios(pendientesValidacion = false): Observable<LoteResumen[]> {
+    return this.http.get<LoteResumen[]>(`${this.apiUrl}/lotes/mios`, {
+      params: pendientesValidacion ? { pendientesValidacion: 'true' } : {},
+    });
   }
 
   obtenerDetalle(id: number): Observable<LoteDetalle> {
     return this.http.get<LoteDetalle>(`${this.apiUrl}/lotes/${id}`);
+  }
+
+  listarOngsAdjudicadas(id: number): Observable<Ong[]> {
+    return this.http.get<Ong[]>(`${this.apiUrl}/lotes/${id}/ongs-adjudicadas`);
   }
 
   publicar(emergenciaId: number, lote: LoteRequest): Observable<LoteDetalle> {

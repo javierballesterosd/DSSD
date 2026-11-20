@@ -183,6 +183,13 @@ export class DashboardService {
     );
   }
 
+  /** Duración de monitoreos completados, filtrada por fecha de finalización. */
+  tiempoMonitoreo(filtros: DashboardFiltros = {}): Observable<DashboardTiempo> {
+    return this.http.get<DashboardTiempo>(`${this.apiUrl}/tiempos/monitoreo`, {
+      params: this.construirParams(filtros),
+    });
+  }
+
   /**
    * Tiempo promedio hasta la finalización de emergencias.
    */

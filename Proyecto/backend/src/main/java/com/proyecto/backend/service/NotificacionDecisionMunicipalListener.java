@@ -21,11 +21,11 @@ public class NotificacionDecisionMunicipalListener {
         for (String path : evento.ongGroupPaths()) {
             crear("ONG", path, evento.aceptada() ? "Ofertas aceptadas por el municipio" : "Ofertas rechazadas por el municipio",
                     "El municipio " + (evento.aceptada() ? "aceptó los recursos habilitados" : "rechazó el conjunto de ofertas; se liberaron los recursos")
-                            + " de la emergencia #" + evento.emergenciaId() + ".", evento);
+                            + " de la emergencia «" + evento.emergenciaTitulo() + "».", evento);
         }
         if (!evento.aceptada()) {
             crear("MUNICIPAL", evento.municipioGroupPath(), "Debés actualizar la emergencia",
-                    "Actualizá la emergencia #" + evento.emergenciaId()
+                    "Actualizá la emergencia «" + evento.emergenciaTitulo() + "»"
                             + " para reiniciar la convocatoria. Podés confirmar los mismos datos.", evento);
         }
     }

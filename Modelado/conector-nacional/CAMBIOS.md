@@ -1,0 +1,64 @@
+# Conector de Bonita `rescuesync-nacional` — cambios para recompilar
+
+Archivo a recompilar: `IntegracionNacionalConnector.java` (paquete `com.rescuesync.bonita`).
+`IntegracionNacionalConnector.java.orig` es el original, para comparar con `diff`.
+
+## Versión 1.0.8 (`rescueSync-V1.19.bos`): camino "sin recursos"
+
+Recompilado (Java 17, `bonita-common` 10.4.0, Groovy 3.0.25) y empaquetado en `rescueSync-V1.19.bos`, que sale del V1.18 con el jar, la definición, la implementación, `app/pom.xml`, `.conf` y el `.proc` pasados de 1.0.7 a 1.0.8. No se probó en Studio. Requiere el backend local de la rama `feature/camino-sin-recursos` (endpoint nuevo): con el backend viejo, el cierre da 404.
+
+- **Cierre local cuando el SN no habilita nada:** al terminar `VALIDAR`, si ninguna oferta quedó con recursos el conector llama a `POST /api/emergencias/{id}/sin-recursos/confirmacion` con `{loteId, caseId}`. El backend cancela el lote, marca la emergencia para volver a registrarla y notifica al municipio y a las ONGs. Después `hayOfertasHabilitadas = false` lleva al gateway a `Registrar emergencia`, como antes.
+- **Reintentos:** el plan local trae un campo nuevo `hayHabilitadas`. Si al reintentar ya no quedan ofertas pendientes, el conector usa ese dato en vez de dar por habilitado todo. Si el lote ya estaba cerrado sin recursos, devuelve `hayOfertasHabilitadas = false` sin repetir nada. El endpoint es idempotente.
+- **Sin cambios:** `ACEPTAR`, `RECHAZAR`, `FINALIZAR` y las rutas del SN.
+
+## Versión 1.0.7 (`rescueSync-V1.18.bos`): validación del lote con prioridad por ONG y categoría
+
+Recompilado (Java 17, contra `bonita-common` 10.4.0 y Groovy 3.0.25) sobre el conector ya fusionado con development, que incluye la operación `FINALIZAR` y las rutas `/despliegue/...` del 1.0.6 (despliegue y monitoreo). `rescueSync-V1.18.bos` sale del V1.17 de development con el jar, la definición, la implementación, `app/pom.xml`, `.conf` y el `.proc` pasados de 1.0.6 a 1.0.7. No se probó en Studio: al importarlo conviene correr un ciclo completo (validar, decidir y finalizar).
+
+Requiere el SN con la rama `feature/validacion-prioridad-ong-categoria` (`POST /validaciones`).
+
+- **Una sola llamada:** en `VALIDAR` el conector ya no recorre las ofertas pidiendo `POST /reservas/temporales` una por una. Llama a `POST {SN}/validaciones` con `{emergenciaId, loteId}` y el SN reparte lo que pide el lote entre todas las ofertas y deja los recursos bloqueados.
+- **Algoritmo (en el SN):** por cada recurso, primero las ONGs de mejor nivel en la categoría del recurso (especialista antes que apoyo), después la oferta más antigua; no se reserva más de lo que pide el lote ni más del stock libre; una ONG sin nivel en la categoría no está habilitada.
+- **Respuesta:** `resultados[]` con `{ofertaId, aprobada, items[]}`. El conector la reenvía oferta por oferta al callback `/validacion-sn` (mismo contrato que antes) y calcula `hayOfertasHabilitadas` como antes.
+- **Reintentos:** si el lote ya tiene bloqueos vigentes el SN devuelve esos mismos; con recursos comprometidos responde 409 y el conector falla.
+- **Sin cambios:** `ACEPTAR` y `RECHAZAR`, `GET /reservas`, `POST /reservas/temporales` (se mantiene en el SN por el Swagger, el conector ya no la usa), y las rutas del backend local.
+- **Desplegar juntos:** con el SN viejo `POST /validaciones` da 404 y la validación falla.
+
+## Versión 1.0.5 (`rescueSync-V1.16.bos`): reserva parcial y gateway de "sin recursos"
+
+Requiere el SN con la rama `feature/reserva-temporal-parcial` (campo `parcial` en `POST /reservas/temporales`).
+
+- **Reserva parcial:** en `VALIDAR` el conector manda `parcial: true`. El SN reserva lo que haya libre de cada recurso y solo responde 409 si no puede reservar nada; en ese caso la oferta queda rechazada como antes.
+- **Salida nueva `hayOfertasHabilitadas` (Boolean):** `true` si al menos una oferta quedó con recursos reservados (o si no había ofertas pendientes). Para `ACEPTAR` y `RECHAZAR` queda en `true` y no se usa.
+- **Proceso:** variable `hayOfertasHabilitadas` (default `true`), operación en el conector de `Validar en el Sistema Nacional (POST Cloud)` y gateway nuevo `Quedan ofertas con recursos?` antes de `Ver ofertas validadas`: `si` va a `Ver ofertas validadas`, `no` va a `Registrar emergencia`.
+- **Versión:** definición, implementación, jar (`.store/.../1.0.5`), `app/pom.xml` y `.conf` pasan de 1.0.4 a 1.0.5.
+
+Pendiente (depende del backend local, rama `feature/bloqueo-recursos`): en el camino `no` el backend todavía no cancela el lote, no marca `requiereActualizacion` ni notifica al municipio, así que `actualizar` no deja completar `Registrar emergencia` en ese caso. Ante un reintento del conector tras un fallo a mitad de la validación, `hayOfertasHabilitadas` solo cuenta las ofertas que seguían pendientes.
+
+El `.bos` V1.16 se armó editando el XML del V1.15: al abrirlo en Studio conviene revisar el dibujo del gateway y sus flechas (las aristas nuevas no tienen puntos de quiebre) y volver a exportarlo.
+
+## Qué cambió en 1.0.4 (5 cambios)
+
+| Línea | Antes | Ahora | Por qué |
+| --- | --- | --- | --- |
+| 72 | `POST {SN}/reservas/temporal` | `POST {SN}/reservas/temporales` | El SN renombró la ruta (commit `fbd7734`). Con la vieja da 404 |
+| 96 | `POST {SN}/reservas/definitiva` y `POST {SN}/reservas/liberacion` | `POST {SN}/reservas/definitivas` y `POST {SN}/reservas/liberaciones` | Ídem (commit `15e8570`); `liberacion` también se pasó a plural para seguir la misma convención |
+| 148 | `item.get("ongId")` | `item.get("ongCodigo")` | Las ONGs ahora se identifican por su `codigo` (UUID) común a todos los sistemas, no por el id numérico de cada base |
+| 157 | `"ongId", i.get("ongId")` | `"ongCodigo", i.get("ongCodigo")` | Ídem: con la clave vieja el valor es `null` y `Map.of` lanza NPE |
+
+`/login`, `GET /reservas` y las rutas del backend local (`/api/emergencias/{id}/integracion-nacional`, `/validacion-sn`, `/decision-municipal/confirmacion`) **no cambian**.
+
+## Contrato que espera ahora
+
+- Plan local (`GET /api/emergencias/{id}/integracion-nacional`): cada ítem trae `ongCodigo` (String) en lugar de `ongId`.
+- Respuestas del SN (`/reservas/...`): cada ítem de `items` trae `ongCodigo` en lugar de `ongId`.
+- Callbacks al backend local (`/validacion-sn`, `/decision-municipal/confirmacion`): cada ítem se envía con `ongCodigo`.
+
+Estos cambios están en las ramas `feature/id-comun-ong` de `Proyecto` y de `API-Nacional`. **Los tres componentes (conector, backend local, SN) tienen que desplegarse juntos**: con versiones mezcladas la validación falla.
+
+## Pasos
+
+1. Recompilar el conector con el flujo habitual del equipo.
+2. Reemplazar el jar en el proyecto de Bonita (`app/.store/com/rescuesync/rescuesync-nacional/<versión>/`). Hoy el `.bos` trae la 1.0.3; si se sube la versión, actualizar también el `.def` y el `.impl`.
+3. Reimportar o redeployar el conector en Studio y volver a exportar el `.bos`.
+4. Probar un ciclo completo: validar ofertas, decisión municipal (aceptar y rechazar) y confirmar que el callback llega al backend local.

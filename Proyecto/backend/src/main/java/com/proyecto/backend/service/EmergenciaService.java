@@ -13,6 +13,7 @@ import com.proyecto.backend.exception.AccesoDenegadoException;
 import com.proyecto.backend.exception.RecursoNoEncontradoException;
 import com.proyecto.backend.exception.ReglaNegocioException;
 import com.proyecto.backend.mapper.EmergenciaMapper;
+import com.proyecto.backend.model.Actividad;
 import com.proyecto.backend.model.DetalleOferta;
 import com.proyecto.backend.model.Emergencia;
 import com.proyecto.backend.model.EstadoLote;
@@ -77,6 +78,21 @@ public class EmergenciaService {
 
         Emergencia emergencia = emergenciaMapper.toEntity(request, municipio);
         emergencia.setFechaRegistro(LocalDateTime.now());
+
+        if (request.actividades() != null && !request.actividades().isEmpty()) {
+            List<Actividad> nuevasActividades = request.actividades().stream()
+                    .map(actDto -> {
+                        Actividad actividad = new Actividad();
+                        actividad.setNombre(actDto.nombre());
+                        actividad.setDescripcion(actDto.descripcion());
+                        actividad.setEmergencia(emergencia); // Seteamos el dueño de la relación para la FK
+                        return actividad;
+                    })
+                    .toList();
+            
+            emergencia.setActividades(nuevasActividades);
+        } 
+
         Emergencia guardada = emergenciaRepository.save(emergencia);
         log.info("Emergencia guardada. emergenciaId={}", guardada.getId());
 
@@ -214,7 +230,7 @@ public class EmergenciaService {
             Oferta oferta) {
         List<OngResponse> ongs = oferta.getOngs().stream()
                 .sorted(Comparator.comparing(ong -> ong.getRazonSocial().toLowerCase()))
-                .map(ong -> new OngResponse(ong.getId(), ong.getRazonSocial()))
+                .map(ong -> new OngResponse(ong.getId(), ong.getCodigo(), ong.getRazonSocial()))
                 .toList();
 
         Map<Long, List<DetalleOferta>> detallesPorItem = new LinkedHashMap<>();
@@ -247,6 +263,7 @@ public class EmergenciaService {
         List<AporteOngResponse> porOng = detalles.stream()
                 .map(detalle -> new AporteOngResponse(
                         detalle.getOng().getId(),
+                        detalle.getOng().getCodigo(),
                         detalle.getOng().getRazonSocial(),
                         detalle.getCantidadOfrecida()
                 ))

@@ -3,6 +3,7 @@ import com.proyecto.backend.dto.*;
 import com.proyecto.backend.exception.ReglaNegocioException;
 import com.proyecto.backend.model.*;
 import com.proyecto.backend.repository.*;
+import com.proyecto.backend.service.*;
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -16,14 +17,15 @@ class ValidacionNacionalServiceTest {
  @Mock LoteRepository lotes;
  @Mock OfertaRepository ofertas;
  @Mock OfertaService ofertaService;
+ @Mock org.springframework.context.ApplicationEventPublisher eventos;
  ValidacionNacionalService service; Lote lote; Oferta oferta;
  @BeforeEach void preparar() {
-  service=new ValidacionNacionalService(lotes,ofertas,ofertaService);
+  service=new ValidacionNacionalService(lotes,ofertas,ofertaService,eventos);
   var emergencia=new Emergencia(); emergencia.setId(7L); emergencia.setBonitaCaseId("caso");
   lote=new Lote(); lote.setId(10L); lote.setEmergencia(emergencia); lote.setEstado(EstadoLote.ACTIVO);
   lote.setFechaCierreOfertas(LocalDateTime.now().minusHours(1));
   when(lotes.findById(10L)).thenReturn(Optional.of(lote));
-  var ong=new Ong(); ong.setId(2L); var recurso=new Recurso(); recurso.setId(3L);
+  var ong=new Ong(); ong.setId(2L); ong.setCodigo("cod-2"); var recurso=new Recurso(); recurso.setId(3L);
   var item=new ItemLote(); item.setRecurso(recurso);
   var detalle=new DetalleOferta(); detalle.setId(100L); detalle.setOng(ong); detalle.setItemLote(item); detalle.setCantidadOfrecida(100);
   oferta=new Oferta(); oferta.setId(20L); oferta.setLote(lote); oferta.setEstado(EstadoOferta.PENDIENTE); oferta.getDetalles().add(detalle);
@@ -34,27 +36,69 @@ class ValidacionNacionalServiceTest {
  }
  @Test void entregaPendientesConIdsYCantidadesSinLlamadasExternas() {
   when(ofertas.findByLoteIdOrderByIdAsc(10L)).thenReturn(List.of(oferta));
-  assertThat(service.plan(7L,10L,"caso").ofertas().getFirst().items().getFirst()).isEqualTo(new IntegracionNacional.Item(100L,2L,3L,100));
+  assertThat(service.plan(7L,10L,"caso").ofertas().getFirst().items().getFirst()).isEqualTo(new IntegracionNacional.Item(100L,"cod-2",3L,100));
   verifyNoInteractions(ofertaService);
  }
  @Test void omiteOfertasYaProcesadas() {
   oferta.setEstado(EstadoOferta.VALIDADA); when(ofertas.findByLoteIdOrderByIdAsc(10L)).thenReturn(List.of(oferta));
   assertThat(service.plan(7L,10L,"caso").ofertas()).isEmpty();
  }
+ @Test void informaSiHayOfertasHabilitadasAunqueNoQuedenPendientes() {
+  oferta.setEstado(EstadoOferta.ACEPTADA_PARCIAL); when(ofertas.findByLoteIdOrderByIdAsc(10L)).thenReturn(List.of(oferta));
+  var plan=service.plan(7L,10L,"caso");
+  assertThat(plan.ofertas()).isEmpty(); assertThat(plan.hayHabilitadas()).isTrue();
+ }
+ @Test void sinHabilitadasSiTodasFueronRechazadasOEstanPendientes() {
+  when(ofertas.findByLoteIdOrderByIdAsc(10L)).thenReturn(List.of(oferta));
+  assertThat(service.plan(7L,10L,"caso").hayHabilitadas()).isFalse();
+  oferta.setEstado(EstadoOferta.RECHAZADA);
+  assertThat(service.plan(7L,10L,"caso").hayHabilitadas()).isFalse();
+ }
+ @Test void conElLoteCerradoSinRecursosElPlanVieneConfirmadoSinDecision() {
+  oferta.setEstado(EstadoOferta.RECHAZADA); lote.setEstado(EstadoLote.CANCELADO); lote.setFechaDecisionMunicipal(LocalDateTime.now());
+  when(ofertas.findByLoteIdOrderByIdAsc(10L)).thenReturn(List.of(oferta));
+  var plan=service.plan(7L,10L,"caso");
+  assertThat(plan.confirmada()).isTrue(); assertThat(plan.decision()).isNull(); assertThat(plan.hayHabilitadas()).isFalse();
+ }
  @Test void registraCantidadesRecibidasDesdeBonita() {
-  callback(); service.registrar(7L,respuesta(true,List.of(new IntegracionNacional.ItemSN(2L,3L,40,"BLOQUEADA"))));
-  verify(ofertaService).procesarValidacionSNYBloquearRecursos(20L,new ValidacionSNRequest(true,"Resultado nacional recibido desde Bonita",List.of(new ItemValidadoRequest(100L,40))));
+  callback(); service.registrar(7L,respuesta(true,List.of(new IntegracionNacional.ItemSN("cod-2",3L,40,"BLOQUEADA"))));
+  verify(ofertaService).procesarValidacionSN(20L,new ValidacionSNRequest(true,"Resultado nacional recibido desde Bonita",List.of(new ItemValidadoRequest(100L,40))));
+ }
+ void conMunicipio() { var m=new Municipio(); m.setBonitaGroupPath("/Municipio/Region1/LaPlata"); lote.getEmergencia().setMunicipio(m); lote.getEmergencia().setZonaAfectada("Plaza Moreno"); }
+ @Test void alValidarLaUltimaOfertaPendienteConRecursosAvisaAlMunicipio() {
+  callback(); conMunicipio();
+  when(ofertas.findByLoteIdOrderByIdAsc(10L)).thenAnswer(i -> { oferta.setEstado(EstadoOferta.VALIDADA); return List.of(oferta); });
+  service.registrar(7L,respuesta(true,List.of(new IntegracionNacional.ItemSN("cod-2",3L,100,"BLOQUEADA"))));
+  verify(eventos).publishEvent(new OfertasValidadasEvent(7L,"Plaza Moreno","/Municipio/Region1/LaPlata"));
+ }
+ @Test void siNingunaOfertaQuedoHabilitadaNoAvisaParaDecidir() {
+  callback(); conMunicipio();
+  when(ofertas.findByLoteIdOrderByIdAsc(10L)).thenAnswer(i -> { oferta.setEstado(EstadoOferta.RECHAZADA); return List.of(oferta); });
+  service.registrar(7L,respuesta(false,List.of()));
+  verify(eventos,never()).publishEvent(any(OfertasValidadasEvent.class));
+ }
+ @Test void siQuedanOfertasPendientesTodaviaNoAvisa() {
+  callback(); conMunicipio();
+  var otra=new Oferta(); otra.setId(21L); otra.setEstado(EstadoOferta.PENDIENTE);
+  when(ofertas.findByLoteIdOrderByIdAsc(10L)).thenAnswer(i -> { oferta.setEstado(EstadoOferta.VALIDADA); return List.of(oferta,otra); });
+  service.registrar(7L,respuesta(true,List.of(new IntegracionNacional.ItemSN("cod-2",3L,100,"BLOQUEADA"))));
+  verify(eventos,never()).publishEvent(any(OfertasValidadasEvent.class));
+ }
+ @Test void repetirElMismoCallbackNoVuelveAAvisar() {
+  callback(); conMunicipio(); oferta.setEstado(EstadoOferta.VALIDADA);
+  service.registrar(7L,respuesta(true,List.of(new IntegracionNacional.ItemSN("cod-2",3L,100,"BLOQUEADA"))));
+  verify(eventos,never()).publishEvent(any(OfertasValidadasEvent.class));
  }
  @Test void registraRechazoSinInventario() {
   callback(); service.registrar(7L,respuesta(false,List.of()));
-  verify(ofertaService).procesarValidacionSNYBloquearRecursos(20L,new ValidacionSNRequest(false,"Resultado nacional recibido desde Bonita",List.of()));
+  verify(ofertaService).procesarValidacionSN(20L,new ValidacionSNRequest(false,"Resultado nacional recibido desde Bonita",List.of()));
  }
  @Test void impideValidarDespuesDeDecision() {
   callback(); lote.setDecisionMunicipal(true);
   assertThatThrownBy(()->service.registrar(7L,respuesta(false,List.of()))).isInstanceOf(ReglaNegocioException.class); verifyNoInteractions(ofertaService);
  }
  @Test void rechazaRecursosAjenos() {
-  callback(); assertThatThrownBy(()->service.registrar(7L,respuesta(true,List.of(new IntegracionNacional.ItemSN(99L,3L,40,"BLOQUEADA")))))
+  callback(); assertThatThrownBy(()->service.registrar(7L,respuesta(true,List.of(new IntegracionNacional.ItemSN("cod-99",3L,40,"BLOQUEADA")))))
    .isInstanceOf(ReglaNegocioException.class); verifyNoInteractions(ofertaService);
  }
  @Test void rechazaCasoEquivocado() {

@@ -1,6 +1,7 @@
 import { DatePipe } from '@angular/common';
 import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
+
 import {
   EmergenciaParaLoteResponse,
   NIVEL_GRAVEDAD_BADGE,
@@ -13,6 +14,7 @@ import { ConfirmModal } from '../../../shared/components/confirm-modal/confirm-m
 import { ToastService } from '../../../core/services/toast';
 import { mensajeDeError } from '../../../core/services/errores';
 import { FECHA_LARGA } from '../../../shared/formatos-fecha';
+import { colorOng } from '../../../shared/ong-colores';
 
 @Component({
   imports: [RouterLink, DatePipe, ConfirmModal],
@@ -57,10 +59,10 @@ export class EmergenciaDetalle implements OnInit {
         this.procesando.set(false);
         this.confirmacion.set(null);
         this.toast.exito(
-          'Decisión enviada a Bonita',
+          'Decisión registrada',
           aceptar
-            ? 'Bonita confirmará el compromiso en el Sistema Nacional. Consultá el estado para ver el resultado.'
-            : 'Bonita liberará los recursos en el Sistema Nacional. Podrás actualizar la emergencia cuando termine.',
+            ? 'Estamos confirmando el compromiso de los recursos en el Sistema Nacional. Consultá el estado para ver el resultado.'
+            : 'Estamos liberando los recursos en el Sistema Nacional. Podrás actualizar la emergencia cuando termine.',
         );
         this.ngOnInit();
       },
@@ -77,6 +79,7 @@ export class EmergenciaDetalle implements OnInit {
   }
 
   protected readonly fechaLarga = FECHA_LARGA;
+  protected readonly colorOng = colorOng;
 
   protected readonly emergencia = signal<EmergenciaParaLoteResponse | null>(null);
   protected readonly cargando = signal(true);
@@ -101,6 +104,9 @@ export class EmergenciaDetalle implements OnInit {
   /** Qué está pasando con la emergencia del lado del Centro Coordinador. */
   protected readonly seguimiento = computed(() => {
     if (this.emergencia()?.requiereActualizacion) {
+      if (this.emergencia()?.sinRecursos) {
+        return 'El Sistema Nacional no habilitó recursos para ninguna oferta. Debés volver a registrar la emergencia, aunque mantengas los mismos datos, para reiniciar la convocatoria.';
+      }
       return 'Rechazaste las ofertas. Debés actualizar la emergencia, aunque mantengas los mismos datos, para reiniciar el proceso.';
     }
     switch (this.emergencia()?.estadoLote) {

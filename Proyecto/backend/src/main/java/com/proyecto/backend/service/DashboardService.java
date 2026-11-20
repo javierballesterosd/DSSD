@@ -135,9 +135,7 @@ public class DashboardService {
         }
         return promedio("Hasta la primera validacion nacional", tiempos);
     }
-    /** Solo casos realmente completados; se excluyen los cancelados y abortados.
-     * Requiere implementar el cierre del proceso para generar muestras reales del flujo actual.
-     */
+    /** Solo casos realmente completados; se excluyen los cancelados y abortados. */
 
     public Tiempo finalizadas(BonitaSession session, LocalDate desde, LocalDate hasta,
                           Long municipioId, NivelGravedad gravedad, Long recursoId, Long ongId) {
@@ -156,7 +154,7 @@ public class DashboardService {
         }
         return promedio("Emergencias finalizadas", tiempos);
     }
-    /** Identifica casos detenidos en la tarea modelada; no implica que su monitoreo esté implementado.
+    /** Emergencias actualmente en monitoreo, cruzadas con los datos locales.
      * El rango corresponde al inicio del caso, no a una fotografía histórica.
      */
 

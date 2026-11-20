@@ -37,6 +37,10 @@ export class TiemposGestion {
       return 'Dato inválido';
     }
 
+    if (segundos > 0 && segundos < 1) {
+      return 'Menos de 1 seg';
+    }
+
     const dias = Math.floor(segundos / 86400);
     const horas = Math.floor((segundos % 86400) / 3600);
     const minutos = Math.floor((segundos % 3600) / 60);

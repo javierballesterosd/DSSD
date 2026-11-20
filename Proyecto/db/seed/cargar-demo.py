@@ -6,6 +6,11 @@ Con Docker y el proceso de Bonita levantados, desde Proyecto:
 Solo requiere Python 3. Busca la version mas alta del BOS en Modelado, lee sus
 cuentas de ejemplo y conserva el avance
 en .dashboard-demo-state.json para retomar la carga. No almacena contrasenas.
+Agrega 10 despliegues cerrados con dos actividades y esperas reales de 12 a 56
+segundos para comparar municipios, recursos, ONG y gravedades. La carga completa
+puede tardar varios minutos; repetir el comando no duplica los casos ya terminados.
+Otros cuatro casos quedan con actividades completas esperando validacion manual,
+uno por region, para probar el formulario del coordinador.
 """
 
 import argparse
@@ -48,6 +53,33 @@ ESCENARIOS = [
 ]
 
 
+# Casos adicionales cerrados: mismo municipio con dos recursos y dos ONG distintas.
+# Duraciones de demostración reales (segundos), sin editar fechas de Bonita ni de la BD.
+MONITOREOS = {}
+for operador, coordinador, base in [
+        ("operador.laplata", "coord.norte", 12),
+        ("operador.citybell", "coord.norte", 20),
+        ("operador.berisso", "coord.sur", 28),
+        ("operador.lobos", "coord.region3", 36),
+        ("operador.quilmes", "coord.region4", 44)]:
+    for ong, recurso, extra, gravedad in [
+            ("ong.caritas", 1, 0, "BAJA"),
+            ("ong.cruzroja", 3, 12, "ALTA")]:
+        ESCENARIOS.append((operador, coordinador, gravedad, True, [(ong, recurso, 1)]))
+        MONITOREOS[f"{len(ESCENARIOS):02d}"] = base + extra
+
+
+# Casos para probar la pantalla: completar actividades sin validar ni liberar recursos.
+VALIDACION_MANUAL = set()
+for operador, coordinador, ong, recurso in [
+        ("operador.laplata", "coord.norte", "ong.caritas", 1),
+        ("operador.berisso", "coord.sur", "ong.cruzroja", 3),
+        ("operador.lobos", "coord.region3", "ong.caritas", 1),
+        ("operador.quilmes", "coord.region4", "ong.cruzroja", 3)]:
+    ESCENARIOS.append((operador, coordinador, "MEDIA", True, [(ong, recurso, 1)]))
+    VALIDACION_MANUAL.add(f"{len(ESCENARIOS):02d}")
+
+
 class ErrorCarga(RuntimeError):
     pass
 
@@ -81,6 +113,10 @@ class Api:
                 try:
                     cuerpo = json.loads(error.read().decode("utf-8"))
                     mensaje = str(cuerpo.get("message", cuerpo.get("mensaje", "")))[:250]
+                    if error.code == 400 and isinstance(cuerpo.get("detalles"), list):
+                        detalles = "; ".join(str(d) for d in cuerpo["detalles"][:5])
+                        if detalles:
+                            mensaje += " — " + detalles[:500]
                 except (ValueError, AttributeError, UnicodeDecodeError):
                     pass
             raise ErrorCarga(f"{metodo} {ruta.split('?')[0]}: HTTP {error.code}. {mensaje}") from None
@@ -155,6 +191,58 @@ def esperar(descripcion, consulta, condicion, segundos=180):
             return resultado
         time.sleep(2)
     raise ErrorCarga(f"Tiempo agotado esperando {descripcion}. Revisa el caso en Bonita y vuelve a ejecutar la carga.")
+
+
+def finalizar_monitoreo(registro, duracion, coordinador, ong, motor, estado, validar=True):
+    """Completa el flujo publico; nunca cambia tiempos ni reservas por fuera de Bonita."""
+    emergencia_id = registro["emergenciaId"]
+    caso_id = str(registro["caseId"])
+    ruta = f"/api/emergencias/{emergencia_id}"
+    if coordinador.pedir("GET", ruta).get("estadoLote") == "FINALIZADO":
+        esperar("archivo del caso finalizado",
+                lambda: motor.listar_bonita("archivedCase", ["sourceObjectId=" + caso_id]), bool)
+        registro["monitoreoFinalizado"] = True
+        guardar(estado)
+        return
+
+    def tarea_monitoreo():
+        return [t for t in motor.listar_bonita("activity", ["caseId=" + caso_id])
+                if t.get("name", "").strip() == "Monitorear despliegue"
+                and t.get("state") not in ("completed", "cancelled", "aborted", "skipped")]
+
+    if not registro.get("finEsperaMonitoreo"):
+        esperar("inicio de Monitorear despliegue", tarea_monitoreo, bool)
+        registro["finEsperaMonitoreo"] = time.time() + duracion
+        guardar(estado)
+    pendiente = max(0, registro["finEsperaMonitoreo"] - time.time())
+    print(f"Emergencia {emergencia_id}: monitoreando {pendiente:.0f} s antes de completar actividades...", flush=True)
+    while time.time() < registro["finEsperaMonitoreo"]:
+        time.sleep(min(2, max(0, registro["finEsperaMonitoreo"] - time.time())))
+    # Releer permite retomar tras una respuesta perdida sin repetir el tiempo de espera.
+    # Las actividades las marcan las ONG sobre su oferta adjudicada (en un consorcio el avance se comparte).
+    for despliegue in ong.pedir("GET", "/api/despliegues/mios"):
+        if despliegue["emergenciaId"] != emergencia_id:
+            continue
+        for actividad in despliegue["actividades"]:
+            if not actividad["finalizada"]:
+                ong.pedir("POST", f"/api/ofertas/{despliegue['ofertaId']}/actividades/"
+                                  f"{actividad['actividadId']}/finalizacion")
+    coordinador.pedir("POST", ruta + "/monitoreo/completar")
+    if not validar:
+        esperar("tarea de validacion manual", lambda: motor.listar_bonita("activity", ["caseId=" + caso_id]),
+                lambda tareas: any(t.get("name", "").strip() == "Validar estado despliegue"
+                                  and t.get("state") == "ready" for t in tareas))
+        registro["pendienteValidacionManual"] = True
+        guardar(estado)
+        return
+    coordinador.pedir("POST", ruta + "/despliegue/validacion", {
+        "descripcionCierre": f"Se completaron las actividades y la asistencia de la emergencia demo {emergencia_id}."})
+    esperar("confirmacion nacional del cierre", lambda: coordinador.pedir("GET", ruta),
+            lambda r: r.get("estadoLote") == "FINALIZADO")
+    esperar("archivo del caso finalizado",
+            lambda: motor.listar_bonita("archivedCase", ["sourceObjectId=" + caso_id]), bool)
+    registro["monitoreoFinalizado"] = True
+    guardar(estado)
 
 
 def main():
@@ -273,7 +361,11 @@ def main():
             for intento in range(100):
                 try:
                     emergencia = api.pedir("POST", "/api/emergencias", {
-                        "nivelGravedad": gravedad, "zonaAfectada": f"Zona demo {clave}", "descripcion": descripcion})
+                        "nivelGravedad": gravedad, "zonaAfectada": f"Zona demo {clave}", "descripcion": descripcion,
+                        "actividades": [
+                            {"nombre": "Preparar y distribuir recursos", "descripcion": "Actividad del escenario de monitoreo"},
+                            {"nombre": "Verificar asistencia", "descripcion": "Comprobar que la asistencia fue completada"}
+                        ]})
                     break
                 except ErrorCarga as error:
                     # El backend cancela el caso recien creado si su ID ya pertenece a otra emergencia.
@@ -329,8 +421,9 @@ def main():
         print(f"Escenario {clave}: emergencia {emergencia_id}, caso {registro['caseId']}, lote {lote_id}.", flush=True)
 
     print("Esperando que Bonita cierre las ventanas y valide las ofertas en el SN...", flush=True)
-    for indice, (operador, _, _, decision, _) in enumerate(ESCENARIOS, 1):
-        registro = escenarios[f"{indice:02d}"]
+    for indice, (operador, coordinador, _, decision, _) in enumerate(ESCENARIOS, 1):
+        clave = f"{indice:02d}"
+        registro = escenarios[clave]
         if registro.get("completo"):
             continue
         for tarea in motor.listar_bonita("activity", ["caseId=" + str(registro["caseId"])]):
@@ -342,22 +435,50 @@ def main():
         recursos = esperar(f"validacion de emergencia {registro['emergenciaId']}",
                            lambda: api.pedir("GET", ruta),
                            lambda r: r["puedeDecidir"] or r["confirmada"])
+        if not recursos["recursos"] and not recursos["confirmada"]:
+            # El proceso puede haber vuelto automáticamente a Registrar emergencia:
+            # no hay tarea municipal que completar ni recursos nacionales que liberar.
+            registro.update(sinRecursos=True, completo=True)
+            guardar(estado)
+            print(f"Emergencia {registro['emergenciaId']}: el SN no habilito recursos; "
+                  "escenario omitido sin forzar una decision municipal.", flush=True)
+            continue
         if decision is not None and not recursos["confirmada"]:
-            if decision and not recursos["recursos"]:
-                raise ErrorCarga(f"El SN no habilito recursos para la emergencia {registro['emergenciaId']}")
             # Esperas breves distintas producen duraciones reales diferentes para el ranking.
             time.sleep(indice % 3 + 1)
             api.pedir("POST", f"/api/emergencias/{registro['emergenciaId']}/decision-municipal", {
                 "loteId": registro["loteId"], "aceptar": decision})
             esperar("confirmacion de decision", lambda: api.pedir("GET", ruta), lambda r: r["confirmada"])
+        if clave in MONITOREOS and not registro.get("sinRecursos"):
+            finalizar_monitoreo(registro, MONITOREOS[clave], sesion(coordinador),
+                                 sesion(ESCENARIOS[indice - 1][4][0][0]), motor, estado)
+        elif clave in VALIDACION_MANUAL and not registro.get("sinRecursos"):
+            finalizar_monitoreo(registro, 3, sesion(coordinador),
+                                 sesion(ESCENARIOS[indice - 1][4][0][0]), motor, estado, validar=False)
         registro["completo"] = True
         guardar(estado)
         resultado = "pendiente de decision" if decision is None else "aceptado" if decision else "rechazado"
+        if registro.get("monitoreoFinalizado"):
+            resultado = f"despliegue finalizado (monitoreo objetivo {MONITOREOS[clave]} s)"
+        elif registro.get("pendienteValidacionManual"):
+            resultado = f"actividades completas, validacion manual pendiente con {coordinador}"
+        elif registro.get("sinRecursos"):
+            resultado = "rechazado por falta de recursos habilitados en SN"
         print(f"Emergencia {registro['emergenciaId']}: {resultado}.", flush=True)
 
     print("Carga terminada. Abri http://localhost y entra como auditor.nacional.", flush=True)
     print("Hay datos de hoy para cinco municipios, cuatro gravedades, cinco ONG y varios recursos.", flush=True)
-    print("No se generan casos finalizados: el cierre del proceso todavia esta pendiente de implementacion.", flush=True)
+    finalizados = sum(bool(r.get("monitoreoFinalizado")) for r in escenarios.values())
+    print(f"Monitoreos y despliegues finalizados: {finalizados}. "
+          "Filtra por municipio, recurso, ONG, gravedad y fecha de finalizacion de hoy.", flush=True)
+    manuales = [r for clave, r in escenarios.items() if clave in VALIDACION_MANUAL and r.get("pendienteValidacionManual")]
+    print("Casos preparados para validacion manual: " + ", ".join(str(r["emergenciaId"]) for r in manuales), flush=True)
+    print("Para validarlos: Coordinador > Mis lotes > Pendientes de validacion.", flush=True)
+    omitidos = sum(bool(escenarios.get(clave, {}).get("sinRecursos")) for clave in set(MONITOREOS) | VALIDACION_MANUAL)
+    if omitidos:
+        print(f"Atencion: {omitidos} escenarios de monitoreo sin recursos habilitados en SN; "
+              "no forman parte de los promedios. Revisa el stock y las categorias nacionales.", flush=True)
+    print("Las diferencias de tiempo son esperas de demostracion, no rendimientos reales de cada municipio u ONG.", flush=True)
 
 
 if __name__ == "__main__":

@@ -1,0 +1,187 @@
+package com.rescuesync.bonita;
+
+import groovy.json.JsonOutput;
+import groovy.json.JsonSlurper;
+import org.bonitasoft.engine.connector.AbstractConnector;
+import org.bonitasoft.engine.connector.ConnectorException;
+import java.io.*;
+import java.net.*;
+import java.net.http.*;
+import java.nio.file.*;
+import java.time.Duration;
+import java.util.*;
+
+/** Se ejecuta exclusivamente en el motor Bonita. No se instala en el backend local. */
+public class IntegracionNacionalConnector extends AbstractConnector {
+    private final HttpClient http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build();
+    private final Properties config = new Properties();
+    private String backend;
+    private String nacional;
+    private String localToken;
+    private String jwt;
+
+    @Override public void validateInputParameters() {}
+
+    @Override protected void executeBusinessLogic() throws ConnectorException {
+        // Salida para el gateway de Bonita. Por defecto true: si la fase no es VALIDAR o no hay nada que decidir,
+        // el proceso sigue por el camino de siempre. Solo VALIDAR la recalcula al final.
+        setOutputParameter("hayOfertasHabilitadas", Boolean.TRUE);
+        try {
+            String operacion = (String) getInputParameter("operacion");
+            Boolean aceptar = (Boolean) getInputParameter("aceptar");
+            if ("RECHAZAR".equals(operacion) && Boolean.TRUE.equals(aceptar)) return;
+            String envPath = (String) getInputParameter("RUTA_ENV");
+            if (envPath == null || envPath.isBlank()) {
+                throw new IllegalStateException("Configura RUTA_ENV con la ruta completa al .env en los parametros de Bonita");
+            }
+            Path env = Path.of(envPath.trim());
+            if (!Files.isRegularFile(env)) throw new IllegalStateException("No se encontro el .env indicado en RUTA_ENV");
+            try (InputStream in = Files.newInputStream(env)) { config.load(in); }
+            backend = config.getProperty("BONITA_BACKEND_URL", "http://localhost:"
+                    + config.getProperty("BACKEND_PORT", "8081")).replaceAll("/+$", "");
+            nacional = requerido("NACIONAL_BASE_URL").replaceAll("/+$", "");
+            localToken = requerido("BONITA_OFFERS_API_TOKEN");
+            long emergencia = ((Number) getInputParameter("emergenciaId")).longValue();
+            long lote = ((Number) getInputParameter("loteId")).longValue();
+            String caso = Long.toString(getExecutionContext().getProcessInstanceId());
+            String ruta = backend + "/api/emergencias/" + emergencia;
+            boolean finalizar = "FINALIZAR".equals(operacion);
+            Map<String,Object> plan = objeto(request("GET", ruta + (finalizar ? "/despliegue/integracion-nacional?loteId=" : "/integracion-nacional?loteId=") + lote
+                    + "&caseId=" + caso, localToken, null, Set.of(200)).body());
+            if (Boolean.TRUE.equals(plan.get("confirmada"))) {
+                // Lote ya cerrado sin decisión municipal: el SN no había habilitado recursos y el cierre ya se hizo.
+                if ("VALIDAR".equals(operacion) && plan.get("decision") == null) {
+                    setOutputParameter("hayOfertasHabilitadas", Boolean.FALSE);
+                }
+                return;
+            }
+            boolean validar = "VALIDAR".equals(operacion);
+            if (!finalizar && (validar ? plan.get("decision") != null : !Objects.equals(plan.get("decision"), aceptar))) {
+                throw new IllegalStateException("La fase o la decisión de Bonita no coincide con la intención local");
+            }
+            List<Map<String,Object>> ofertas = lista(plan.get("ofertas"));
+            if (!ofertas.isEmpty()) {
+                Map<String,Object> login = objeto(request("POST", nacional + "/login", null,
+                        Map.of("username", requerido("NACIONAL_USERNAME"), "password", requerido("NACIONAL_PASSWORD")), Set.of(200)).body());
+                jwt = (String) login.get("token");
+                if (jwt == null || jwt.isBlank()) throw new IllegalStateException("El SN no devolvió JWT");
+            }
+            if (validar) {
+                boolean hayHabilitadas = false;
+                if (!ofertas.isEmpty()) {
+                    // El SN reparte lo que pide el lote entre todas las ofertas (prioridad por ONG y por categoría
+                    // del recurso, tope en lo requerido y en el stock libre) y deja los recursos bloqueados en una
+                    // sola operación. Es repetible: con bloqueos vigentes devuelve los mismos.
+                    Map<String,Object> validacion = objeto(request("POST", nacional + "/validaciones", jwt,
+                            Map.of("emergenciaId", emergencia, "loteId", lote), Set.of(200,201)).body());
+                    Map<Long,Map<String,Object>> porOferta = new HashMap<>();
+                    for (Map<String,Object> resultadoSn : lista(validacion.get("resultados"))) {
+                        porOferta.put(((Number) resultadoSn.get("ofertaId")).longValue(), resultadoSn);
+                    }
+                    for (Map<String,Object> oferta : ofertas) {
+                        Map<String,Object> resultadoSn = porOferta.get(((Number) oferta.get("ofertaId")).longValue());
+                        if (resultadoSn == null) {
+                            throw new IllegalStateException("El SN no devolvió resultado para la oferta " + oferta.get("ofertaId"));
+                        }
+                        boolean aprobada = Boolean.TRUE.equals(resultadoSn.get("aprobada"));
+                        List<Map<String,Object>> items = activos(resultadoSn, Set.of("BLOQUEADA"));
+                        if (aprobada == items.isEmpty()) throw new IllegalStateException("Resultado nacional inconsistente");
+                        request("POST", ruta + "/validacion-sn", localToken,
+                                respuesta(lote, caso, List.of(resultado(oferta, aprobada, items))), Set.of(204));
+                        hayHabilitadas |= aprobada;
+                    }
+                }
+                // Si todas las ofertas quedaron sin recursos (otro se llevó el stock) el gateway evita pasar por
+                // "Ver ofertas validadas". Ante un reintento sin ofertas pendientes cuenta lo ya validado que informa
+                // el backend. Si no hay nada habilitado se cierra el lote en la app local (lo cancela, marca la
+                // emergencia para volver a registrarla y avisa al municipio y a las ONGs).
+                boolean hay = ofertas.isEmpty() ? Boolean.TRUE.equals(plan.get("hayHabilitadas")) : hayHabilitadas;
+                if (!hay) {
+                    request("POST", ruta + "/sin-recursos/confirmacion", localToken,
+                            Map.of("loteId", lote, "caseId", caso), Set.of(204));
+                }
+                setOutputParameter("hayOfertasHabilitadas", hay);
+            } else {
+                // Verificar TODO el conjunto antes de comprometer la primera oferta.
+                if (!finalizar && Boolean.TRUE.equals(aceptar)) {
+                    for (Map<String,Object> oferta : ofertas) {
+                        Map<String,Object> reserva = objeto(request("GET", nacional + "/reservas?emergenciaId=" + emergencia
+                                + "&loteId=" + lote + "&ofertaId=" + oferta.get("ofertaId"), jwt, null, Set.of(200)).body());
+                        if (!cantidades(lista(oferta.get("items"))).equals(cantidades(activos(reserva,
+                                Set.of("BLOQUEADA", "EXPIRADA", "COMPROMETIDA"))))) {
+                            throw new IllegalStateException("Las reservas nacionales no coinciden con el conjunto local");
+                        }
+                    }
+                }
+                List<Map<String,Object>> resultados = new ArrayList<>();
+                for (Map<String,Object> oferta : ofertas) {
+                    Map<String,Object> reserva = objeto(request("POST", nacional
+                            + (!finalizar && Boolean.TRUE.equals(aceptar) ? "/reservas/definitivas" : "/reservas/liberaciones"),
+                            jwt, ids(emergencia, lote, oferta), Set.of(200)).body());
+                    List<Map<String,Object>> items = !finalizar && Boolean.TRUE.equals(aceptar)
+                            ? activos(reserva, Set.of("COMPROMETIDA")) : lista(reserva.get("items"));
+                    resultados.add(resultado(oferta, true, items));
+                }
+                request("POST", ruta + (finalizar ? "/despliegue/confirmacion" : "/decision-municipal/confirmacion"), localToken,
+                        respuesta(lote, caso, resultados), Set.of(204));
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new ConnectorException("Integración nacional interrumpida; reintentar el conector", e);
+        } catch (Exception e) {
+            throw new ConnectorException("No se completó la integración nacional: " + e.getMessage(), e);
+        }
+    }
+
+    private String requerido(String nombre) {
+        String valor = config.getProperty(nombre);
+        if (valor == null || valor.isBlank()) throw new IllegalStateException("Falta " + nombre);
+        return valor.trim();
+    }
+    private HttpResponse<String> request(String method, String url, String token, Object body, Set<Integer> esperados)
+            throws IOException, InterruptedException {
+        HttpRequest.Builder req = HttpRequest.newBuilder(URI.create(url)).timeout(Duration.ofSeconds(45))
+                .header("Accept", "application/json");
+        if (token != null) req.header("Authorization", "Bearer " + token);
+        if (body == null) req.method(method, HttpRequest.BodyPublishers.noBody());
+        else req.header("Content-Type", "application/json").method(method,
+                HttpRequest.BodyPublishers.ofString(JsonOutput.toJson(body)));
+        HttpResponse<String> res = http.send(req.build(), HttpResponse.BodyHandlers.ofString());
+        if (!esperados.contains(res.statusCode())) {
+            // No exponer cuerpos de respuesta, credenciales ni JWT en los logs del motor.
+            throw new IllegalStateException(method + " " + URI.create(url).getPath() + " respondió HTTP " + res.statusCode());
+        }
+        return res;
+    }
+    @SuppressWarnings("unchecked") private static Map<String,Object> objeto(String json) {
+        return (Map<String,Object>) new JsonSlurper().parseText(json);
+    }
+    @SuppressWarnings("unchecked") private static List<Map<String,Object>> lista(Object value) {
+        if (!(value instanceof List)) throw new IllegalStateException("Respuesta sin lista de recursos u ofertas");
+        return (List<Map<String,Object>>) value;
+    }
+    private static List<Map<String,Object>> activos(Map<String,Object> respuesta, Set<String> estados) {
+        return lista(respuesta.get("items")).stream().filter(i -> estados.contains(i.get("estado"))).toList();
+    }
+    private static Map<String,Long> cantidades(List<Map<String,Object>> items) {
+        Map<String,Long> resultado = new HashMap<>();
+        for (var item : items) {
+            long cantidad = ((Number) item.get("cantidad")).longValue();
+            if (cantidad <= 0) throw new IllegalStateException("Cantidad nacional inválida");
+            resultado.merge(item.get("ongCodigo") + ":" + item.get("recursoId"), cantidad, Math::addExact);
+        }
+        return resultado;
+    }
+    private static Map<String,Object> ids(long emergencia, long lote, Map<String,Object> oferta) {
+        return Map.of("emergenciaId", emergencia, "loteId", lote, "ofertaId", oferta.get("ofertaId"));
+    }
+    private static Map<String,Object> resultado(Map<String,Object> oferta, boolean aprobada, List<Map<String,Object>> items) {
+        List<Map<String,Object>> recibos = items.stream().map(i -> Map.<String,Object>of(
+                "ongCodigo", i.get("ongCodigo"), "recursoId", i.get("recursoId"),
+                "cantidad", i.get("cantidad"), "estado", i.get("estado"))).toList();
+        return Map.of("ofertaId", oferta.get("ofertaId"), "aprobada", aprobada, "items", recibos);
+    }
+    private static Map<String,Object> respuesta(long lote, String caso, List<Map<String,Object>> resultados) {
+        return Map.of("loteId", lote, "caseId", caso, "resultados", resultados);
+    }
+}

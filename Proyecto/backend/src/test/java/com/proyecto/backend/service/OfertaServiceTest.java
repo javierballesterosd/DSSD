@@ -32,6 +32,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 
 import java.util.List;
 import java.util.Set;
@@ -56,6 +57,8 @@ class OfertaServiceTest {
     private InventarioOngRepository inventarioOngRepository;
     @Mock
     private OfertaRepository ofertaRepository;
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
 
     /** La ONG del usuario logueado en todos los casos: Cruz Solidaria (ongA). */
     private static final Long ONG_USUARIO = 1L;
@@ -75,7 +78,7 @@ class OfertaServiceTest {
     void setUp() {
         ofertaService = new OfertaService(
                 loteRepository, ongRepository, itemLoteRepository, inventarioOngRepository,
-                ofertaRepository, new OfertaMapper(new com.proyecto.backend.mapper.OngMapper()));
+                ofertaRepository, new OfertaMapper(new com.proyecto.backend.mapper.OngMapper()), eventPublisher);
 
         Emergencia emergencia = new Emergencia();
         emergencia.setId(1L);
@@ -570,19 +573,17 @@ class OfertaServiceTest {
     }
 
     @Test
-    void callbackParcialOmiteCantidadesNoHabilitadasYNoDescuentaDosVeces() {
+    void callbackParcialOmiteCantidadesNoHabilitadasSinModificarStockLocal() {
         Oferta oferta = prepararValidacionSN();
         var inventario = inventario(ongA, raciones, 800);
-        when(inventarioOngRepository.findByOngIdAndRecursoIdForUpdate(1L, 100L))
-                .thenReturn(java.util.Optional.of(inventario));
         var validacion = new com.proyecto.backend.dto.ValidacionSNRequest(true, "Parcial",
                 List.of(new com.proyecto.backend.dto.ItemValidadoRequest(null, 40, 200L, 1L)));
-        ofertaService.procesarValidacionSNYBloquearRecursos(50L, validacion);
-        ofertaService.procesarValidacionSNYBloquearRecursos(50L, validacion);
-        assertThat(inventario.getCantidadDisponible()).isEqualTo(760);
+        ofertaService.procesarValidacionSN(50L, validacion);
+        ofertaService.procesarValidacionSN(50L, validacion);
+        assertThat(inventario.getCantidadDisponible()).isEqualTo(800);
         assertThat(oferta.getEstado()).isEqualTo(EstadoOferta.ACEPTADA_PARCIAL);
         assertThat(oferta.getDetalles().get(1).getCantidadAceptada()).isZero();
-        org.mockito.Mockito.verify(inventarioOngRepository, org.mockito.Mockito.times(1)).save(any());
+        org.mockito.Mockito.verifyNoInteractions(inventarioOngRepository);
     }
 
     @Test
@@ -590,7 +591,7 @@ class OfertaServiceTest {
         prepararValidacionSN();
         var validacion = new com.proyecto.backend.dto.ValidacionSNRequest(true, "",
                 List.of(new com.proyecto.backend.dto.ItemValidadoRequest(101L, 501)));
-        assertThatThrownBy(() -> ofertaService.procesarValidacionSNYBloquearRecursos(50L, validacion))
+        assertThatThrownBy(() -> ofertaService.procesarValidacionSN(50L, validacion))
                 .isInstanceOf(ReglaNegocioException.class);
         org.mockito.Mockito.verifyNoInteractions(inventarioOngRepository);
     }
@@ -600,7 +601,7 @@ class OfertaServiceTest {
         prepararValidacionSN();
         var item = new com.proyecto.backend.dto.ItemValidadoRequest(101L, 40);
         var validacion = new com.proyecto.backend.dto.ValidacionSNRequest(true, "", List.of(item, item));
-        assertThatThrownBy(() -> ofertaService.procesarValidacionSNYBloquearRecursos(50L, validacion))
+        assertThatThrownBy(() -> ofertaService.procesarValidacionSN(50L, validacion))
                 .isInstanceOf(ReglaNegocioException.class);
         org.mockito.Mockito.verifyNoInteractions(inventarioOngRepository);
     }
@@ -610,7 +611,7 @@ class OfertaServiceTest {
         prepararValidacionSN();
         lote.setDecisionMunicipal(false);
         var validacion = new com.proyecto.backend.dto.ValidacionSNRequest(false, "Rechazada", List.of());
-        assertThatThrownBy(() -> ofertaService.procesarValidacionSNYBloquearRecursos(50L, validacion))
+        assertThatThrownBy(() -> ofertaService.procesarValidacionSN(50L, validacion))
                 .isInstanceOf(ReglaNegocioException.class);
         org.mockito.Mockito.verifyNoInteractions(inventarioOngRepository);
     }

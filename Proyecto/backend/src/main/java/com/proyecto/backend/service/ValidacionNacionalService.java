@@ -5,6 +5,7 @@ import com.proyecto.backend.exception.*;
 import com.proyecto.backend.model.*;
 import com.proyecto.backend.repository.*;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
@@ -17,6 +18,7 @@ public class ValidacionNacionalService {
     private final LoteRepository lotes;
     private final OfertaRepository ofertas;
     private final OfertaService ofertaService;
+    private final ApplicationEventPublisher eventos;
 
     @Transactional(readOnly = true)
     public IntegracionNacional.Plan plan(Long emergenciaId, Long loteId, String caseId) {
@@ -33,11 +35,13 @@ public class ValidacionNacionalService {
                         : o.getEstado() == EstadoOferta.PENDIENTE)
                 .map(o -> new IntegracionNacional.Oferta(o.getId(), o.getDetalles().stream()
                         .filter(d -> !decision || d.getCantidadAceptada() != null && d.getCantidadAceptada() > 0)
-                        .map(d -> new IntegracionNacional.Item(d.getId(), d.getOng().getId(),
+                        .map(d -> new IntegracionNacional.Item(d.getId(), d.getOng().getCodigo(),
                                 d.getItemLote().getRecurso().getId(), decision ? d.getCantidadAceptada() : d.getCantidadOfrecida()))
                         .toList())).toList();
+        boolean hayHabilitadas = ofertas.findByLoteIdOrderByIdAsc(loteId).stream().anyMatch(o ->
+                o.getEstado() == EstadoOferta.VALIDADA || o.getEstado() == EstadoOferta.ACEPTADA_PARCIAL);
         return new IntegracionNacional.Plan(emergenciaId, loteId, caseId, lote.getDecisionMunicipal(),
-                lote.getFechaDecisionMunicipal() != null, pendientes);
+                lote.getFechaDecisionMunicipal() != null, hayHabilitadas, pendientes);
     }
 
     @Transactional
@@ -50,6 +54,7 @@ public class ValidacionNacionalService {
             throw new ReglaNegocioException("El lote ya no admite validaciones nacionales");
         }
         Set<Long> recibidas = new HashSet<>();
+        boolean seValidoAlgo = false;
         for (var resultado : respuesta.resultados()) {
             if (!recibidas.add(resultado.ofertaId())) throw new ReglaNegocioException("Oferta repetida");
             Oferta oferta = ofertas.findById(resultado.ofertaId())
@@ -60,15 +65,27 @@ public class ValidacionNacionalService {
                 if (!resultado.aprobada() || !"BLOQUEADA".equals(item.estado()) || item.cantidad() <= 0) {
                     throw new ReglaNegocioException("Reserva temporal nacional inválida");
                 }
-                cantidades.merge(item.ongId() + ":" + item.recursoId(), item.cantidad(), Math::addExact);
+                cantidades.merge(item.ongCodigo() + ":" + item.recursoId(), item.cantidad(), Math::addExact);
             }
             var items = oferta.getDetalles().stream().map(d -> {
-                Integer cantidad = cantidades.remove(d.getOng().getId() + ":" + d.getItemLote().getRecurso().getId());
+                Integer cantidad = cantidades.remove(d.getOng().getCodigo() + ":" + d.getItemLote().getRecurso().getId());
                 return new ItemValidadoRequest(d.getId(), cantidad == null ? 0 : cantidad);
             }).toList();
             if (!cantidades.isEmpty()) throw new ReglaNegocioException("Recursos ajenos a la oferta");
-            ofertaService.procesarValidacionSNYBloquearRecursos(oferta.getId(), new ValidacionSNRequest(
+            seValidoAlgo |= oferta.getEstado() == EstadoOferta.PENDIENTE;
+            ofertaService.procesarValidacionSN(oferta.getId(), new ValidacionSNRequest(
                     resultado.aprobada(), "Resultado nacional recibido desde Bonita", resultado.aprobada() ? items : List.of()));
+        }
+        // Se avisa una sola vez: cuando esta llamada validó la última oferta pendiente y alguna quedó habilitada
+        if (seValidoAlgo) {
+            var conjunto = ofertas.findByLoteIdOrderByIdAsc(lote.getId());
+            boolean quedanPendientes = conjunto.stream().anyMatch(o -> o.getEstado() == EstadoOferta.PENDIENTE);
+            boolean hayHabilitadas = conjunto.stream().anyMatch(o ->
+                    o.getEstado() == EstadoOferta.VALIDADA || o.getEstado() == EstadoOferta.ACEPTADA_PARCIAL);
+            if (!quedanPendientes && hayHabilitadas) {
+                eventos.publishEvent(new OfertasValidadasEvent(emergenciaId, lote.getEmergencia().getZonaAfectada(),
+                        lote.getEmergencia().getMunicipio().getBonitaGroupPath()));
+            }
         }
     }
 

@@ -19,6 +19,7 @@ export const NIVEL_GRAVEDAD_BADGE: Record<NivelGravedad, string> = {
   CRITICA: 'text-bg-critica',
 };
 
+
 /** Color según la gravedad, para armar `bg-<color>-subtle` (`critica` está en styles.scss). */
 export const NIVEL_GRAVEDAD_COLOR: Record<NivelGravedad, string> = {
   BAJA: 'secondary',
@@ -27,11 +28,39 @@ export const NIVEL_GRAVEDAD_COLOR: Record<NivelGravedad, string> = {
   CRITICA: 'critica',
 };
 
+export interface ActividadRequest {
+  nombre: string;
+  descripcion: string;
+}
+
+/** Avance de una oferta adjudicada en una actividad (las ONGs de un consorcio comparten el avance). */
+export interface AvanceOferta {
+  ofertaId: number;
+  ongs: string[];
+  finalizada: boolean;
+  fechaFinalizacion: string | null;
+  /** ONG desde la que se marcó como hecha. */
+  finalizadaPor: string | null;
+}
+
+export interface ActividadResponse {
+  id: number;
+  nombre: string;
+  descripcion: string;
+  /** Derivada: todas las ofertas adjudicadas la completaron. */
+  finalizada: boolean;
+  totalOfertas: number;
+  ofertasFinalizadas: number;
+  avance: AvanceOferta[];
+}
+
 export interface EmergenciaRequest {
   nivelGravedad: NivelGravedad;
   zonaAfectada: string;
   descripcion: string;
+  actividades: ActividadRequest[];
 }
+
 
 export interface EmergenciaResponse {
   id: number;
@@ -66,6 +95,11 @@ export interface EmergenciaParaLoteResponse {
   loteId: number | null;
   estadoLote: EstadoLote | null;
   requiereActualizacion?: boolean;
+  /** Hay que volver a registrar porque el SN no habilitó recursos (y no porque el municipio rechazó). */
+  sinRecursos?: boolean;
+  /** Por qué se canceló el último lote (solo si está cancelado). */
+  motivoLoteCancelado?: 'SIN_RECURSOS' | 'RECHAZO_MUNICIPAL' | null;
+  actividades: ActividadResponse[];
 }
 
 export interface RecursosMunicipalesResponse {
@@ -74,7 +108,17 @@ export interface RecursosMunicipalesResponse {
   confirmada: boolean;
   puedeDecidir: boolean;
   mensaje: string | null;
-  recursos: { recursoId: number; nombre: string; unidadMedida: string; cantidad: number }[];
+  recursos: {
+    recursoId: number;
+    nombre: string;
+    unidadMedida: string;
+    /** Lo que pedía el lote de este recurso. */
+    cantidadRequerida: number;
+    /** Lo que habilitó el Sistema Nacional. */
+    cantidad: number;
+    /** Cuánto aporta cada ONG de la cantidad habilitada. */
+    porOng: { ongId: number; razonSocial: string; cantidad: number }[];
+  }[];
 }
 
 export interface PaginaEmergencias {
@@ -85,4 +129,20 @@ export interface PaginaEmergencias {
   number: number;
   first: boolean;
   last: boolean;
+}
+
+/** Estado del cierre, calculado por el backend para el coordinador de la región. */
+export interface CierreDespliegueResponse {
+  emergenciaId: number;
+  municipio: string;
+  zonaAfectada: string;
+  descripcion: string;
+  actividadesTotales: number;
+  actividadesPendientes: number;
+  adjudicada: boolean;
+  validacionRegistrada: boolean;
+  finalizada: boolean;
+  descripcionCierre: string | null;
+  fechaValidacion: string | null;
+  fechaFinalizacion: string | null;
 }

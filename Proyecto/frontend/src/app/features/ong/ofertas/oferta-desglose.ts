@@ -1,4 +1,4 @@
-import { Component, input } from '@angular/core';
+import { Component, computed, input } from '@angular/core';
 import { AporteRecurso } from '../../../core/models/oferta';
 import { colorOng } from '../../../shared/ong-colores';
 
@@ -12,6 +12,9 @@ import { colorOng } from '../../../shared/ong-colores';
           <th>Recurso</th>
           <th>Desglose por ONG</th>
           <th>Total</th>
+          @if (hayAceptadas()) {
+            <th>Aceptado</th>
+          }
           <th>Solicitado</th>
         </tr>
       </thead>
@@ -26,10 +29,18 @@ import { colorOng } from '../../../shared/ong-colores';
                     porOng.razonSocial
                   }}</span>
                   {{ porOng.cantidadOfrecida }} {{ aporte.unidadMedida }}
+                  @if (porOng.cantidadAceptada != null) {
+                    <span class="text-body-secondary"
+                      >· aceptado: <strong>{{ porOng.cantidadAceptada }}</strong></span
+                    >
+                  }
                 </div>
               }
             </td>
             <td>{{ aporte.totalOfrecido }} {{ aporte.unidadMedida }}</td>
+            @if (hayAceptadas()) {
+              <td>{{ aporte.totalAceptado ?? 0 }} {{ aporte.unidadMedida }}</td>
+            }
             <td>{{ aporte.cantidadRequerida }} {{ aporte.unidadMedida }}</td>
           </tr>
         }
@@ -39,5 +50,7 @@ import { colorOng } from '../../../shared/ong-colores';
 })
 export class OfertaDesglose {
   readonly aportes = input.required<AporteRecurso[]>();
+  /** Solo se muestra lo aceptado una vez que el Sistema Nacional validó la oferta. */
+  protected readonly hayAceptadas = computed(() => this.aportes().some((a) => a.totalAceptado != null));
   protected readonly colorOng = colorOng;
 }

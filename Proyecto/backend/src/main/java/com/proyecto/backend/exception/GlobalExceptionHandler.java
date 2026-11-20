@@ -57,7 +57,7 @@ public class GlobalExceptionHandler {
                 ex.getMessage(), ex);
         // El detalle técnico (etapa, status, ids de Bonita) queda solo en el log
         return construir(HttpStatus.BAD_GATEWAY,
-                "No se pudo completar la operación en Bonita. Intentá de nuevo más tarde.", List.of());
+                "No se pudo completar la operación. Intentá de nuevo más tarde.", List.of());
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

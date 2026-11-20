@@ -28,7 +28,7 @@ public class OfertaMapper {
     public OfertaResponse toResponse(Oferta oferta) {
         List<AporteRecursoResponse> aportes = agruparPorItem(oferta.getDetalles().stream()
                 .distinct()
-                .map(d -> new Celda(d.getItemLote(), d.getOng(), d.getCantidadOfrecida()))
+                .map(d -> new Celda(d.getItemLote(), d.getOng(), d.getCantidadOfrecida(), d.getCantidadAceptada()))
                 .toList());
         List<com.proyecto.backend.dto.OngResponse> ongs = oferta.getOngs().stream()
                 .sorted(Comparator.comparing(o -> o.getRazonSocial().toLowerCase()))
@@ -52,7 +52,7 @@ public class OfertaMapper {
 
     public OfertaVersionResponse toVersionResponse(OfertaVersion version) {
         List<Celda> celdas = version.getDetalles().stream()
-                .map(d -> new Celda(d.getItemLote(), d.getOng(), d.getCantidadOfrecida()))
+                .map(d -> new Celda(d.getItemLote(), d.getOng(), d.getCantidadOfrecida(), null))
                 .toList();
         return new OfertaVersionResponse(
                 version.getNumero(),
@@ -81,11 +81,16 @@ public class OfertaMapper {
         List<AporteOngResponse> porOng = celdas.stream()
                 .map(celda -> new AporteOngResponse(
                         celda.ong().getId(),
+                        celda.ong().getCodigo(),
                         celda.ong().getRazonSocial(),
-                        celda.cantidad()
+                        celda.cantidad(),
+                        celda.cantidadAceptada()
                 ))
                 .toList();
         int total = celdas.stream().mapToInt(Celda::cantidad).sum();
+        Integer totalAceptado = celdas.stream().anyMatch(c -> c.cantidadAceptada() != null)
+                ? celdas.stream().mapToInt(c -> c.cantidadAceptada() == null ? 0 : c.cantidadAceptada()).sum()
+                : null;
 
         return new AporteRecursoResponse(
                 item.getId(),
@@ -93,11 +98,12 @@ public class OfertaMapper {
                 item.getRecurso().getUnidadMedida(),
                 item.getCantidadRequerida(),
                 total,
+                totalAceptado,
                 porOng
         );
     }
 
     /** Celda item x ONG, común a la oferta vigente y a sus versiones. */
-    private record Celda(ItemLote itemLote, Ong ong, Integer cantidad) {
+    private record Celda(ItemLote itemLote, Ong ong, Integer cantidad, Integer cantidadAceptada) {
     }
 }

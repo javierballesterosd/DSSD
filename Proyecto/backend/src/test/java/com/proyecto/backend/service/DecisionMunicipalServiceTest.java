@@ -55,6 +55,7 @@ class DecisionMunicipalServiceTest {
         emergencia.setMunicipio(municipio);
         emergencia.setNivelGravedad(NivelGravedad.ALTA);
         emergencia.setBonitaCaseId("caso-7");
+        emergencia.setZonaAfectada("Plaza Moreno");
         lote = new Lote();
         lote.setId(10L);
         lote.setEmergencia(emergencia);
@@ -66,9 +67,12 @@ class DecisionMunicipalServiceTest {
         recurso.setUnidadMedida("unidades");
         var item = new ItemLote();
         item.setRecurso(recurso);
+        item.setCantidadRequerida(100);
         var ong = new Ong();
         ong.setId(2L);
+        ong.setCodigo("cod-2");
         ong.setBonitaGroupPath("/ONG/Caritas");
+        ong.setRazonSocial("Cáritas");
         oferta = new Oferta();
         oferta.setId(20L);
         oferta.setLote(lote);
@@ -96,40 +100,118 @@ class DecisionMunicipalServiceTest {
 
     IntegracionNacional.Respuesta resultado(boolean aceptar, int cantidad) {
         return new IntegracionNacional.Respuesta(10L, "caso-7", List.of(new IntegracionNacional.Resultado(20L, true,
-                List.of(new IntegracionNacional.ItemSN(2L, 3L, cantidad, aceptar ? "COMPROMETIDA" : "LIBERADA")))));
+                List.of(new IntegracionNacional.ItemSN("cod-2", 3L, cantidad, aceptar ? "COMPROMETIDA" : "LIBERADA")))));
     }
 
-    @Test void sumaSoloCantidadesAceptadasSinDesgloseDeOngs() {
+    @Test void sumaLasCantidadesAceptadasYDesglosaCuantoAportaCadaOng() {
         when(emergencias.findById(7L)).thenReturn(Optional.of(emergencia));
         when(lotes.findFirstByEmergenciaIdOrderByIdDesc(7L)).thenReturn(Optional.of(lote));
         var segunda = new Oferta();
         segunda.setEstado(EstadoOferta.VALIDADA);
+        var otraOng = new Ong();
+        otraOng.setId(4L);
+        otraOng.setRazonSocial("Bomberos");
         var d = new DetalleOferta();
+        d.setOng(otraOng);
         d.setItemLote(oferta.getDetalles().getFirst().getItemLote());
         d.setCantidadAceptada(10);
         segunda.getDetalles().add(d);
         when(ofertas.findByLoteIdOrderByIdAsc(10L)).thenReturn(List.of(oferta, segunda));
         var respuesta = service.consultar(7L, 1L);
         assertThat(respuesta.recursos()).hasSize(1);
+        assertThat(respuesta.recursos().getFirst().cantidadRequerida()).isEqualTo(100);
         assertThat(respuesta.recursos().getFirst().cantidad()).isEqualTo(50);
+        assertThat(respuesta.recursos().getFirst().porOng()).extracting(
+                RecursosMunicipalesResponse.AporteOng::razonSocial, RecursosMunicipalesResponse.AporteOng::cantidad)
+                .containsExactly(tuple("Cáritas", 40L), tuple("Bomberos", 10L));
         assertThat(respuesta.puedeDecidir()).isTrue();
     }
 
-    @Test void aceptarComprometeSinDescontarElStockOtraVez() {
+    @Test void aceptarBloqueaElStockSoloUnaVezAlConfirmarDesdeBonita() {
         prepararDecision();
 
+        var inventario = new InventarioOng(); inventario.setCantidadDisponible(200);
+        when(inventarios.findByOngIdAndRecursoIdForUpdate(2L, 3L)).thenReturn(Optional.of(inventario));
         service.decidir(7L, new DecisionMunicipalRequest(10L, true), usuario, session);
+        assertThat(inventario.getCantidadDisponible()).isEqualTo(200);
         assertThat(oferta.getEstado()).isEqualTo(EstadoOferta.ACEPTADA_PARCIAL);
         assertThat(lote.getFechaDecisionMunicipal()).isNull();
         service.confirmar(7L, resultado(true, 40));
         assertThat(oferta.getEstado()).isEqualTo(EstadoOferta.ADJUDICADA);
 
-        verifyNoInteractions(inventarios);
+        assertThat(inventario.getCantidadDisponible()).isEqualTo(160);
+        service.confirmar(7L, resultado(true, 40));
+        assertThat(inventario.getCantidadDisponible()).isEqualTo(160);
+        verify(inventarios, times(1)).save(inventario);
         verify(bonita).ejecutarTareaIdempotente(session, "tarea", Map.of("aceptaOfertas", true));
         assertThat(lote.getFechaDecisionMunicipal()).isNotNull();
     }
 
-    @Test void rechazarLiberaSoloLoAceptadoYNotificaTodasLasOngs() {
+    @Test void alAdjudicarSeCreaElAvanceDeCadaActividadParaLaOferta() {
+        prepararDecision();
+        var a1 = new Actividad(); a1.setId(1L);
+        var a2 = new Actividad(); a2.setId(2L);
+        emergencia.setActividades(new ArrayList<>(List.of(a1, a2)));
+        var inventario = new InventarioOng(); inventario.setCantidadDisponible(200);
+        when(inventarios.findByOngIdAndRecursoIdForUpdate(2L, 3L)).thenReturn(Optional.of(inventario));
+        service.decidir(7L, new DecisionMunicipalRequest(10L, true), usuario, session);
+        assertThat(a1.getAsignaciones()).isEmpty();
+        service.confirmar(7L, resultado(true, 40));
+        for (var actividad : List.of(a1, a2)) {
+            assertThat(actividad.getAsignaciones()).hasSize(1);
+            assertThat(actividad.getAsignaciones().getFirst().getOferta()).isSameAs(oferta);
+            assertThat(actividad.getAsignaciones().getFirst().isFinalizada()).isFalse();
+            assertThat(actividad.isFinalizada()).isFalse();
+        }
+    }
+
+    @Test void siElMunicipioRechazaNoSeCreaNingunAvance() {
+        prepararDecision();
+        var actividad = new Actividad(); actividad.setId(1L);
+        emergencia.setActividades(new ArrayList<>(List.of(actividad)));
+        service.decidir(7L, new DecisionMunicipalRequest(10L, false), usuario, session);
+        service.confirmar(7L, resultado(false, 40));
+        assertThat(actividad.getAsignaciones()).isEmpty();
+    }
+
+    @Test void noConfirmaSiElStockLocalEsInsuficiente() {
+        prepararDecision();
+        var inventario = new InventarioOng(); inventario.setCantidadDisponible(39);
+        when(inventarios.findByOngIdAndRecursoIdForUpdate(2L, 3L)).thenReturn(Optional.of(inventario));
+        service.decidir(7L, new DecisionMunicipalRequest(10L, true), usuario, session);
+        assertThatThrownBy(() -> service.confirmar(7L, resultado(true, 40)))
+                .isInstanceOf(ReglaNegocioException.class).hasMessageContaining("stock local suficiente");
+        assertThat(inventario.getCantidadDisponible()).isEqualTo(39);
+        assertThat(lote.getFechaDecisionMunicipal()).isNull();
+        assertThat(oferta.getEstado()).isEqualTo(EstadoOferta.ACEPTADA_PARCIAL);
+        verify(inventarios, never()).save(any());
+        verifyNoInteractions(eventos);
+        inventario.setCantidadDisponible(50);
+        service.confirmar(7L, resultado(true, 40));
+        assertThat(inventario.getCantidadDisponible()).isEqualTo(10);
+    }
+
+    @Test void agrupaElMismoRecursoDeVariasOfertasAntesDeDescontar() {
+        prepararDecision();
+        var segunda = new Oferta(); segunda.setId(21L); segunda.setEstado(EstadoOferta.VALIDADA);
+        segunda.getDetalles().addAll(oferta.getDetalles());
+        when(ofertas.findByLoteIdOrderByIdAsc(10L)).thenReturn(List.of(oferta, segunda));
+        var inventario = new InventarioOng(); inventario.setCantidadDisponible(60);
+        when(inventarios.findByOngIdAndRecursoIdForUpdate(2L, 3L)).thenReturn(Optional.of(inventario));
+        service.decidir(7L, new DecisionMunicipalRequest(10L, true), usuario, session);
+        var primero = resultado(true, 40).resultados().getFirst();
+        var segundo = new IntegracionNacional.Resultado(21L, true, primero.items());
+        var respuesta = new IntegracionNacional.Respuesta(10L, "caso-7", List.of(primero, segundo));
+        assertThatThrownBy(() -> service.confirmar(7L, respuesta)).isInstanceOf(ReglaNegocioException.class);
+        assertThat(inventario.getCantidadDisponible()).isEqualTo(60);
+        verify(inventarios, never()).save(any());
+        inventario.setCantidadDisponible(100);
+        service.confirmar(7L, respuesta);
+        assertThat(inventario.getCantidadDisponible()).isEqualTo(20);
+        verify(inventarios, times(1)).save(inventario);
+    }
+
+    @Test void rechazarLiberaEnSnSinModificarStockLocalYNotificaTodasLasOngs() {
         prepararDecision();
         var rechazada = new Oferta();
         rechazada.setEstado(EstadoOferta.RECHAZADA);
@@ -137,11 +219,10 @@ class DecisionMunicipalServiceTest {
         rechazada.getOngs().add(otraOng);
         when(ofertas.findByLoteIdOrderByIdAsc(10L)).thenReturn(List.of(oferta, rechazada));
         var inventario = new InventarioOng(); inventario.setCantidadDisponible(160);
-        when(inventarios.findByOngIdAndRecursoIdForUpdate(2L, 3L)).thenReturn(Optional.of(inventario));
         service.decidir(7L, new DecisionMunicipalRequest(10L, false), usuario, session);
         assertThat(inventario.getCantidadDisponible()).isEqualTo(160);
         service.confirmar(7L, resultado(false, 40));
-        assertThat(inventario.getCantidadDisponible()).isEqualTo(200);
+        assertThat(inventario.getCantidadDisponible()).isEqualTo(160);
         assertThat(oferta.getEstado()).isEqualTo(EstadoOferta.NO_ADJUDICADA);
         assertThat(lote.getEstado()).isEqualTo(EstadoLote.CANCELADO);
         assertThat(emergencia.isRequiereActualizacion()).isTrue();
@@ -149,9 +230,9 @@ class DecisionMunicipalServiceTest {
                 && decision.ongGroupPaths().equals(Set.of("/ONG/Caritas", "/ONG/Otra"))));
         // Un segundo envío no devuelve stock ni notifica de nuevo.
         service.decidir(7L, new DecisionMunicipalRequest(10L, false), usuario, session);
-        verify(inventarios, times(1)).save(any());
+        verifyNoInteractions(inventarios);
         service.confirmar(7L, resultado(false, 40));
-        verify(inventarios, times(1)).save(any());
+        verifyNoInteractions(inventarios);
         verify(eventos, times(1)).publishEvent(any(Object.class));
     }
 
@@ -204,7 +285,7 @@ class DecisionMunicipalServiceTest {
         service.decidir(7L, new DecisionMunicipalRequest(10L, false), usuario, session);
         assertThatThrownBy(() -> service.confirmar(7L, new IntegracionNacional.Respuesta(10L, "caso-7",
                 List.of(new IntegracionNacional.Resultado(20L, true,
-                        List.of(new IntegracionNacional.ItemSN(2L, 3L, 40, "BLOQUEADA")))))))
+                        List.of(new IntegracionNacional.ItemSN("cod-2", 3L, 40, "BLOQUEADA")))))))
                 .isInstanceOf(ReglaNegocioException.class);
         verifyNoInteractions(inventarios, eventos);
     }
@@ -246,11 +327,130 @@ class DecisionMunicipalServiceTest {
         LocalDateTime fechaOriginal = emergencia.getFechaRegistro();
         when(emergencias.bloquearPorId(7L)).thenReturn(Optional.of(emergencia));
         when(bonita.buscarTareaPendiente(session, "caso-7", "Registrar emergencia")).thenReturn("registrar");
-        var respuesta = service.actualizar(7L, new EmergenciaRequest(NivelGravedad.ALTA, "Zona", "Descripción actualizada"), usuario, session);
+        var respuesta = service.actualizar(7L, new EmergenciaRequest(NivelGravedad.ALTA, "Zona", "Descripción actualizada", List.of()), usuario, session);
         assertThat(respuesta.id()).isEqualTo(7L);
         assertThat(emergencia.getBonitaCaseId()).isEqualTo("caso-7");
         assertThat(emergencia.getFechaRegistro()).isEqualTo(fechaOriginal);
         assertThat(emergencia.isRequiereActualizacion()).isFalse();
         verify(bonita, never()).iniciarCaso(any(), any());
+    }
+
+    @Test void alActualizarSeEditanLasActividadesExistentesYSeAgreganLasNuevas() {
+        emergencia.setRequiereActualizacion(true);
+        var existente = new Actividad();
+        existente.setNombre("Evacuación");
+        emergencia.setActividades(new ArrayList<>(List.of(existente)));
+        when(emergencias.bloquearPorId(7L)).thenReturn(Optional.of(emergencia));
+        when(bonita.buscarTareaPendiente(session, "caso-7", "Registrar emergencia")).thenReturn("registrar");
+
+        service.actualizar(7L, new EmergenciaRequest(NivelGravedad.ALTA, "Zona", "Descripción actualizada",
+                List.of(new ActividadRequest("Evacuación", "Con botes"), new ActividadRequest("Reparto de agua", null))),
+                usuario, session);
+
+        assertThat(emergencia.getActividades()).hasSize(2);
+        assertThat(emergencia.getActividades().get(0)).isSameAs(existente);
+        assertThat(existente.getDescripcion()).isEqualTo("Con botes");
+        assertThat(emergencia.getActividades().get(1).getNombre()).isEqualTo("Reparto de agua");
+        assertThat(emergencia.getActividades().get(1).getEmergencia()).isSameAs(emergencia);
+        assertThat(emergencia.getActividades().get(1).isFinalizada()).isFalse();
+    }
+
+    @Test void alActualizarSeQuitanLasActividadesQueSobran() {
+        emergencia.setRequiereActualizacion(true);
+        var a = new Actividad(); a.setNombre("Una");
+        var b = new Actividad(); b.setNombre("Dos");
+        emergencia.setActividades(new ArrayList<>(List.of(a, b)));
+        when(emergencias.bloquearPorId(7L)).thenReturn(Optional.of(emergencia));
+        when(bonita.buscarTareaPendiente(session, "caso-7", "Registrar emergencia")).thenReturn("registrar");
+
+        service.actualizar(7L, new EmergenciaRequest(NivelGravedad.ALTA, "Zona", "Descripción actualizada",
+                List.of(new ActividadRequest("Una", null))), usuario, session);
+
+        assertThat(emergencia.getActividades()).containsExactly(a);
+    }
+
+    // ---------- El SN no habilitó recursos en ninguna oferta ----------
+
+    void prepararSinRecursos(EstadoOferta estadoOferta) {
+        when(emergencias.bloquearPorId(7L)).thenReturn(Optional.of(emergencia));
+        when(lotes.bloquearPorId(10L)).thenReturn(Optional.of(lote));
+        oferta.setEstado(estadoOferta);
+        lenient().when(ofertas.findByLoteIdOrderByIdAsc(10L)).thenReturn(List.of(oferta));
+    }
+
+    @Test void sinRecursosCancelaElLoteMarcaLaEmergenciaYAvisa() {
+        prepararSinRecursos(EstadoOferta.RECHAZADA);
+
+        service.confirmarSinRecursos(7L, new IntegracionNacional.SinRecursos(10L, "caso-7"));
+
+        assertThat(lote.getEstado()).isEqualTo(EstadoLote.CANCELADO);
+        assertThat(lote.getFechaDecisionMunicipal()).isNotNull();
+        assertThat(lote.getDecisionMunicipal()).isNull();
+        assertThat(emergencia.isRequiereActualizacion()).isTrue();
+        var evento = org.mockito.ArgumentCaptor.forClass(SinRecursosEvent.class);
+        verify(eventos).publishEvent(evento.capture());
+        assertThat(evento.getValue().emergenciaId()).isEqualTo(7L);
+        assertThat(evento.getValue().emergenciaTitulo()).isEqualTo("Plaza Moreno");
+        assertThat(evento.getValue().municipioGroupPath()).isEqualTo("/Municipio/Region1/LaPlata");
+        assertThat(evento.getValue().ongGroupPaths()).containsExactly("/ONG/Caritas");
+    }
+
+    @Test void sinRecursosNoAvisaALasOngsDeOfertasEliminadas() {
+        prepararSinRecursos(EstadoOferta.ELIMINADA);
+
+        service.confirmarSinRecursos(7L, new IntegracionNacional.SinRecursos(10L, "caso-7"));
+
+        var evento = org.mockito.ArgumentCaptor.forClass(SinRecursosEvent.class);
+        verify(eventos).publishEvent(evento.capture());
+        assertThat(evento.getValue().ongGroupPaths()).isEmpty();
+    }
+
+    @Test void sinRecursosEsIdempotente() {
+        prepararSinRecursos(EstadoOferta.RECHAZADA);
+        var pedido = new IntegracionNacional.SinRecursos(10L, "caso-7");
+
+        service.confirmarSinRecursos(7L, pedido);
+        service.confirmarSinRecursos(7L, pedido);
+
+        verify(eventos, times(1)).publishEvent(any(SinRecursosEvent.class));
+        verify(lotes, times(1)).saveAndFlush(lote);
+    }
+
+    @Test void sinRecursosRechazaSiHayOfertasHabilitadasOPendientes() {
+        for (var estado : List.of(EstadoOferta.VALIDADA, EstadoOferta.ACEPTADA_PARCIAL, EstadoOferta.PENDIENTE)) {
+            lote.setFechaDecisionMunicipal(null);
+            lote.setEstado(EstadoLote.ACTIVO);
+            prepararSinRecursos(estado);
+            assertThatThrownBy(() -> service.confirmarSinRecursos(7L, new IntegracionNacional.SinRecursos(10L, "caso-7")))
+                    .isInstanceOf(ReglaNegocioException.class);
+        }
+        verify(eventos, never()).publishEvent(any());
+        assertThat(lote.getEstado()).isEqualTo(EstadoLote.ACTIVO);
+    }
+
+    @Test void sinRecursosValidaElCasoDeBonitaYLaVentanaDeOfertas() {
+        when(emergencias.bloquearPorId(7L)).thenReturn(Optional.of(emergencia));
+        when(lotes.bloquearPorId(10L)).thenReturn(Optional.of(lote));
+
+        assertThatThrownBy(() -> service.confirmarSinRecursos(7L, new IntegracionNacional.SinRecursos(10L, "otro-caso")))
+                .isInstanceOf(ReglaNegocioException.class);
+
+        lote.setFechaCierreOfertas(LocalDateTime.now().plusHours(1));
+        assertThatThrownBy(() -> service.confirmarSinRecursos(7L, new IntegracionNacional.SinRecursos(10L, "caso-7")))
+                .isInstanceOf(ReglaNegocioException.class);
+        verify(eventos, never()).publishEvent(any());
+    }
+
+    @Test void despuesDeCerrarSinRecursosElMunicipioVeElMotivo() {
+        prepararSinRecursos(EstadoOferta.RECHAZADA);
+        service.confirmarSinRecursos(7L, new IntegracionNacional.SinRecursos(10L, "caso-7"));
+        when(emergencias.findById(7L)).thenReturn(Optional.of(emergencia));
+        when(lotes.findFirstByEmergenciaIdOrderByIdDesc(7L)).thenReturn(Optional.of(lote));
+
+        var respuesta = service.consultar(7L, 1L);
+
+        assertThat(respuesta.confirmada()).isTrue();
+        assertThat(respuesta.puedeDecidir()).isFalse();
+        assertThat(respuesta.mensaje()).contains("no habilitó recursos").contains("volver a registrar");
     }
 }
