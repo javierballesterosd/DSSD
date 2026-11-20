@@ -51,8 +51,11 @@ public class LoteController {
 
     /** Lotes de las emergencias de la región del coordinador logueado. */
     @GetMapping("/lotes/mios")
-    public List<LoteResumenResponse> misLotes(HttpSession session) {
-        return loteService.listarDeRegion(authService.regionDelUsuario(session));
+    public List<LoteResumenResponse> misLotes(HttpSession session,
+            @RequestParam(defaultValue = "false") boolean pendientesValidacion) {
+        Long regionId = authService.regionDelUsuario(session);
+        return pendientesValidacion ? loteService.listarPendientesDeValidacion(regionId)
+                : loteService.listarDeRegion(regionId);
     }
 
     @GetMapping("/lotes/{id}")

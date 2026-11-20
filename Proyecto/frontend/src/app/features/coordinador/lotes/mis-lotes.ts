@@ -17,21 +17,34 @@ export class MisLotes implements OnInit {
 
   protected readonly region = this.auth.usuario()?.regionNombre ?? null;
 
+  protected readonly pendientesValidacion = signal(false);
+  private solicitudActual = 0;
+
   protected readonly lotes = signal<LoteResumen[]>([]);
   protected readonly cargando = signal(true);
   protected readonly error = signal(false);
 
   ngOnInit(): void {
-    this.lotesService.listarMios().subscribe({
+    const solicitud = ++this.solicitudActual;
+    this.cargando.set(true);
+    this.error.set(false);
+    this.lotesService.listarMios(this.pendientesValidacion()).subscribe({
       next: (lotes) => {
+        if (solicitud !== this.solicitudActual) return;
         this.lotes.set(lotes);
         this.cargando.set(false);
       },
       error: () => {
+        if (solicitud !== this.solicitudActual) return;
         this.error.set(true);
         this.cargando.set(false);
       },
     });
+  }
+
+  protected cambiarFiltro(event: Event): void {
+    this.pendientesValidacion.set((event.target as HTMLSelectElement).value === 'pendientes');
+    this.ngOnInit();
   }
 
   protected estadoLabel(estado: string): string {

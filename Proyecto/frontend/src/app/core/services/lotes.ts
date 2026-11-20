@@ -14,8 +14,10 @@ export class Lotes {
   }
 
   /** Lotes de las emergencias de la región del coordinador logueado, en cualquier estado. */
-  listarMios(): Observable<LoteResumen[]> {
-    return this.http.get<LoteResumen[]>(`${this.apiUrl}/lotes/mios`);
+  listarMios(pendientesValidacion = false): Observable<LoteResumen[]> {
+    return this.http.get<LoteResumen[]>(`${this.apiUrl}/lotes/mios`, {
+      params: pendientesValidacion ? { pendientesValidacion: 'true' } : {},
+    });
   }
 
   obtenerDetalle(id: number): Observable<LoteDetalle> {

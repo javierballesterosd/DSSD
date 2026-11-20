@@ -16,5 +16,12 @@
     </div>
   </app-lote-ficha>
 
-  <a class="btn btn-outline-secondary" routerLink="/coordinador/lotes">Volver al listado</a>
+  <div class="d-flex flex-wrap gap-2">
+    <a class="btn btn-outline-secondary" routerLink="/coordinador/lotes">Volver al listado</a>
+    @if (l.estado !== 'CANCELADO') {
+      <a class="btn btn-primary" [routerLink]="['/coordinador/emergencias', l.emergencia.id, 'cierre']">
+        {{ l.estado === 'FINALIZADO' ? 'Ver cierre del despliegue' : 'Validar cierre del despliegue' }}
+      </a>
+    }
+  </div>
 }
